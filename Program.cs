@@ -31,10 +31,14 @@ var host = Host.CreateDefaultBuilder(args)
         // Сервис управления таймерами
         services.AddSingleton<TimerService>();
 
+        // AI сервис (Google Gemini)
+        services.AddSingleton<GigaChatService>();
+
         // Обработчики обновлений
         services.AddSingleton<CommandHandler>();
         services.AddSingleton<TextHandler>();
         services.AddSingleton<CallbackHandler>();
+        services.AddSingleton<MediaHandler>();
         services.AddSingleton<UpdateRouter>();
 
         // Фоновый сервис бота (запускается автоматически при старте хоста)

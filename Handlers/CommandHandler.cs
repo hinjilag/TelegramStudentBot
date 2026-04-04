@@ -8,7 +8,7 @@ using TelegramStudentBot.Services;
 namespace TelegramStudentBot.Handlers;
 
 /// <summary>
-/// Обработчик команд (/start, /help, /timer, /rest, /plan, /fatigue, /status, /stop).
+/// Обработчик команд (/start, /help, /timer, /rest, /plan, /fatigue, /status, /stop, /ai).
 /// Каждый метод соответствует одной команде.
 /// </summary>
 public class CommandHandler
@@ -67,6 +67,11 @@ public class CommandHandler
                        "/fatigue — показать уровень усталости\n\n" +
                        "📊 <b>Статус:</b>\n" +
                        "/status — общий дашборд (таймер + усталость + задачи)\n\n" +
+                       "🤖 <b>Искусственный интеллект (автоматически):</b>\n" +
+                       "Просто напиши любое сообщение — ИИ ответит\n" +
+                       "📷 Отправь <b>фото</b> — ИИ прочитает и опишет содержимое\n" +
+                       "📄 Отправь <b>PDF или файл</b> — ИИ извлечёт текст\n" +
+                       "💡 <i>Добавь подпись к фото/файлу — это будет твой вопрос к ИИ</i>\n\n" +
                        "❓ /help — эта справка",
             parseMode: ParseMode.Html,
             cancellationToken: ct);

@@ -9,19 +9,25 @@ namespace TelegramStudentBot.Handlers;
 /// <summary>
 /// Обработчик обычных текстовых сообщений.
 /// Работает как машина состояний: реакция зависит от текущего состояния сессии.
-/// Используется для пошагового ввода данных (создание задачи, ввод времени таймера).
+/// Используется для пошагового ввода данных (создание задачи, ввод времени таймера, чат с ИИ).
 /// </summary>
 public class TextHandler
 {
     private readonly ITelegramBotClient _bot;
     private readonly SessionService _sessions;
     private readonly TimerService _timers;
+    private readonly GigaChatService _gigaChat;
 
-    public TextHandler(ITelegramBotClient bot, SessionService sessions, TimerService timers)
+    public TextHandler(
+        ITelegramBotClient bot,
+        SessionService sessions,
+        TimerService timers,
+        GigaChatService gemini)
     {
         _bot      = bot;
         _sessions = sessions;
         _timers   = timers;
+        _gigaChat   = gemini;
     }
 
     /// <summary>
@@ -52,12 +58,8 @@ public class TextHandler
                 break;
 
             default:
-                // В состоянии Idle — подсказываем команды
-                await _bot.SendMessage(
-                    chatId:    msg.Chat.Id,
-                    text:      "ℹ️ Я не понимаю это сообщение.\nИспользуй /help для просмотра команд.",
-                    parseMode: ParseMode.Html,
-                    cancellationToken: ct);
+                // В состоянии Idle — отправляем вопрос в ИИ
+                await HandleAiQuestionAsync(msg, text, ct);
                 break;
         }
     }
@@ -175,5 +177,36 @@ public class TextHandler
 
         session.State = UserState.Idle;
         await _timers.StartWorkTimerAsync(msg.Chat.Id, msg.From!.Id, minutes);
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Чат с ИИ
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>Пользователь задаёт вопрос ИИ в текстовом режиме</summary>
+    private async Task HandleAiQuestionAsync(Message msg, string question, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(question))
+            return;
+
+        // Показываем индикатор "печатает..."
+        await _bot.SendChatAction(msg.Chat.Id, ChatAction.Typing, cancellationToken: ct);
+
+        var answer = await _gigaChat.AskTextAsync(question, ct);
+
+        // Заголовок
+        await _bot.SendMessage(
+            chatId:    msg.Chat.Id,
+            text:      "🤖 <b>ИИ отвечает:</b>",
+            parseMode: ParseMode.Html,
+            cancellationToken: ct);
+
+        // Ответ (без HTML — чтобы не ломать спецсимволы из ответа)
+        const int chunkSize = 4000;
+        for (int i = 0; i < answer.Length; i += chunkSize)
+        {
+            var chunk = answer.Substring(i, Math.Min(chunkSize, answer.Length - i));
+            await _bot.SendMessage(msg.Chat.Id, chunk, cancellationToken: ct);
+        }
     }
 }

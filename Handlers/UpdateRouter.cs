@@ -11,23 +11,28 @@ namespace TelegramStudentBot.Handlers;
 ///   - Команды (/start, /help и т.д.) → CommandHandler
 ///   - Обычный текст в состоянии диалога → TextHandler
 ///   - Нажатие инлайн-кнопки → CallbackHandler
+///   - Фото → MediaHandler
+///   - Документ (PDF / изображение) → MediaHandler
 /// </summary>
 public class UpdateRouter
 {
     private readonly CommandHandler _commands;
     private readonly TextHandler    _text;
     private readonly CallbackHandler _callbacks;
+    private readonly MediaHandler   _media;
     private readonly ILogger<UpdateRouter> _logger;
 
     public UpdateRouter(
         CommandHandler commands,
         TextHandler    text,
         CallbackHandler callbacks,
+        MediaHandler   media,
         ILogger<UpdateRouter> logger)
     {
         _commands  = commands;
         _text      = text;
         _callbacks = callbacks;
+        _media     = media;
         _logger    = logger;
     }
 
@@ -46,14 +51,10 @@ public class UpdateRouter
                 return;
             }
 
-            // Текстовое сообщение
-            if (update.Type == UpdateType.Message && update.Message?.Text is not null)
+            if (update.Type == UpdateType.Message && update.Message is not null)
             {
                 await HandleMessageAsync(update.Message, ct);
-                return;
             }
-
-            // Остальные типы обновлений (фото, стикеры и т.д.) игнорируем
         }
         catch (Exception ex)
         {
@@ -63,24 +64,39 @@ public class UpdateRouter
 
     /// <summary>
     /// Обработать входящее сообщение.
-    /// Если сообщение начинается с '/' — это команда, иначе — текст.
+    /// Маршрутизирует по типу содержимого: текст, фото, документ.
     /// </summary>
     private async Task HandleMessageAsync(Message msg, CancellationToken ct)
     {
-        var text = msg.Text!.Trim();
-
-        // Проверяем, является ли это командой
-        // Извлекаем команду без @username_бота (например /start@MyBot → /start)
-        var commandPart = text.Split(' ')[0].Split('@')[0].ToLowerInvariant();
-
-        if (commandPart.StartsWith('/'))
+        // ── Фото ─────────────────────────────────────────────
+        if (msg.Photo is not null)
         {
-            await RouteCommandAsync(msg, commandPart, ct);
+            await _media.HandlePhotoAsync(msg, ct);
+            return;
         }
-        else
+
+        // ── Документ (PDF, изображение-файлом и т.д.) ────────
+        if (msg.Document is not null)
         {
-            // Обычный текст — обрабатываем через машину состояний
-            await _text.HandleAsync(msg, ct);
+            // Документы, присланные как фото через "Send as file", приходят сюда
+            await _media.HandleDocumentAsync(msg, ct);
+            return;
+        }
+
+        // ── Текстовое сообщение ───────────────────────────────
+        if (msg.Text is not null)
+        {
+            var text        = msg.Text.Trim();
+            var commandPart = text.Split(' ')[0].Split('@')[0].ToLowerInvariant();
+
+            if (commandPart.StartsWith('/'))
+            {
+                await RouteCommandAsync(msg, commandPart, ct);
+            }
+            else
+            {
+                await _text.HandleAsync(msg, ct);
+            }
         }
     }
 
@@ -124,7 +140,6 @@ public class UpdateRouter
                 break;
 
             default:
-                // Неизвестная команда
                 await _text.HandleAsync(msg, ct);
                 break;
         }
