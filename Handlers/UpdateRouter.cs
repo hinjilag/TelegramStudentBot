@@ -86,10 +86,15 @@ public class UpdateRouter
         // ── Текстовое сообщение ───────────────────────────────
         if (msg.Text is not null)
         {
-            var text        = msg.Text.Trim();
-            var commandPart = text.Split(' ')[0].Split('@')[0].ToLowerInvariant();
+            var text = msg.Text.Trim();
 
-            if (commandPart.StartsWith('/'))
+            // Ищем часть, начинающуюся с '/' — поддерживает кнопки вида "📋 /plan"
+            var commandPart = text
+                .Split(' ')
+                .Select(p => p.Split('@')[0].ToLowerInvariant())
+                .FirstOrDefault(p => p.StartsWith('/'));
+
+            if (commandPart is not null)
             {
                 await RouteCommandAsync(msg, commandPart, ct);
             }

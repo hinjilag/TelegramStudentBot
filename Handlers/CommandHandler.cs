@@ -246,8 +246,25 @@ public class CommandHandler
     }
 
     // ══════════════════════════════════════════════════════════
-    //  Построители клавиатур (приватные)
+    //  Построители клавиатур
     // ══════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Постоянная клавиатура главного меню.
+    /// Отображается всегда внизу экрана — не нужно вводить команды вручную.
+    /// </summary>
+    internal static ReplyKeyboardMarkup MainKeyboard() =>
+        new(new[]
+        {
+            new[] { new KeyboardButton("📋 /plan"),     new KeyboardButton("🗓 /schedule") },
+            new[] { new KeyboardButton("⏱ /timer"),    new KeyboardButton("☕ /rest"),    new KeyboardButton("⏹ /stop") },
+            new[] { new KeyboardButton("😴 /fatigue"), new KeyboardButton("📊 /status") },
+            new[] { new KeyboardButton("❓ /help") }
+        })
+        {
+            ResizeKeyboard  = true,   // компактный размер
+            IsPersistent    = true    // не скрывается после нажатия
+        };
 
     /// <summary>Клавиатура выбора рабочего таймера</summary>
     private static InlineKeyboardMarkup BuildTimerKeyboard() =>

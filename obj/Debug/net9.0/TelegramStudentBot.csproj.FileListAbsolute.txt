@@ -109,3 +109,4 @@ C:\Users\User\Desktop\amina_c#\my-dotnet-app\TelegramStudentBot\bin\Debug\net9.0
 C:\Users\User\Desktop\amina_c#\my-dotnet-app\TelegramStudentBot\obj\Debug\net9.0\Telegram.8B3802ED.Up2Date
 C:\Users\User\Desktop\amina_c#\my-dotnet-app\TelegramStudentBot\obj\Debug\net9.0\TelegramStudentBot.genruntimeconfig.cache
 C:\Users\User\Desktop\amina_c#\my-dotnet-app\TelegramStudentBot\obj\Debug\net9.0\ref\TelegramStudentBot.dll
+C:\Users\User\Desktop\amina_c#\my-dotnet-app\TelegramStudentBot\bin\Debug\net9.0\wwwroot\timer.html

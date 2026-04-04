@@ -1,7 +1,10 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
+using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using Telegram.Bot.Types.ReplyMarkups;
 using TelegramStudentBot.Models;
 
 namespace TelegramStudentBot.Services;
@@ -17,17 +20,20 @@ public class TimerService
     private readonly SessionService _sessions;
     private readonly ILogger<TimerService> _logger;
     private readonly IHostApplicationLifetime _lifetime;
+    private readonly string? _webAppUrl;
 
     public TimerService(
         ITelegramBotClient bot,
         SessionService sessions,
         ILogger<TimerService> logger,
-        IHostApplicationLifetime lifetime)
+        IHostApplicationLifetime lifetime,
+        IConfiguration config)
     {
-        _bot      = bot;
-        _sessions = sessions;
-        _logger   = logger;
-        _lifetime = lifetime;
+        _bot       = bot;
+        _sessions  = sessions;
+        _logger    = logger;
+        _lifetime  = lifetime;
+        _webAppUrl = config["WebAppUrl"]?.TrimEnd('/');
     }
 
     // ──────────────────────────────────────────────
@@ -60,6 +66,7 @@ public class TimerService
                               $"Завершится в: <b>{endTime}</b>\n\n" +
                               $"Сосредоточься и не отвлекайся 💪",
             parseMode:        ParseMode.Html,
+            replyMarkup:      BuildWebAppButton(timer),
             cancellationToken: CancellationToken.None);
 
         // Запускаем фоновое ожидание — не блокируем вызывающий поток
@@ -94,6 +101,7 @@ public class TimerService
                               $"Завершится в: <b>{endTime}</b>\n\n" +
                               $"Расслабься, отдохни от экрана 🧘",
             parseMode:        ParseMode.Html,
+            replyMarkup:      BuildWebAppButton(timer),
             cancellationToken: CancellationToken.None);
 
         _ = RunTimerAsync(chatId, userId, timer);
@@ -118,6 +126,30 @@ public class TimerService
     // ──────────────────────────────────────────────
     //  Внутренняя логика
     // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Строит инлайн-кнопку для открытия Mini App.
+    /// Если WebAppUrl не задан — возвращает null (кнопка не отображается).
+    /// </summary>
+    private InlineKeyboardMarkup? BuildWebAppButton(ActiveTimer timer)
+    {
+        if (string.IsNullOrWhiteSpace(_webAppUrl))
+            return null;
+
+        var type     = timer.Type == TimerType.Work ? "work" : "rest";
+        var duration = timer.DurationMinutes * 60;
+        var started  = new DateTimeOffset(timer.StartedAt).ToUnixTimeMilliseconds();
+        // Поддерживаем оба варианта: GitHub Pages (/timer.html) и встроенный сервер (/timer)
+        var timerPath = _webAppUrl!.Contains("github.io") ? "/timer.html" : "/timer";
+        var url       = $"{_webAppUrl}{timerPath}?type={type}&duration={duration}&started={started}";
+
+        var label = timer.Type == TimerType.Work ? "📚 Открыть таймер" : "☕ Открыть таймер";
+
+        return new InlineKeyboardMarkup(new[]
+        {
+            new[] { InlineKeyboardButton.WithWebApp(label, new WebAppInfo { Url = url }) }
+        });
+    }
 
     /// <summary>Отменить токен активного таймера и обнулить ссылку</summary>
     private static void CancelActiveTimer(UserSession session)

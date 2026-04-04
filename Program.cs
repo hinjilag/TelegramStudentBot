@@ -46,6 +46,9 @@ var host = Host.CreateDefaultBuilder(args)
 
         // Фоновый сервис бота (запускается автоматически при старте хоста)
         services.AddHostedService<BotService>();
+
+        // HTTP-сервер для Mini App (timer.html)
+        services.AddHostedService<WebAppService>();
     })
     .Build();
 
