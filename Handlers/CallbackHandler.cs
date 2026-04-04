@@ -9,29 +9,38 @@ namespace TelegramStudentBot.Handlers;
 
 /// <summary>
 /// Обработчик нажатий на инлайн-кнопки (CallbackQuery).
-/// Разбирает callback_data и выполняет соответствующее действие.
 ///
 /// Формат callback_data:
-///   timer_25, timer_30, timer_45, timer_60 — запустить рабочий таймер
-///   timer_custom                           — запросить произвольное время
-///   timer_stop                             — остановить таймер
-///   rest_5, rest_15, rest_30              — запустить таймер отдыха
-///   plan_add                               — начать добавление задачи
-///   plan_list                              — показать список задач
-///   task_done_{shortId}                    — отметить задачу выполненной
-///   task_del_{shortId}                     — удалить задачу
+///   timer_25/30/45/60      — запустить рабочий таймер
+///   timer_custom           — произвольное время
+///   timer_stop             — остановить таймер
+///   rest_5/15/30           — таймер отдыха
+///   plan_add               — добавить задачу
+///   plan_list              — список задач
+///   plan_ai                — ИИ строит учебный план
+///   schedule_add           — добавить занятие в расписание
+///   schedule_list          — показать расписание
+///   schedule_clear         — очистить расписание
+///   task_done_{shortId}    — отметить задачу выполненной
+///   task_del_{shortId}     — удалить задачу
 /// </summary>
 public class CallbackHandler
 {
     private readonly ITelegramBotClient _bot;
     private readonly SessionService _sessions;
     private readonly TimerService _timers;
+    private readonly GigaChatService _gigaChat;
 
-    public CallbackHandler(ITelegramBotClient bot, SessionService sessions, TimerService timers)
+    public CallbackHandler(
+        ITelegramBotClient bot,
+        SessionService sessions,
+        TimerService timers,
+        GigaChatService gigaChat)
     {
         _bot      = bot;
         _sessions = sessions;
         _timers   = timers;
+        _gigaChat = gigaChat;
     }
 
     /// <summary>Обработать входящий callback query</summary>
@@ -71,6 +80,13 @@ public class CallbackHandler
         if (data.StartsWith("task_"))
         {
             await HandleTaskCallbackAsync(chatId, session, data, ct);
+            return;
+        }
+
+        // ── Расписание ────────────────────────────────────────
+        if (data.StartsWith("schedule_"))
+        {
+            await HandleScheduleCallbackAsync(chatId, session, data, ct);
             return;
         }
     }
@@ -156,6 +172,56 @@ public class CallbackHandler
                 await SendTaskListAsync(chatId, session, ct);
                 break;
             }
+
+            case "plan_ai":
+            {
+                await HandleAiPlanAsync(chatId, session, ct);
+                break;
+            }
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════
+    //  ИИ-план
+    // ══════════════════════════════════════════════════════════
+
+    private async Task HandleAiPlanAsync(long chatId, UserSession session, CancellationToken ct)
+    {
+        if (!_gigaChat.IsConfigured)
+        {
+            await _bot.SendMessage(
+                chatId,
+                "⚙️ GigaChat не настроен. Добавь ключ в appsettings.json.",
+                cancellationToken: ct);
+            return;
+        }
+
+        var pending = session.Tasks.Where(t => !t.IsCompleted).ToList();
+        if (pending.Count == 0)
+        {
+            await _bot.SendMessage(
+                chatId,
+                "📋 Нет активных задач. Добавь задачи через /plan → «Добавить задачу».",
+                cancellationToken: ct);
+            return;
+        }
+
+        await _bot.SendMessage(chatId, "🤖 Анализирую задачи и расписание...", cancellationToken: ct);
+        await _bot.SendChatAction(chatId, ChatAction.Typing, cancellationToken: ct);
+
+        var result = await _gigaChat.BuildStudyPlanAsync(session.Tasks, session.Schedule, ct);
+
+        await _bot.SendMessage(
+            chatId,
+            "📅 <b>ИИ-план учёбы:</b>",
+            parseMode: ParseMode.Html,
+            cancellationToken: ct);
+
+        const int chunkSize = 4000;
+        for (int i = 0; i < result.Length; i += chunkSize)
+        {
+            var chunk = result.Substring(i, Math.Min(chunkSize, result.Length - i));
+            await _bot.SendMessage(chatId, chunk, cancellationToken: ct);
         }
     }
 
@@ -204,6 +270,83 @@ public class CallbackHandler
                 break;
             }
         }
+    }
+
+    // ══════════════════════════════════════════════════════════
+    //  Расписание
+    // ══════════════════════════════════════════════════════════
+
+    private async Task HandleScheduleCallbackAsync(
+        long chatId, UserSession session, string data, CancellationToken ct)
+    {
+        switch (data)
+        {
+            case "schedule_add":
+            {
+                session.State         = UserState.WaitingForScheduleDay;
+                session.DraftSchedule = new ScheduleEntry();
+                await _bot.SendMessage(
+                    chatId,
+                    "🗓 <b>Добавление занятия</b>\n\n" +
+                    "Введи <b>день недели</b>:\n" +
+                    "Понедельник / Вторник / Среда / Четверг / Пятница / Суббота / Воскресенье",
+                    parseMode: ParseMode.Html,
+                    cancellationToken: ct);
+                break;
+            }
+
+            case "schedule_list":
+            {
+                await SendScheduleListAsync(chatId, session, ct);
+                break;
+            }
+
+            case "schedule_clear":
+            {
+                session.Schedule.Clear();
+                await _bot.SendMessage(
+                    chatId,
+                    "🗑 Расписание очищено.",
+                    cancellationToken: ct);
+                break;
+            }
+        }
+    }
+
+    private async Task SendScheduleListAsync(long chatId, UserSession session, CancellationToken ct)
+    {
+        if (session.Schedule.Count == 0)
+        {
+            await _bot.SendMessage(
+                chatId,
+                "🗓 Расписание пусто.\nДобавь занятия через /schedule → «Добавить занятие».",
+                cancellationToken: ct);
+            return;
+        }
+
+        var days = new[] { "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье" };
+        var sb   = new System.Text.StringBuilder();
+        sb.AppendLine("🗓 <b>Расписание занятий:</b>\n");
+
+        foreach (var day in days)
+        {
+            var entries = session.Schedule.Where(e => e.Day == day).ToList();
+            if (entries.Count == 0) continue;
+
+            sb.AppendLine($"<b>{day}:</b>");
+            foreach (var e in entries)
+            {
+                var room = string.IsNullOrWhiteSpace(e.Room) ? "" : $" ({e.Room})";
+                sb.AppendLine($"  🕐 {e.Time} — {e.Subject}{room}");
+            }
+            sb.AppendLine();
+        }
+
+        await _bot.SendMessage(
+            chatId,
+            sb.ToString().TrimEnd(),
+            parseMode: ParseMode.Html,
+            cancellationToken: ct);
     }
 
     // ══════════════════════════════════════════════════════════

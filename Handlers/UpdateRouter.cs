@@ -139,6 +139,10 @@ public class UpdateRouter
                 await _commands.HandlePlanAsync(msg, ct);
                 break;
 
+            case "/schedule":
+                await _commands.HandleScheduleAsync(msg, ct);
+                break;
+
             default:
                 await _text.HandleAsync(msg, ct);
                 break;

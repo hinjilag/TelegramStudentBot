@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using TelegramStudentBot.Models;
 
 namespace TelegramStudentBot.Services;
 
@@ -114,11 +115,16 @@ public class GigaChatService
     }
 
     // ══════════════════════════════════════════════════════════
-    //  Текстовый вопрос
+    //  Построение учебного плана
     // ══════════════════════════════════════════════════════════
 
-    /// <summary>Задать текстовый вопрос GigaChat</summary>
-    public async Task<string> AskTextAsync(string question, CancellationToken ct)
+    /// <summary>
+    /// Анализирует задачи + расписание занятий и строит оптимальный план учёбы.
+    /// </summary>
+    public async Task<string> BuildStudyPlanAsync(
+        IEnumerable<StudyTask> tasks,
+        IEnumerable<ScheduleEntry> schedule,
+        CancellationToken ct)
     {
         if (!IsConfigured)
             return NotConfiguredMessage();
@@ -127,20 +133,79 @@ public class GigaChatService
         if (token is null)
             return "❌ Не удалось получить токен GigaChat. Проверь ключ.";
 
+        var pendingTasks = tasks.Where(t => !t.IsCompleted).ToList();
+        var scheduleList = schedule.ToList();
+
+        if (pendingTasks.Count == 0)
+            return "📋 Нет активных задач для планирования. Добавь задачи через /plan.";
+
+        var today      = DateTime.Today;
+        var dayOfWeek  = today.ToString("dddd", new System.Globalization.CultureInfo("ru-RU"));
+        var dateStr    = today.ToString("dd.MM.yyyy");
+
+        // Формируем текст задач
+        var tasksText = string.Join("\n", pendingTasks.Select((t, i) =>
+        {
+            var deadline = t.Deadline.HasValue
+                ? $"дедлайн {t.Deadline.Value:dd.MM.yyyy} ({(t.Deadline.Value.Date - today).Days} дн.)"
+                : "без дедлайна";
+            return $"{i + 1}. [{t.Subject}] {t.Title} — {deadline}";
+        }));
+
+        // Формируем текст расписания
+        var scheduleText = scheduleList.Count > 0
+            ? string.Join("\n", scheduleList
+                .GroupBy(s => s.Day)
+                .OrderBy(g => DayOrder(g.Key))
+                .Select(g =>
+                {
+                    var entries = string.Join(", ", g.Select(e =>
+                        string.IsNullOrWhiteSpace(e.Room)
+                            ? $"{e.Time} {e.Subject}"
+                            : $"{e.Time} {e.Subject} ({e.Room})"));
+                    return $"{g.Key}: {entries}";
+                }))
+            : "Расписание не добавлено (учти это при планировании).";
+
+        var prompt =
+            $"Ты — учебный ассистент студента. Твоя задача — составить конкретный план учёбы.\n\n" +
+            $"Сегодня: {dateStr}, {dayOfWeek}.\n\n" +
+            $"Задачи студента:\n{tasksText}\n\n" +
+            $"Расписание занятий (регулярное):\n{scheduleText}\n\n" +
+            $"Составь детальный план учёбы на ближайшие 7–14 дней:\n" +
+            $"— Распредели задачи по конкретным дням\n" +
+            $"— В дни с большим количеством занятий давай меньше домашней работы\n" +
+            $"— Ближайшие дедлайны — приоритет\n" +
+            $"— Укажи примерное время на каждую задачу\n" +
+            $"— Оформи ответ по дням: «Понедельник 07.04: ..., Вторник 08.04: ...»\n\n" +
+            $"Отвечай кратко и структурированно на русском языке.";
+
         var requestBody = new
         {
             model    = ModelText,
             messages = new[]
             {
-                new { role = "user", content = question }
+                new { role = "user", content = prompt }
             },
-            temperature = 0.7,
+            temperature = 0.6,
             max_tokens  = 2048,
             stream      = false
         };
 
         return await SendChatRequestAsync(token, requestBody, ct);
     }
+
+    private static int DayOrder(string day) => day switch
+    {
+        "Понедельник" => 1,
+        "Вторник"     => 2,
+        "Среда"       => 3,
+        "Четверг"     => 4,
+        "Пятница"     => 5,
+        "Суббота"     => 6,
+        "Воскресенье" => 7,
+        _             => 8
+    };
 
     // ══════════════════════════════════════════════════════════
     //  Приватные методы

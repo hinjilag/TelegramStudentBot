@@ -33,6 +33,12 @@ public class UserSession
     /// <summary>Черновик задачи при пошаговом добавлении</summary>
     public StudyTask? DraftTask { get; set; }
 
+    /// <summary>Расписание занятий студента</summary>
+    public List<ScheduleEntry> Schedule { get; set; } = new();
+
+    /// <summary>Черновик записи расписания при пошаговом добавлении</summary>
+    public ScheduleEntry? DraftSchedule { get; set; }
+
     /// <summary>Человекочитаемое описание уровня усталости</summary>
     public string FatigueDescription => FatigueLevel switch
     {

@@ -67,11 +67,12 @@ public class CommandHandler
                        "/fatigue — показать уровень усталости\n\n" +
                        "📊 <b>Статус:</b>\n" +
                        "/status — общий дашборд (таймер + усталость + задачи)\n\n" +
-                       "🤖 <b>Искусственный интеллект (автоматически):</b>\n" +
-                       "Просто напиши любое сообщение — ИИ ответит\n" +
-                       "📷 Отправь <b>фото</b> — ИИ прочитает и опишет содержимое\n" +
-                       "📄 Отправь <b>PDF или файл</b> — ИИ извлечёт текст\n" +
-                       "💡 <i>Добавь подпись к фото/файлу — это будет твой вопрос к ИИ</i>\n\n" +
+                       "🗓 <b>Расписание:</b>\n" +
+                       "/schedule — добавить и посмотреть расписание занятий\n\n" +
+                       "🤖 <b>ИИ-планирование:</b>\n" +
+                       "В меню /plan нажми «🤖 ИИ-план» — GigaChat проанализирует\n" +
+                       "твои задачи + расписание и составит план нагрузки\n" +
+                       "📷 Отправь <b>фото расписания</b> — ИИ распознает его\n\n" +
                        "❓ /help — эта справка",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
@@ -288,7 +289,49 @@ public class CommandHandler
             new[]
             {
                 InlineKeyboardButton.WithCallbackData("➕ Добавить задачу", "plan_add"),
-                InlineKeyboardButton.WithCallbackData("📋 Показать план", "plan_list")
+                InlineKeyboardButton.WithCallbackData("📋 Показать план",   "plan_list")
+            },
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("🤖 ИИ-план",         "plan_ai")
+            }
+        });
+
+    // ══════════════════════════════════════════════════════════
+    //  /schedule
+    // ══════════════════════════════════════════════════════════
+
+    /// <summary>Меню управления расписанием занятий</summary>
+    public async Task HandleScheduleAsync(Message msg, CancellationToken ct)
+    {
+        var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
+        var count   = session.Schedule.Count;
+
+        var text = count > 0
+            ? $"🗓 <b>Расписание занятий</b>\nЗаписей: <b>{count}</b>\n\nЧто делаем?"
+            : "🗓 <b>Расписание занятий</b>\nРасписание пока не добавлено.\n\n" +
+              "Добавь занятия вручную или отправь <b>фото расписания</b> — ИИ распознает его.";
+
+        await _bot.SendMessage(
+            chatId:      msg.Chat.Id,
+            text:        text,
+            parseMode:   ParseMode.Html,
+            replyMarkup: BuildScheduleKeyboard(),
+            cancellationToken: ct);
+    }
+
+    /// <summary>Клавиатура меню расписания</summary>
+    private static InlineKeyboardMarkup BuildScheduleKeyboard() =>
+        new(new[]
+        {
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("➕ Добавить занятие",    "schedule_add"),
+                InlineKeyboardButton.WithCallbackData("📋 Показать расписание", "schedule_list")
+            },
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("🗑 Очистить всё",        "schedule_clear")
             }
         });
 }

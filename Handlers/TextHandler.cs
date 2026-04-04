@@ -9,31 +9,20 @@ namespace TelegramStudentBot.Handlers;
 /// <summary>
 /// Обработчик обычных текстовых сообщений.
 /// Работает как машина состояний: реакция зависит от текущего состояния сессии.
-/// Используется для пошагового ввода данных (создание задачи, ввод времени таймера, чат с ИИ).
 /// </summary>
 public class TextHandler
 {
     private readonly ITelegramBotClient _bot;
     private readonly SessionService _sessions;
     private readonly TimerService _timers;
-    private readonly GigaChatService _gigaChat;
 
-    public TextHandler(
-        ITelegramBotClient bot,
-        SessionService sessions,
-        TimerService timers,
-        GigaChatService gemini)
+    public TextHandler(ITelegramBotClient bot, SessionService sessions, TimerService timers)
     {
         _bot      = bot;
         _sessions = sessions;
         _timers   = timers;
-        _gigaChat   = gemini;
     }
 
-    /// <summary>
-    /// Обработать входящее текстовое сообщение.
-    /// Маршрутизирует в нужный обработчик по текущему состоянию.
-    /// </summary>
     public async Task HandleAsync(Message msg, CancellationToken ct)
     {
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
@@ -41,6 +30,7 @@ public class TextHandler
 
         switch (session.State)
         {
+            // ── Создание задачи ───────────────────────────────
             case UserState.WaitingForTaskTitle:
                 await HandleTaskTitleAsync(msg, session, text, ct);
                 break;
@@ -53,47 +43,65 @@ public class TextHandler
                 await HandleTaskDeadlineAsync(msg, session, text, ct);
                 break;
 
+            // ── Таймер ────────────────────────────────────────
             case UserState.WaitingForTimerMinutes:
                 await HandleCustomTimerAsync(msg, session, text, ct);
                 break;
 
+            // ── Добавление расписания ─────────────────────────
+            case UserState.WaitingForScheduleDay:
+                await HandleScheduleDayAsync(msg, session, text, ct);
+                break;
+
+            case UserState.WaitingForScheduleSubject:
+                await HandleScheduleSubjectAsync(msg, session, text, ct);
+                break;
+
+            case UserState.WaitingForScheduleTime:
+                await HandleScheduleTimeAsync(msg, session, text, ct);
+                break;
+
+            case UserState.WaitingForScheduleRoom:
+                await HandleScheduleRoomAsync(msg, session, text, ct);
+                break;
+
             default:
-                // В состоянии Idle — отправляем вопрос в ИИ
-                await HandleAiQuestionAsync(msg, text, ct);
+                await _bot.SendMessage(
+                    chatId:    msg.Chat.Id,
+                    text:      "ℹ️ Используй /help для просмотра команд.",
+                    parseMode: ParseMode.Html,
+                    cancellationToken: ct);
                 break;
         }
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Шаги создания задачи
-    // ──────────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════
+    //  Создание задачи
+    // ══════════════════════════════════════════════════════════
 
-    /// <summary>Шаг 1: Пользователь вводит название задачи</summary>
     private async Task HandleTaskTitleAsync(Message msg, UserSession session, string text, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
-            await _bot.SendMessage(msg.Chat.Id, "⚠️ Название не может быть пустым. Введи название задачи:", cancellationToken: ct);
+            await _bot.SendMessage(msg.Chat.Id, "⚠️ Название не может быть пустым:", cancellationToken: ct);
             return;
         }
 
-        // Сохраняем название в черновик и переходим к следующему шагу
         session.DraftTask = new StudyTask { Title = text };
         session.State     = UserState.WaitingForTaskSubject;
 
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
-            text:      $"✅ Название: <b>{text}</b>\n\nТеперь введи <b>предмет</b> (например: Математика, Физика):",
+            text:      $"✅ Название: <b>{text}</b>\n\nВведи <b>предмет</b> (например: Математика):",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
     }
 
-    /// <summary>Шаг 2: Пользователь вводит предмет</summary>
     private async Task HandleTaskSubjectAsync(Message msg, UserSession session, string text, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
-            await _bot.SendMessage(msg.Chat.Id, "⚠️ Предмет не может быть пустым. Введи название предмета:", cancellationToken: ct);
+            await _bot.SendMessage(msg.Chat.Id, "⚠️ Предмет не может быть пустым:", cancellationToken: ct);
             return;
         }
 
@@ -109,10 +117,8 @@ public class TextHandler
             cancellationToken: ct);
     }
 
-    /// <summary>Шаг 3: Пользователь вводит дедлайн или пропускает</summary>
     private async Task HandleTaskDeadlineAsync(Message msg, UserSession session, string text, CancellationToken ct)
     {
-        // Пропустить дедлайн
         if (text.Equals("нет", StringComparison.OrdinalIgnoreCase) ||
             text.Equals("no",  StringComparison.OrdinalIgnoreCase) ||
             text == "-")
@@ -121,13 +127,13 @@ public class TextHandler
         }
         else
         {
-            // Пробуем разобрать дату в форматах ДД.ММ.ГГГГ или ДД/ММ/ГГГГ
             if (!DateTime.TryParseExact(text, new[] { "dd.MM.yyyy", "dd/MM/yyyy", "d.M.yyyy" },
                     null, System.Globalization.DateTimeStyles.None, out var deadline))
             {
                 await _bot.SendMessage(
                     chatId:    msg.Chat.Id,
-                    text:      "⚠️ Неверный формат даты. Используй ДД.ММ.ГГГГ (например: 25.05.2025)\nИли напиши <b>нет</b> чтобы пропустить.",
+                    text:      "⚠️ Неверный формат. Используй ДД.ММ.ГГГГ (например: 25.05.2025)\n" +
+                               "Или напиши <b>нет</b> чтобы пропустить.",
                     parseMode: ParseMode.Html,
                     cancellationToken: ct);
                 return;
@@ -135,13 +141,11 @@ public class TextHandler
             session.DraftTask!.Deadline = deadline;
         }
 
-        // Сохраняем задачу в список
         var task = session.DraftTask!;
         session.Tasks.Add(task);
         session.DraftTask = null;
         session.State     = UserState.Idle;
 
-        // Строим итоговое сообщение
         var deadlineText = task.Deadline.HasValue
             ? task.Deadline.Value.ToString("dd.MM.yyyy")
             : "не задан";
@@ -152,25 +156,22 @@ public class TextHandler
                        $"📌 <b>{task.Title}</b>\n" +
                        $"📚 Предмет: {task.Subject}\n" +
                        $"📅 Дедлайн: {deadlineText}\n\n" +
-                       $"Используй /plan → «Показать план» чтобы увидеть все задачи.",
+                       $"В /plan → «🤖 ИИ-план» ИИ составит расписание учёбы.",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Произвольное время таймера
-    // ──────────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════
+    //  Таймер
+    // ══════════════════════════════════════════════════════════
 
-    /// <summary>Пользователь вводит произвольное время таймера в минутах</summary>
     private async Task HandleCustomTimerAsync(Message msg, UserSession session, string text, CancellationToken ct)
     {
-        // Парсим введённое число
         if (!int.TryParse(text, out int minutes) || minutes < 1 || minutes > 300)
         {
             await _bot.SendMessage(
-                chatId:    msg.Chat.Id,
-                text:      "⚠️ Введи число минут от 1 до 300:",
-                parseMode: ParseMode.Html,
+                chatId: msg.Chat.Id,
+                text:   "⚠️ Введи число минут от 1 до 300:",
                 cancellationToken: ct);
             return;
         }
@@ -179,34 +180,104 @@ public class TextHandler
         await _timers.StartWorkTimerAsync(msg.Chat.Id, msg.From!.Id, minutes);
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Чат с ИИ
-    // ──────────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════
+    //  Добавление расписания (4 шага)
+    // ══════════════════════════════════════════════════════════
 
-    /// <summary>Пользователь задаёт вопрос ИИ в текстовом режиме</summary>
-    private async Task HandleAiQuestionAsync(Message msg, string question, CancellationToken ct)
+    private static readonly HashSet<string> ValidDays = new(StringComparer.OrdinalIgnoreCase)
     {
-        if (string.IsNullOrWhiteSpace(question))
+        "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"
+    };
+
+    /// <summary>Шаг 1: день недели</summary>
+    private async Task HandleScheduleDayAsync(Message msg, UserSession session, string text, CancellationToken ct)
+    {
+        // Нормализуем первую букву
+        var day = char.ToUpper(text[0]) + text[1..].ToLower();
+
+        if (!ValidDays.Contains(day))
+        {
+            await _bot.SendMessage(
+                msg.Chat.Id,
+                "⚠️ Введи один из дней:\n" +
+                "Понедельник / Вторник / Среда / Четверг / Пятница / Суббота / Воскресенье",
+                cancellationToken: ct);
             return;
+        }
 
-        // Показываем индикатор "печатает..."
-        await _bot.SendChatAction(msg.Chat.Id, ChatAction.Typing, cancellationToken: ct);
+        session.DraftSchedule!.Day = day;
+        session.State = UserState.WaitingForScheduleSubject;
 
-        var answer = await _gigaChat.AskTextAsync(question, ct);
-
-        // Заголовок
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
-            text:      "🤖 <b>ИИ отвечает:</b>",
+            text:      $"✅ День: <b>{day}</b>\n\nВведи <b>название предмета</b>:",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
+    }
 
-        // Ответ (без HTML — чтобы не ломать спецсимволы из ответа)
-        const int chunkSize = 4000;
-        for (int i = 0; i < answer.Length; i += chunkSize)
+    /// <summary>Шаг 2: предмет</summary>
+    private async Task HandleScheduleSubjectAsync(Message msg, UserSession session, string text, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(text))
         {
-            var chunk = answer.Substring(i, Math.Min(chunkSize, answer.Length - i));
-            await _bot.SendMessage(msg.Chat.Id, chunk, cancellationToken: ct);
+            await _bot.SendMessage(msg.Chat.Id, "⚠️ Название предмета не может быть пустым:", cancellationToken: ct);
+            return;
         }
+
+        session.DraftSchedule!.Subject = text;
+        session.State = UserState.WaitingForScheduleTime;
+
+        await _bot.SendMessage(
+            chatId:    msg.Chat.Id,
+            text:      $"✅ Предмет: <b>{text}</b>\n\n" +
+                       $"Введи <b>время занятия</b>\n(например: <code>09:00-10:30</code> или <code>9:00</code>):",
+            parseMode: ParseMode.Html,
+            cancellationToken: ct);
+    }
+
+    /// <summary>Шаг 3: время</summary>
+    private async Task HandleScheduleTimeAsync(Message msg, UserSession session, string text, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            await _bot.SendMessage(msg.Chat.Id, "⚠️ Введи время (например: 09:00-10:30):", cancellationToken: ct);
+            return;
+        }
+
+        session.DraftSchedule!.Time = text;
+        session.State = UserState.WaitingForScheduleRoom;
+
+        await _bot.SendMessage(
+            chatId:    msg.Chat.Id,
+            text:      $"✅ Время: <b>{text}</b>\n\n" +
+                       $"Введи <b>аудиторию</b> (или напиши <b>нет</b> чтобы пропустить):",
+            parseMode: ParseMode.Html,
+            cancellationToken: ct);
+    }
+
+    /// <summary>Шаг 4: аудитория (необязательно)</summary>
+    private async Task HandleScheduleRoomAsync(Message msg, UserSession session, string text, CancellationToken ct)
+    {
+        var skip = text.Equals("нет", StringComparison.OrdinalIgnoreCase) ||
+                   text.Equals("no",  StringComparison.OrdinalIgnoreCase) ||
+                   text == "-";
+
+        session.DraftSchedule!.Room = skip ? null : text;
+
+        var entry = session.DraftSchedule!;
+        session.Schedule.Add(entry);
+        session.DraftSchedule = null;
+        session.State         = UserState.Idle;
+
+        var roomText = string.IsNullOrWhiteSpace(entry.Room) ? "" : $", ауд. {entry.Room}";
+
+        await _bot.SendMessage(
+            chatId:    msg.Chat.Id,
+            text:      $"✅ <b>Занятие добавлено!</b>\n\n" +
+                       $"🗓 <b>{entry.Day}</b>, {entry.Time}\n" +
+                       $"📚 {entry.Subject}{roomText}\n\n" +
+                       $"Добавь ещё через /schedule или запроси ИИ-план через /plan → «🤖 ИИ-план».",
+            parseMode: ParseMode.Html,
+            cancellationToken: ct);
     }
 }
