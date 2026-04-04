@@ -6,43 +6,34 @@ using TelegramStudentBot.Services;
 namespace TelegramStudentBot.Handlers;
 
 /// <summary>
-/// Обработчик медиа-сообщений: фотографий и документов.
-/// Скачивает файл из Telegram и отправляет в GigaChat AI для анализа.
+/// Обработчик медиа-сообщений: фотографий и изображений-файлов.
+/// Скачивает файл из Telegram и отправляет в Llama 3.2 Vision (Groq) для анализа.
 ///
-/// Поддерживаемые типы файлов:
-///   Изображения — JPG, PNG, GIF, WEBP
-///
+/// Поддерживаемые форматы: JPG, PNG, GIF, WEBP.
 /// Подпись к файлу (caption) используется как вопрос к ИИ.
-/// Если подписи нет — ИИ делает общий анализ содержимого.
 /// </summary>
 public class MediaHandler
 {
     private readonly ITelegramBotClient _bot;
-    private readonly GigaChatService _gigaChat;
+    private readonly LlamaVisionService _vision;
 
-    // Максимальный размер файла для загрузки в GigaChat (10 МБ)
-    private const int MaxFileSizeBytes = 10 * 1024 * 1024;
+    // Groq ограничивает размер изображения: ~4 МБ base64 → ~3 МБ исходник
+    private const int MaxFileSizeBytes = 4 * 1024 * 1024;
 
-    public MediaHandler(ITelegramBotClient bot, GigaChatService gigaChat)
+    public MediaHandler(ITelegramBotClient bot, LlamaVisionService vision)
     {
-        _bot      = bot;
-        _gigaChat = gigaChat;
+        _bot    = bot;
+        _vision = vision;
     }
 
     // ══════════════════════════════════════════════════════════
-    //  Обработка фото
+    //  Фото (сжатое Telegram'ом)
     // ══════════════════════════════════════════════════════════
 
-    /// <summary>
-    /// Обрабатывает фотографию.
-    /// Telegram присылает несколько размеров — берём самый большой.
-    /// </summary>
     public async Task HandlePhotoAsync(Message msg, CancellationToken ct)
     {
         var chatId = msg.Chat.Id;
-
-        // Берём фото с максимальным разрешением
-        var photo = msg.Photo!.OrderByDescending(p => p.Width * p.Height).First();
+        var photo  = msg.Photo!.OrderByDescending(p => p.Width * p.Height).First();
 
         await _bot.SendMessage(chatId, "🔍 Анализирую фото...", cancellationToken: ct);
 
@@ -53,40 +44,33 @@ public class MediaHandler
             return;
         }
 
-        // Caption используется как вопрос к ИИ
-        var caption = msg.Caption?.Trim();
-        var result  = await _gigaChat.AnalyzeMediaAsync(bytes, "image/jpeg", caption, ct);
-
+        var result = await _vision.AnalyzeImageAsync(bytes, "image/jpeg", msg.Caption?.Trim(), ct);
         await SendResultAsync(chatId, result, ct);
     }
 
     // ══════════════════════════════════════════════════════════
-    //  Обработка документов
+    //  Документ (изображение, отправленное как файл)
     // ══════════════════════════════════════════════════════════
 
-    /// <summary>Обрабатывает присланный документ (PDF или изображение).</summary>
     public async Task HandleDocumentAsync(Message msg, CancellationToken ct)
     {
-        var chatId = msg.Chat.Id;
-        var doc    = msg.Document!;
-
-        // Определяем MIME-тип из метаданных или расширения файла
+        var chatId   = msg.Chat.Id;
+        var doc      = msg.Document!;
         var mimeType = doc.MimeType ?? DetectMimeByExtension(doc.FileName);
 
         if (!IsSupportedMime(mimeType))
         {
             await _bot.SendMessage(
                 chatId,
-                "⚠️ <b>Неподдерживаемый формат файла.</b>\n\n" +
-                "GigaChat умеет читать изображения:\n" +
-                "🖼 JPG, PNG, GIF, WEBP\n\n" +
+                "⚠️ <b>Неподдерживаемый формат.</b>\n\n" +
+                "Llama Vision читает изображения: JPG, PNG, GIF, WEBP\n" +
                 "PDF не поддерживается — отправь страницы как фото.",
                 parseMode: ParseMode.Html,
                 cancellationToken: ct);
             return;
         }
 
-        await _bot.SendMessage(chatId, "🔍 Читаю документ...", cancellationToken: ct);
+        await _bot.SendMessage(chatId, "🔍 Читаю изображение...", cancellationToken: ct);
 
         var bytes = await DownloadFileAsync(doc.FileId, ct);
         if (bytes is null)
@@ -99,14 +83,13 @@ public class MediaHandler
         {
             await _bot.SendMessage(
                 chatId,
-                "⚠️ Файл слишком большой. Максимальный размер — 20 МБ.",
+                "⚠️ Файл слишком большой. Максимальный размер — 4 МБ.\n" +
+                "Попробуй отправить фото напрямую (Telegram сожмёт его автоматически).",
                 cancellationToken: ct);
             return;
         }
 
-        var caption = msg.Caption?.Trim();
-        var result  = await _gigaChat.AnalyzeMediaAsync(bytes, mimeType, caption, ct);
-
+        var result = await _vision.AnalyzeImageAsync(bytes, mimeType, msg.Caption?.Trim(), ct);
         await SendResultAsync(chatId, result, ct);
     }
 
@@ -114,10 +97,6 @@ public class MediaHandler
     //  Вспомогательные методы
     // ══════════════════════════════════════════════════════════
 
-    /// <summary>
-    /// Скачать файл из Telegram по fileId.
-    /// Возвращает null при ошибке.
-    /// </summary>
     private async Task<byte[]?> DownloadFileAsync(string fileId, CancellationToken ct)
     {
         try
@@ -133,20 +112,14 @@ public class MediaHandler
         }
     }
 
-    /// <summary>
-    /// Отправить ответ ИИ пользователю.
-    /// Если текст длиннее 4096 символов — разбиваем на части.
-    /// </summary>
     private async Task SendResultAsync(long chatId, string result, CancellationToken ct)
     {
-        // Заголовок (HTML)
         await _bot.SendMessage(
             chatId,
-            "🤖 <b>Ответ ИИ:</b>",
+            "🦙 <b>Llama Vision:</b>",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
 
-        // Основной текст (без HTML — чтобы не ломать спецсимволы из ответа Gemini)
         const int chunkSize = 4000;
         for (int i = 0; i < result.Length; i += chunkSize)
         {
@@ -155,7 +128,6 @@ public class MediaHandler
         }
     }
 
-    /// <summary>Определить MIME-тип по расширению файла</summary>
     private static string DetectMimeByExtension(string? fileName)
     {
         var ext = Path.GetExtension(fileName ?? "").ToLowerInvariant();
@@ -165,12 +137,10 @@ public class MediaHandler
             ".png"            => "image/png",
             ".gif"            => "image/gif",
             ".webp"           => "image/webp",
-            ".pdf"            => "application/pdf",
             _                 => "application/octet-stream"
         };
     }
 
-    /// <summary>Поддерживается ли данный MIME-тип GigaChat API</summary>
     private static bool IsSupportedMime(string mimeType) => mimeType is
         "image/jpeg" or "image/png" or "image/gif" or "image/webp";
 }

@@ -36,6 +36,22 @@ public class BotService : IHostedService
         var me = await _bot.GetMe(cancellationToken);
         _logger.LogInformation("Бот запущен: @{Username} (ID: {Id})", me.Username, me.Id);
 
+        // Регистрируем команды — они появятся в меню "/" у каждого пользователя
+        await _bot.SetMyCommands(
+            new[]
+            {
+                new Telegram.Bot.Types.BotCommand { Command = "plan",     Description = "📋 Задачи и ИИ-план учёбы" },
+                new Telegram.Bot.Types.BotCommand { Command = "schedule", Description = "🗓 Расписание занятий" },
+                new Telegram.Bot.Types.BotCommand { Command = "timer",    Description = "⏱ Таймер учёбы (Помодоро)" },
+                new Telegram.Bot.Types.BotCommand { Command = "rest",     Description = "☕ Таймер отдыха" },
+                new Telegram.Bot.Types.BotCommand { Command = "stop",     Description = "⏹ Остановить таймер" },
+                new Telegram.Bot.Types.BotCommand { Command = "fatigue",  Description = "😴 Уровень усталости" },
+                new Telegram.Bot.Types.BotCommand { Command = "status",   Description = "📊 Общий статус" },
+                new Telegram.Bot.Types.BotCommand { Command = "help",     Description = "❓ Справка" },
+            },
+            cancellationToken: cancellationToken);
+        _logger.LogInformation("Команды бота зарегистрированы.");
+
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
         // Настройки polling: принимаем только сообщения и callback query

@@ -35,14 +35,16 @@ public class CommandHandler
         session.State = UserState.Idle;
 
         await _bot.SendMessage(
-            chatId:    msg.Chat.Id,
-            text:      $"👋 Привет, <b>{session.FirstName}</b>!\n\n" +
-                       $"Я помогу тебе учиться эффективно:\n" +
-                       $"📋 Планировать задачи\n" +
-                       $"⏱ Запускать таймеры (Помодоро)\n" +
-                       $"😴 Следить за усталостью\n\n" +
-                       $"Используй /help чтобы увидеть все команды.",
-            parseMode: ParseMode.Html,
+            chatId:      msg.Chat.Id,
+            text:        $"👋 Привет, <b>{session.FirstName}</b>!\n\n" +
+                         $"Я помогу тебе учиться эффективно:\n" +
+                         $"📋 Планировать задачи и строить ИИ-план\n" +
+                         $"🗓 Вести расписание занятий\n" +
+                         $"⏱ Запускать таймеры (Помодоро)\n" +
+                         $"😴 Следить за усталостью\n\n" +
+                         $"Кнопки главного меню теперь всегда под рукой 👇",
+            parseMode:   ParseMode.Html,
+            replyMarkup: MainKeyboard(),
             cancellationToken: ct);
     }
 
@@ -74,7 +76,8 @@ public class CommandHandler
                        "твои задачи + расписание и составит план нагрузки\n" +
                        "📷 Отправь <b>фото расписания</b> — ИИ распознает его\n\n" +
                        "❓ /help — эта справка",
-            parseMode: ParseMode.Html,
+            parseMode:   ParseMode.Html,
+            replyMarkup: MainKeyboard(),
             cancellationToken: ct);
     }
 
