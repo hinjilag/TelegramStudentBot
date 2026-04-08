@@ -33,6 +33,21 @@ public class UserSession
     /// <summary>Черновик задачи при пошаговом добавлении</summary>
     public StudyTask? DraftTask { get; set; }
 
+    /// <summary>Сохранённое расписание пар (загружается через /schedule + фото)</summary>
+    public List<ScheduleEntry> Schedule { get; set; } = new();
+
+    /// <summary>
+    /// Временное хранилище расписания во время диалога выбора типа недели.
+    /// Очищается после подтверждения пользователем.
+    /// </summary>
+    public List<ScheduleEntry>? PendingSchedule { get; set; }
+
+    /// <summary>
+    /// Текущий тип недели: 1 = нечётная, 2 = чётная, null = не задан.
+    /// Используется для показа/напоминаний когда пара только на одной неделе.
+    /// </summary>
+    public int? CurrentWeekType { get; set; }
+
     /// <summary>Человекочитаемое описание уровня усталости</summary>
     public string FatigueDescription => FatigueLevel switch
     {
