@@ -8,7 +8,7 @@ using TelegramStudentBot.Services;
 namespace TelegramStudentBot.Handlers;
 
 /// <summary>
-/// Обработчик команд (/start, /help, /timer, /rest, /plan, /fatigue, /status, /stop).
+/// Обработчик команд (/start, /help, /timer, /rest, /plan, /fatigue, /status, /stop, /schedule).
 /// Каждый метод соответствует одной команде.
 /// </summary>
 public class CommandHandler
@@ -36,12 +36,8 @@ public class CommandHandler
 
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
-            text:      $"👋 Привет, <b>{session.FirstName}</b>!\n\n" +
-                       $"Я помогу тебе учиться эффективно:\n" +
-                       $"📋 Планировать задачи\n" +
-                       $"⏱ Запускать таймеры (Помодоро)\n" +
-                       $"😴 Следить за усталостью\n\n" +
-                       $"Используй /help чтобы увидеть все команды.",
+            text:      "👋 Привет! Я твой помощник-студент.\n" +
+                       "Ознакомься с командами в меню слева от клавиатуры.",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
     }
@@ -63,6 +59,8 @@ public class CommandHandler
                        "/rest — запустить таймер отдыха\n\n" +
                        "📋 <b>Планирование:</b>\n" +
                        "/plan — управление задачами\n\n" +
+                       "📅 <b>Расписание:</b>\n" +
+                       "/schedule — загрузить расписание из фото (ИИ-парсинг)\n\n" +
                        "😴 <b>Усталость:</b>\n" +
                        "/fatigue — показать уровень усталости\n\n" +
                        "📊 <b>Статус:</b>\n" +
@@ -235,6 +233,26 @@ public class CommandHandler
             replyMarkup: BuildPlanKeyboard(),
             cancellationToken: ct);
     }
+
+    // ══════════════════════════════════════════════════════════
+    //  /add_schedule  (и алиас /schedule)
+    // ══════════════════════════════════════════════════════════
+
+    /// <summary>Начать загрузку расписания: ждём фото от пользователя</summary>
+    public async Task HandleAddScheduleAsync(Message msg, CancellationToken ct)
+    {
+        var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
+        session.State = UserState.WaitingForSchedulePhoto;
+
+        await _bot.SendMessage(
+            chatId:    msg.Chat.Id,
+            text:      "📸 Отправь фото расписания пар.",
+            cancellationToken: ct);
+    }
+
+    /// <summary>Алиас для /schedule (обратная совместимость)</summary>
+    public Task HandleScheduleAsync(Message msg, CancellationToken ct)
+        => HandleAddScheduleAsync(msg, ct);
 
     // ══════════════════════════════════════════════════════════
     //  Построители клавиатур (приватные)
