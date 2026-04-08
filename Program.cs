@@ -31,17 +31,10 @@ var host = Host.CreateDefaultBuilder(args)
         // Сервис управления таймерами
         services.AddSingleton<TimerService>();
 
-        // GigaChat — текст и учебный план
-        services.AddSingleton<GigaChatService>();
-
-        // Llama 3.2 Vision (Groq) — распознавание изображений
-        services.AddSingleton<LlamaVisionService>();
-
         // Обработчики обновлений
         services.AddSingleton<CommandHandler>();
         services.AddSingleton<TextHandler>();
         services.AddSingleton<CallbackHandler>();
-        services.AddSingleton<MediaHandler>();
         services.AddSingleton<UpdateRouter>();
 
         // Фоновый сервис бота (запускается автоматически при старте хоста)

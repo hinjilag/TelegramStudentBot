@@ -38,7 +38,7 @@ public class CommandHandler
             chatId:      msg.Chat.Id,
             text:        $"👋 Привет, <b>{session.FirstName}</b>!\n\n" +
                          $"Я помогу тебе учиться эффективно:\n" +
-                         $"📋 Планировать задачи и строить ИИ-план\n" +
+                         $"📋 Планировать задачи\n" +
                          $"🗓 Вести расписание занятий\n" +
                          $"⏱ Запускать таймеры (Помодоро)\n" +
                          $"😴 Следить за усталостью\n\n" +
@@ -71,10 +71,6 @@ public class CommandHandler
                        "/status — общий дашборд (таймер + усталость + задачи)\n\n" +
                        "🗓 <b>Расписание:</b>\n" +
                        "/schedule — добавить и посмотреть расписание занятий\n\n" +
-                       "🤖 <b>ИИ-планирование:</b>\n" +
-                       "В меню /plan нажми «🤖 ИИ-план» — GigaChat проанализирует\n" +
-                       "твои задачи + расписание и составит план нагрузки\n" +
-                       "📷 Отправь <b>фото расписания</b> — ИИ распознает его\n\n" +
                        "❓ /help — эта справка",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
@@ -292,10 +288,6 @@ public class CommandHandler
             {
                 InlineKeyboardButton.WithCallbackData("➕ Добавить задачу", "plan_add"),
                 InlineKeyboardButton.WithCallbackData("📋 Показать план",   "plan_list")
-            },
-            new[]
-            {
-                InlineKeyboardButton.WithCallbackData("🤖 ИИ-план",         "plan_ai")
             }
         });
 
@@ -311,8 +303,7 @@ public class CommandHandler
 
         var text = count > 0
             ? $"🗓 <b>Расписание занятий</b>\nЗаписей: <b>{count}</b>\n\nЧто делаем?"
-            : "🗓 <b>Расписание занятий</b>\nРасписание пока не добавлено.\n\n" +
-              "Добавь занятия вручную или отправь <b>фото расписания</b> — ИИ распознает его.";
+            : "🗓 <b>Расписание занятий</b>\nРасписание пока не добавлено.";
 
         await _bot.SendMessage(
             chatId:      msg.Chat.Id,

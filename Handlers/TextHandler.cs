@@ -155,8 +155,7 @@ public class TextHandler
             text:      $"🎉 <b>Задача добавлена!</b>\n\n" +
                        $"📌 <b>{task.Title}</b>\n" +
                        $"📚 Предмет: {task.Subject}\n" +
-                       $"📅 Дедлайн: {deadlineText}\n\n" +
-                       $"В /plan → «🤖 ИИ-план» ИИ составит расписание учёбы.",
+                       $"📅 Дедлайн: {deadlineText}",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
     }
@@ -276,7 +275,7 @@ public class TextHandler
             text:      $"✅ <b>Занятие добавлено!</b>\n\n" +
                        $"🗓 <b>{entry.Day}</b>, {entry.Time}\n" +
                        $"📚 {entry.Subject}{roomText}\n\n" +
-                       $"Добавь ещё через /schedule или запроси ИИ-план через /plan → «🤖 ИИ-план».",
+                       $"Добавь ещё через /schedule.",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
     }

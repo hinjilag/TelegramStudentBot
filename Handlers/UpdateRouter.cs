@@ -11,28 +11,23 @@ namespace TelegramStudentBot.Handlers;
 ///   - Команды (/start, /help и т.д.) → CommandHandler
 ///   - Обычный текст в состоянии диалога → TextHandler
 ///   - Нажатие инлайн-кнопки → CallbackHandler
-///   - Фото → MediaHandler
-///   - Документ (PDF / изображение) → MediaHandler
 /// </summary>
 public class UpdateRouter
 {
     private readonly CommandHandler _commands;
     private readonly TextHandler    _text;
     private readonly CallbackHandler _callbacks;
-    private readonly MediaHandler   _media;
     private readonly ILogger<UpdateRouter> _logger;
 
     public UpdateRouter(
         CommandHandler commands,
         TextHandler    text,
         CallbackHandler callbacks,
-        MediaHandler   media,
         ILogger<UpdateRouter> logger)
     {
         _commands  = commands;
         _text      = text;
         _callbacks = callbacks;
-        _media     = media;
         _logger    = logger;
     }
 
@@ -64,25 +59,10 @@ public class UpdateRouter
 
     /// <summary>
     /// Обработать входящее сообщение.
-    /// Маршрутизирует по типу содержимого: текст, фото, документ.
+    /// Маршрутизирует по типу содержимого: текст.
     /// </summary>
     private async Task HandleMessageAsync(Message msg, CancellationToken ct)
     {
-        // ── Фото ─────────────────────────────────────────────
-        if (msg.Photo is not null)
-        {
-            await _media.HandlePhotoAsync(msg, ct);
-            return;
-        }
-
-        // ── Документ (PDF, изображение-файлом и т.д.) ────────
-        if (msg.Document is not null)
-        {
-            // Документы, присланные как фото через "Send as file", приходят сюда
-            await _media.HandleDocumentAsync(msg, ct);
-            return;
-        }
-
         // ── Текстовое сообщение ───────────────────────────────
         if (msg.Text is not null)
         {
