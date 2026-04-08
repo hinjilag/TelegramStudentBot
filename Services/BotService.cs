@@ -40,7 +40,7 @@ public class BotService : IHostedService
         await _bot.SetMyCommands(
             new[]
             {
-                new Telegram.Bot.Types.BotCommand { Command = "plan",     Description = "📋 Задачи и ИИ-план учёбы" },
+                new Telegram.Bot.Types.BotCommand { Command = "plan",     Description = "📋 Задачи и план учёбы" },
                 new Telegram.Bot.Types.BotCommand { Command = "schedule", Description = "🗓 Расписание занятий" },
                 new Telegram.Bot.Types.BotCommand { Command = "timer",    Description = "⏱ Таймер учёбы (Помодоро)" },
                 new Telegram.Bot.Types.BotCommand { Command = "rest",     Description = "☕ Таймер отдыха" },
