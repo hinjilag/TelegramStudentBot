@@ -17,4 +17,22 @@ public enum UserState
 
     /// <summary>Ожидание произвольного времени таймера в минутах</summary>
     WaitingForTimerMinutes,
+
+    /// <summary>Ожидание фотографии расписания (после /add_schedule)</summary>
+    WaitingForSchedulePhoto,
+
+    /// <summary>
+    /// Расписание распознано, ждём подтверждения от пользователя.
+    /// PendingSchedule содержит распознанные записи.
+    /// </summary>
+    WaitingForScheduleConfirmation,
+
+    /// <summary>
+    /// Пользователь нажал "Исправить" — ждём текст с исправлением.
+    /// Например: "первой парой в среду у меня не мат анализ, а линейная алгебра"
+    /// </summary>
+    WaitingForScheduleCorrection,
+
+    /// <summary>Ожидание выбора типа недели (нечётная/чётная) — после подтверждения расписания</summary>
+    WaitingForWeekChoice,
 }

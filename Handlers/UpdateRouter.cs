@@ -53,7 +53,25 @@ public class UpdateRouter
                 return;
             }
 
-            // Остальные типы обновлений (фото, стикеры и т.д.) игнорируем
+            // Фотография (сжатая Telegram'ом)
+            if (update.Type == UpdateType.Message && update.Message?.Photo is not null)
+            {
+                await _text.HandlePhotoAsync(update.Message, ct);
+                return;
+            }
+
+            // Документ — возможно несжатое изображение
+            if (update.Type == UpdateType.Message && update.Message?.Document is not null)
+            {
+                var mime = update.Message.Document.MimeType ?? string.Empty;
+                if (mime.StartsWith("image/"))
+                {
+                    await _text.HandlePhotoAsync(update.Message, ct);
+                    return;
+                }
+            }
+
+            // Остальные типы обновлений (стикеры, аудио и т.д.) игнорируем
         }
         catch (Exception ex)
         {
@@ -121,6 +139,14 @@ public class UpdateRouter
 
             case "/plan":
                 await _commands.HandlePlanAsync(msg, ct);
+                break;
+
+            case "/schedule":
+                await _commands.HandleScheduleAsync(msg, ct);
+                break;
+
+            case "/add_schedule":
+                await _commands.HandleAddScheduleAsync(msg, ct);
                 break;
 
             default:

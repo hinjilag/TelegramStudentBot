@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Telegram.Bot;
 using TelegramStudentBot.Handlers;
 using TelegramStudentBot.Services;
+using Microsoft.Extensions.Configuration;
 
 // ──────────────────────────────────────────────────────────────
 //  Точка входа — настройка DI и запуск хоста
@@ -30,6 +31,21 @@ var host = Host.CreateDefaultBuilder(args)
 
         // Сервис управления таймерами
         services.AddSingleton<TimerService>();
+
+        // Сервис парсинга расписания через Ollama
+        // HttpClient создаём вручную (без IHttpClientFactory) — пакет Microsoft.Extensions.Http не подключён
+        services.AddSingleton<ScheduleService>(sp =>
+        {
+            var cfg     = sp.GetRequiredService<IConfiguration>();
+            var logger  = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<TelegramStudentBot.Services.ScheduleService>>();
+            var baseUrl = (cfg["OllamaUrl"] ?? "http://localhost:11434").TrimEnd('/');
+            var client  = new System.Net.Http.HttpClient
+            {
+                BaseAddress = new Uri(baseUrl),
+                Timeout     = TimeSpan.FromMinutes(6)   // VL-модели медленные
+            };
+            return new TelegramStudentBot.Services.ScheduleService(client, cfg, logger);
+        });
 
         // Обработчики обновлений
         services.AddSingleton<CommandHandler>();
