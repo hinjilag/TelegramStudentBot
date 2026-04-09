@@ -22,6 +22,10 @@ build/
 appsettings*.json
 !appsettings.example.json
 
+# Local bot/runtime data
+.claude/settings.local.json
+Data/user-*.json
+
 # User-specific files
 *.swp
 *~
