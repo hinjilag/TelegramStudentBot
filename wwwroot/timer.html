@@ -259,6 +259,31 @@
       box-shadow: 0 0 12px var(--glow);
     }
 
+    #stopTimerBtn {
+      position: fixed;
+      left: 50%; bottom: 22px;
+      transform: translateX(-50%);
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0;
+      padding: 12px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      z-index: 15;
+      transition: transform 0.2s, opacity 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    #stopTimerBtn:active { transform: translateX(-50%) scale(0.96); }
+    #stopTimerBtn:disabled {
+      cursor: default;
+      opacity: 0.55;
+      border-color: var(--ring);
+      box-shadow: 0 0 10px var(--glow);
+    }
+
     @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
     @keyframes pop {
       0%   { transform: scale(0) rotate(-10deg); opacity:0; }
@@ -271,6 +296,9 @@
 
   <!-- Кнопка музыки -->
   <button id="musicBtn" onclick="toggleMusic()" title="Lo-fi музыка">🎵</button>
+
+  <!-- Остановка таймера -->
+  <button id="stopTimerBtn" onclick="stopTimerFromMiniApp()">⏹ Остановить</button>
 
   <!-- Звёзды -->
   <div id="stars"></div>
@@ -437,6 +465,8 @@
 
   /* ─── Завершение ────────────────────────────────────────────── */
   function showDone() {
+    document.getElementById('stopTimerBtn').style.display = 'none';
+
     // Плавно выключаем музыку
     if (musicOn) {
       stopLofi();
@@ -462,6 +492,28 @@
         tg.sendData(JSON.stringify({ type: TYPE, done: true }));
       }, 2000);
     }
+  }
+
+  function stopTimerFromMiniApp() {
+    if (finished) return;
+
+    finished = true;
+    stopLofi();
+
+    const btn = document.getElementById('stopTimerBtn');
+    btn.disabled = true;
+    btn.textContent = '⏹ Остановлено';
+
+    if (tg) {
+      tg.sendData(JSON.stringify({ action: 'stop_timer', type: TYPE }));
+      setTimeout(() => tg.close(), 500);
+      return;
+    }
+
+    timeEl.textContent = '00:00';
+    barEl.style.width = '0%';
+    ringEl.style.strokeDashoffset = CIRC;
+    ringGl.style.strokeDashoffset = CIRC;
   }
 
   /* ─── Lo-fi аудио (HTML5 Audio) ───────────────────────────── */
