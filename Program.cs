@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Telegram.Bot;
 using TelegramStudentBot.Handlers;
@@ -9,9 +10,25 @@ using TelegramStudentBot.Services;
 // ──────────────────────────────────────────────────────────────
 
 var host = Host.CreateDefaultBuilder(args)
+    .ConfigureAppConfiguration((ctx, config) =>
+    {
+        // Локальный файл с секретами: помогает, если IDE не передала DOTNET_ENVIRONMENT=Development.
+        config.AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: true);
+
+        var localSettingsPath = FindFileUpwards("appsettings.Development.json");
+        if (localSettingsPath is not null)
+        {
+            config.AddJsonFile(localSettingsPath, optional: true, reloadOnChange: true);
+            Console.WriteLine($"[DEBUG] Локальные настройки найдены: {localSettingsPath}");
+        }
+        else
+        {
+            Console.WriteLine("[DEBUG] appsettings.Development.json не найден рядом с папкой запуска.");
+        }
+    })
     .ConfigureServices((ctx, services) =>
     {
-        // Читаем токен из appsettings.json
+        // Читаем токен из переменной окружения, appsettings.json или локального appsettings.Development.json.
         var rawToken = ctx.Configuration["BotToken"];
         if (string.IsNullOrWhiteSpace(rawToken))
         {
@@ -54,3 +71,22 @@ var host = Host.CreateDefaultBuilder(args)
     .Build();
 
 await host.RunAsync();
+
+static string? FindFileUpwards(string fileName)
+{
+    foreach (var startPath in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
+    {
+        var directory = new DirectoryInfo(startPath);
+
+        while (directory is not null)
+        {
+            var candidate = Path.Combine(directory.FullName, fileName);
+            if (File.Exists(candidate))
+                return candidate;
+
+            directory = directory.Parent;
+        }
+    }
+
+    return null;
+}
