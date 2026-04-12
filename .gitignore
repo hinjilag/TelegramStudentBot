@@ -18,9 +18,9 @@ build/
 .idea/
 *.sln.iml
 
-# ASP.NET
-appsettings.*.json
-appsettings.Local.json
+# ASP.NET (local secrets and environment config)
+appsettings*.json
+!appsettings.example.json
 
 # User-specific files
 *.swp
