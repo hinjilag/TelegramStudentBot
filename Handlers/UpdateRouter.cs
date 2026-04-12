@@ -1,7 +1,9 @@
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using TelegramStudentBot.Services;
 
 namespace TelegramStudentBot.Handlers;
 
@@ -17,17 +19,20 @@ public class UpdateRouter
     private readonly CommandHandler _commands;
     private readonly TextHandler    _text;
     private readonly CallbackHandler _callbacks;
+    private readonly TimerService _timers;
     private readonly ILogger<UpdateRouter> _logger;
 
     public UpdateRouter(
         CommandHandler commands,
         TextHandler    text,
         CallbackHandler callbacks,
+        TimerService timers,
         ILogger<UpdateRouter> logger)
     {
         _commands  = commands;
         _text      = text;
         _callbacks = callbacks;
+        _timers    = timers;
         _logger    = logger;
     }
 
@@ -48,7 +53,7 @@ public class UpdateRouter
 
             if (update.Type == UpdateType.Message && update.Message is not null)
             {
-                await HandleMessageAsync(update.Message, ct);
+                await HandleMessageAsync(bot, update.Message, ct);
             }
         }
         catch (Exception ex)
@@ -61,11 +66,17 @@ public class UpdateRouter
     /// Обработать входящее сообщение.
     /// Маршрутизирует по типу содержимого: текст.
     /// </summary>
-    private async Task HandleMessageAsync(Message msg, CancellationToken ct)
+    private async Task HandleMessageAsync(ITelegramBotClient bot, Message msg, CancellationToken ct)
     {
         if (msg.From is null)
         {
             _logger.LogDebug("Сообщение без отправителя пропущено. ChatId: {ChatId}", msg.Chat.Id);
+            return;
+        }
+
+        if (msg.WebAppData is not null)
+        {
+            await HandleWebAppDataAsync(bot, msg, ct);
             return;
         }
 
@@ -89,6 +100,43 @@ public class UpdateRouter
                 await _text.HandleAsync(msg, ct);
             }
         }
+    }
+
+    /// <summary>Обработать данные, отправленные из Telegram Mini App.</summary>
+    private async Task HandleWebAppDataAsync(ITelegramBotClient bot, Message msg, CancellationToken ct)
+    {
+        var data = msg.WebAppData?.Data;
+        if (string.IsNullOrWhiteSpace(data))
+            return;
+
+        string? action = null;
+        try
+        {
+            using var payload = JsonDocument.Parse(data);
+            if (payload.RootElement.TryGetProperty("action", out var actionElement))
+            {
+                action = actionElement.GetString();
+            }
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Некорректные данные из Mini App: {Data}", data);
+            return;
+        }
+
+        if (action != "stop_timer")
+            return;
+
+        var stopped = _timers.StopTimer(msg.From!.Id);
+        var text = stopped
+            ? "⏹ Таймер остановлен из Mini App."
+            : "ℹ️ Нет активного таймера.";
+
+        await bot.SendMessage(
+            chatId: msg.Chat.Id,
+            text: text,
+            parseMode: ParseMode.Html,
+            cancellationToken: ct);
     }
 
     /// <summary>Маршрутизация команд по имени</summary>

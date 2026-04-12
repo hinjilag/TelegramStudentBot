@@ -50,3 +50,6 @@ appsettings.Development.json
 secrets.json
 .env
 *.env
+
+# Local tools downloaded for development
+tools/

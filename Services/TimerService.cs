@@ -21,6 +21,7 @@ public class TimerService
     private readonly ILogger<TimerService> _logger;
     private readonly IHostApplicationLifetime _lifetime;
     private readonly string? _webAppUrl;
+    private readonly string? _webAppStopUrl;
 
     public TimerService(
         ITelegramBotClient bot,
@@ -34,6 +35,7 @@ public class TimerService
         _logger    = logger;
         _lifetime  = lifetime;
         _webAppUrl = config["WebAppUrl"]?.TrimEnd('/');
+        _webAppStopUrl = config["WebAppStopUrl"]?.TrimEnd('/');
     }
 
     // ──────────────────────────────────────────────
@@ -66,7 +68,7 @@ public class TimerService
                               $"Завершится в: <b>{endTime}</b>\n\n" +
                               $"Сосредоточься и не отвлекайся 💪",
             parseMode:        ParseMode.Html,
-            replyMarkup:      BuildWebAppButton(timer),
+            replyMarkup:      BuildWebAppButton(timer, chatId, userId),
             cancellationToken: CancellationToken.None);
 
         // Запускаем фоновое ожидание — не блокируем вызывающий поток
@@ -101,7 +103,7 @@ public class TimerService
                               $"Завершится в: <b>{endTime}</b>\n\n" +
                               $"Расслабься, отдохни от экрана 🧘",
             parseMode:        ParseMode.Html,
-            replyMarkup:      BuildWebAppButton(timer),
+            replyMarkup:      BuildWebAppButton(timer, chatId, userId),
             cancellationToken: CancellationToken.None);
 
         _ = RunTimerAsync(chatId, userId, timer);
@@ -123,6 +125,24 @@ public class TimerService
         return true;
     }
 
+    /// <summary>Остановить таймер, только если ID запуска совпадает с текущим активным таймером.</summary>
+    public bool StopTimer(long userId, Guid timerId)
+    {
+        var session = _sessions.Get(userId);
+        if (session?.ActiveTimer is null || session.ActiveTimer.Id != timerId)
+            return false;
+
+        CancelActiveTimer(session);
+        return true;
+    }
+
+    /// <summary>Проверить, активен ли конкретный запуск таймера.</summary>
+    public bool IsTimerActive(long userId, Guid timerId)
+    {
+        var session = _sessions.Get(userId);
+        return session?.ActiveTimer?.Id == timerId;
+    }
+
     // ──────────────────────────────────────────────
     //  Внутренняя логика
     // ──────────────────────────────────────────────
@@ -131,7 +151,7 @@ public class TimerService
     /// Строит инлайн-кнопку для открытия Mini App.
     /// Если WebAppUrl не задан — возвращает null (кнопка не отображается).
     /// </summary>
-    private InlineKeyboardMarkup? BuildWebAppButton(ActiveTimer timer)
+    private InlineKeyboardMarkup? BuildWebAppButton(ActiveTimer timer, long chatId, long userId)
     {
         if (string.IsNullOrWhiteSpace(_webAppUrl))
             return null;
@@ -140,8 +160,17 @@ public class TimerService
         var duration = timer.DurationMinutes * 60;
         var started  = new DateTimeOffset(timer.StartedAt).ToUnixTimeMilliseconds();
         // Поддерживаем оба варианта: GitHub Pages (/timer.html) и встроенный сервер (/timer)
-        var timerPath = _webAppUrl!.Contains("github.io") ? "/timer.html" : "/timer";
+        var isStaticPage = _webAppUrl!.Contains("github.io", StringComparison.OrdinalIgnoreCase);
+        var timerPath = isStaticPage ? "/timer.html" : "/timer";
         var url       = $"{_webAppUrl}{timerPath}?type={type}&duration={duration}&started={started}";
+
+        var stopBaseUrl = isStaticPage ? _webAppStopUrl : _webAppUrl;
+        if (!string.IsNullOrWhiteSpace(stopBaseUrl))
+        {
+            var stopUrl = Uri.EscapeDataString($"{stopBaseUrl}/timer/stop");
+            var statusUrl = Uri.EscapeDataString($"{stopBaseUrl}/timer/status");
+            url += $"&userId={userId}&chatId={chatId}&timerId={timer.Id:N}&stopUrl={stopUrl}&statusUrl={statusUrl}";
+        }
 
         var label = timer.Type == TimerType.Work ? "📚 Открыть таймер" : "☕ Открыть таймер";
 

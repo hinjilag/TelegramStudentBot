@@ -236,18 +236,26 @@
       to   { width:300px; height:300px; opacity:0; }
     }
 
-    /* ── Кнопка музыки ─────────────────────────────────────────── */
-    #musicBtn {
+    /* ── Кнопки музыки ────────────────────────────────────────── */
+    .audio-controls {
       position: fixed;
-      top: 14px; right: 14px;
+      left: 50%;
+      bottom: 146px;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      z-index: 16;
+    }
+    #musicBtn {
       background: var(--bar);
       border: 1px solid rgba(255,255,255,0.08);
       color: var(--text-dim);
-      font-size: 18px;
-      width: 38px; height: 38px;
-      border-radius: 50%;
+      font-size: 20px;
+      width: 48px; height: 44px;
+      border-radius: 8px;
       cursor: pointer;
-      z-index: 15;
       transition: all 0.25s;
       display: flex; align-items: center; justify-content: center;
       padding: 0;
@@ -257,6 +265,53 @@
       color: var(--text);
       border-color: var(--ring);
       box-shadow: 0 0 12px var(--glow);
+    }
+
+    #trackBtn {
+      background: var(--bar);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--text-dim);
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0;
+      height: 44px;
+      min-width: 116px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.25s;
+      padding: 0 12px;
+    }
+    #trackBtn:active { transform: scale(0.96); }
+    #trackBtn.active {
+      color: var(--text);
+      border-color: var(--ring);
+      box-shadow: 0 0 12px var(--glow);
+    }
+
+    #stopTimerBtn {
+      position: fixed;
+      left: 50%; bottom: 92px;
+      transform: translateX(-50%);
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0;
+      padding: 12px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      z-index: 15;
+      transition: transform 0.2s, opacity 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    #stopTimerBtn:active { transform: translateX(-50%) scale(0.96); }
+    #stopTimerBtn:disabled {
+      cursor: default;
+      opacity: 0.55;
+      border-color: var(--ring);
+      box-shadow: 0 0 10px var(--glow);
     }
 
     @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
@@ -269,8 +324,14 @@
 </head>
 <body>
 
-  <!-- Кнопка музыки -->
-  <button id="musicBtn" onclick="toggleMusic()" title="Lo-fi музыка">🎵</button>
+  <!-- Кнопки музыки -->
+  <div class="audio-controls">
+    <button id="musicBtn" type="button" title="Lo-fi музыка">🎵</button>
+    <button id="trackBtn" type="button" title="Выбрать lo-fi трек">♫ Tape</button>
+  </div>
+
+  <!-- Остановка таймера -->
+  <button id="stopTimerBtn" type="button">⏹ Остановить</button>
 
   <!-- Звёзды -->
   <div id="stars"></div>
@@ -327,6 +388,11 @@
   const TYPE     = params.get('type')     || 'work';        // work | rest
   const DURATION = parseInt(params.get('duration') || '1500'); // секунды
   const STARTED  = parseInt(params.get('started')  || Date.now()); // ms
+  const USER_ID  = params.get('userId');
+  const CHAT_ID  = params.get('chatId');
+  const TIMER_ID = params.get('timerId');
+  const STOP_URL = params.get('stopUrl');
+  const STATUS_URL = params.get('statusUrl') || (STOP_URL ? STOP_URL.replace(/\/timer\/stop$/, '/timer/status') : null);
 
   const isRest = TYPE === 'rest';
   const CIRC   = 628.3;  // 2π × 100
@@ -437,6 +503,8 @@
 
   /* ─── Завершение ────────────────────────────────────────────── */
   function showDone() {
+    document.getElementById('stopTimerBtn').style.display = 'none';
+
     // Плавно выключаем музыку
     if (musicOn) {
       stopLofi();
@@ -464,12 +532,164 @@
     }
   }
 
+  function showStoppedScreen() {
+    finished = true;
+    stopLofi();
+    document.getElementById('stopTimerBtn').style.display = 'none';
+    document.getElementById('musicBtn').style.display = 'none';
+    document.getElementById('trackBtn').style.display = 'none';
+    timeEl.textContent = '00:00';
+    barEl.style.width = '0%';
+    ringEl.style.strokeDashoffset = CIRC;
+    ringGl.style.strokeDashoffset = CIRC;
+    document.getElementById('doneEmoji').textContent = '⏹';
+    document.getElementById('doneTitle').textContent = 'ТАЙМЕР ЗАВЕРШЕН';
+    document.getElementById('doneSubtitle').textContent = 'МОЖНО ЗАПУСТИТЬ НОВЫЙ';
+    document.getElementById('doneScreen').classList.add('show');
+  }
+
+  async function isTimerStillActive() {
+    if (!STATUS_URL || !USER_ID || !TIMER_ID) return true;
+
+    try {
+      const url = new URL(STATUS_URL);
+      url.searchParams.set('userId', USER_ID);
+      url.searchParams.set('timerId', TIMER_ID);
+      const response = await fetch(url.toString(), { method: 'GET' });
+      if (!response.ok) return true;
+      const result = await response.json();
+      return result.active !== false;
+    } catch {
+      return true;
+    }
+  }
+
+  async function stopTimerFromMiniApp() {
+    if (finished) return;
+
+    finished = true;
+    stopLofi();
+
+    const btn = document.getElementById('stopTimerBtn');
+    btn.disabled = true;
+    btn.textContent = '⏹ Остановлено';
+
+    if (STOP_URL && USER_ID && CHAT_ID && TIMER_ID) {
+      try {
+        const url = new URL(STOP_URL);
+        url.searchParams.set('userId', USER_ID);
+        url.searchParams.set('chatId', CHAT_ID);
+        url.searchParams.set('timerId', TIMER_ID);
+
+        const response = await fetch(url.toString(), { method: 'POST' });
+        if (!response.ok) throw new Error('stop failed');
+        const result = await response.json();
+        if (!result.ok) throw new Error(result.message || 'stop failed');
+
+        showStoppedScreen();
+        if (tg) setTimeout(() => tg.close(), 500);
+        return;
+      } catch {
+        btn.disabled = false;
+        btn.textContent = 'Повторить остановку';
+        finished = false;
+        return;
+      }
+    }
+
+    if (tg) {
+      tg.sendData(JSON.stringify({ action: 'stop_timer', type: TYPE }));
+      setTimeout(() => tg.close(), 500);
+      return;
+    }
+
+    timeEl.textContent = '00:00';
+    barEl.style.width = '0%';
+    ringEl.style.strokeDashoffset = CIRC;
+    ringGl.style.strokeDashoffset = CIRC;
+  }
+
   /* ─── Lo-fi аудио (HTML5 Audio) ───────────────────────────── */
-  // Файл lofi.mp3 должен лежать рядом с timer.html на GitHub Pages
   let musicOn = false;
-  const audio = new Audio('./lofi.mp3');
+  const tracks = [
+    {
+      name: 'Tape',
+      sources: ['./lofi.mp3']
+    },
+    {
+      name: 'First Girl',
+      sources: ['./barradeen-first-girl-talking-to-me.mp3']
+    },
+    {
+      name: 'Life',
+      sources: ['./extenz-life.mp3']
+    },
+    {
+      name: 'No Words',
+      sources: ['./le-gang-i-dont-need-u-2-say-anything.mp3']
+    }
+  ];
+  let trackIndex = 0;
+  let audioSourceIndex = 0;
+  const audio = new Audio();
   audio.loop   = true;
   audio.volume = 0.45;
+
+  function playLofi() {
+    const track = tracks[trackIndex];
+    audioSourceIndex = 0;
+    return playAudioFile(track);
+  }
+
+  function playAudioFile(track) {
+    audio.src = track.sources[audioSourceIndex];
+    return audio.play().catch((err) => {
+      if (audioSourceIndex < track.sources.length - 1) {
+        audioSourceIndex++;
+        return playAudioFile(track);
+      }
+      throw err;
+    });
+  }
+
+  function updateTrackButton() {
+    const btn = document.getElementById('trackBtn');
+    btn.style.display = tracks.length > 1 ? 'block' : 'none';
+    btn.textContent = `♫ ${tracks[trackIndex].name}`;
+    btn.classList.toggle('active', musicOn);
+  }
+
+  function showAudioError() {
+    const btn = document.getElementById('musicBtn');
+    btn.textContent = '!';
+    setTimeout(() => {
+      if (!musicOn) btn.textContent = '🎵';
+    }, 900);
+  }
+
+  function switchTrack() {
+    if (tracks.length <= 1) return;
+
+    const musicBtn = document.getElementById('musicBtn');
+    audio.pause();
+    audio.currentTime = 0;
+
+    trackIndex = (trackIndex + 1) % tracks.length;
+    updateTrackButton();
+
+    playLofi().then(() => {
+      musicOn = true;
+      musicBtn.textContent = '🔇';
+      musicBtn.classList.add('active');
+      updateTrackButton();
+    }).catch(() => {
+        musicOn = false;
+        musicBtn.textContent = '🎵';
+        musicBtn.classList.remove('active');
+        updateTrackButton();
+        showAudioError();
+    });
+  }
 
   function toggleMusic() {
     const btn = document.getElementById('musicBtn');
@@ -478,14 +698,18 @@
       musicOn = false;
       btn.textContent = '🎵';
       btn.classList.remove('active');
+      updateTrackButton();
     } else {
-      audio.play().then(() => {
+      playLofi().then(() => {
         musicOn = true;
         btn.textContent = '🔇';
         btn.classList.add('active');
+        updateTrackButton();
       }).catch(() => {
         btn.textContent = '🎵';
         btn.classList.remove('active');
+        updateTrackButton();
+        showAudioError();
       });
     }
   }
@@ -495,11 +719,38 @@
       audio.pause();
       audio.currentTime = 0;
       musicOn = false;
+      updateTrackButton();
     }
   }
 
+  function bindControls() {
+    bindTap(document.getElementById('musicBtn'), toggleMusic);
+    bindTap(document.getElementById('trackBtn'), switchTrack);
+    bindTap(document.getElementById('stopTimerBtn'), stopTimerFromMiniApp);
+  }
+
+  function bindTap(element, handler) {
+    element.addEventListener('pointerup', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      handler();
+    });
+  }
+
+  async function initTimer() {
+    bindControls();
+    updateTrackButton();
+
+    if (!(await isTimerStillActive())) {
+      showStoppedScreen();
+      return;
+    }
+
+    tick();
+  }
+
   /* ─── Старт ─────────────────────────────────────────────────── */
-  tick();
+  initTimer();
 </script>
 </body>
 </html>
