@@ -50,6 +50,9 @@ Desktop.ini
 # Generated files
 *.generated.cs
 
+# Local assistant/tool settings
+.claude/settings.local.json
+
 # Optional: recommended for EF Core migrations
 Migrations/*.Designer.cs
 Migrations/*.resx
