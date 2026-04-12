@@ -2,6 +2,7 @@ using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
+using TelegramStudentBot.Helpers;
 using TelegramStudentBot.Models;
 using TelegramStudentBot.Services;
 
@@ -33,10 +34,11 @@ public class CommandHandler
     {
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
         session.State = UserState.Idle;
+        var firstName = TelegramHtml.Escape(session.FirstName);
 
         await _bot.SendMessage(
             chatId:      msg.Chat.Id,
-            text:        $"👋 Привет, <b>{session.FirstName}</b>!\n\n" +
+            text:        $"👋 Привет, <b>{firstName}</b>!\n\n" +
                          $"Я помогу тебе учиться эффективно:\n" +
                          $"📋 Планировать задачи\n" +
                          $"🗓 Вести расписание занятий\n" +
@@ -180,6 +182,7 @@ public class CommandHandler
     public async Task HandleStatusAsync(Message msg, CancellationToken ct)
     {
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
+        var firstName = TelegramHtml.Escape(session.FirstName);
 
         // Блок таймера
         string timerBlock;
@@ -210,7 +213,7 @@ public class CommandHandler
 
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
-            text:      $"📊 <b>Твой статус, {session.FirstName}</b>\n\n" +
+            text:      $"📊 <b>Твой статус, {firstName}</b>\n\n" +
                        $"🕐 <b>Таймер:</b>\n{timerBlock}\n\n" +
                        $"😴 <b>Усталость:</b>\n{fatBlock}\n\n" +
                        $"📋 <b>Задачи:</b>\n{taskBlock}",

@@ -63,6 +63,12 @@ public class UpdateRouter
     /// </summary>
     private async Task HandleMessageAsync(Message msg, CancellationToken ct)
     {
+        if (msg.From is null)
+        {
+            _logger.LogDebug("Сообщение без отправителя пропущено. ChatId: {ChatId}", msg.Chat.Id);
+            return;
+        }
+
         // ── Текстовое сообщение ───────────────────────────────
         if (msg.Text is not null)
         {

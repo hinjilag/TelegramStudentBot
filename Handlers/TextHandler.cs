@@ -1,6 +1,7 @@
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using TelegramStudentBot.Helpers;
 using TelegramStudentBot.Models;
 using TelegramStudentBot.Services;
 
@@ -92,7 +93,7 @@ public class TextHandler
 
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
-            text:      $"✅ Название: <b>{text}</b>\n\nВведи <b>предмет</b> (например: Математика):",
+            text:      $"✅ Название: <b>{TelegramHtml.Escape(text)}</b>\n\nВведи <b>предмет</b> (например: Математика):",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
     }
@@ -110,7 +111,7 @@ public class TextHandler
 
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
-            text:      $"✅ Предмет: <b>{text}</b>\n\n" +
+            text:      $"✅ Предмет: <b>{TelegramHtml.Escape(text)}</b>\n\n" +
                        $"Введи <b>дедлайн</b> в формате ДД.ММ.ГГГГ\n" +
                        $"(или напиши <b>нет</b>, чтобы пропустить):",
             parseMode: ParseMode.Html,
@@ -153,8 +154,8 @@ public class TextHandler
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
             text:      $"🎉 <b>Задача добавлена!</b>\n\n" +
-                       $"📌 <b>{task.Title}</b>\n" +
-                       $"📚 Предмет: {task.Subject}\n" +
+                       $"📌 <b>{TelegramHtml.Escape(task.Title)}</b>\n" +
+                       $"📚 Предмет: {TelegramHtml.Escape(task.Subject)}\n" +
                        $"📅 Дедлайн: {deadlineText}",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
@@ -191,6 +192,16 @@ public class TextHandler
     /// <summary>Шаг 1: день недели</summary>
     private async Task HandleScheduleDayAsync(Message msg, UserSession session, string text, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            await _bot.SendMessage(
+                msg.Chat.Id,
+                "⚠️ Введи один из дней:\n" +
+                "Понедельник / Вторник / Среда / Четверг / Пятница / Суббота / Воскресенье",
+                cancellationToken: ct);
+            return;
+        }
+
         // Нормализуем первую букву
         var day = char.ToUpper(text[0]) + text[1..].ToLower();
 
@@ -228,7 +239,7 @@ public class TextHandler
 
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
-            text:      $"✅ Предмет: <b>{text}</b>\n\n" +
+            text:      $"✅ Предмет: <b>{TelegramHtml.Escape(text)}</b>\n\n" +
                        $"Введи <b>время занятия</b>\n(например: <code>09:00-10:30</code> или <code>9:00</code>):",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
@@ -248,7 +259,7 @@ public class TextHandler
 
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
-            text:      $"✅ Время: <b>{text}</b>\n\n" +
+            text:      $"✅ Время: <b>{TelegramHtml.Escape(text)}</b>\n\n" +
                        $"Введи <b>аудиторию</b> (или напиши <b>нет</b> чтобы пропустить):",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
@@ -268,13 +279,13 @@ public class TextHandler
         session.DraftSchedule = null;
         session.State         = UserState.Idle;
 
-        var roomText = string.IsNullOrWhiteSpace(entry.Room) ? "" : $", ауд. {entry.Room}";
+        var roomText = string.IsNullOrWhiteSpace(entry.Room) ? "" : $", ауд. {TelegramHtml.Escape(entry.Room)}";
 
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
             text:      $"✅ <b>Занятие добавлено!</b>\n\n" +
-                       $"🗓 <b>{entry.Day}</b>, {entry.Time}\n" +
-                       $"📚 {entry.Subject}{roomText}\n\n" +
+                       $"🗓 <b>{TelegramHtml.Escape(entry.Day)}</b>, {TelegramHtml.Escape(entry.Time)}\n" +
+                       $"📚 {TelegramHtml.Escape(entry.Subject)}{roomText}\n\n" +
                        $"Добавь ещё через /schedule.",
             parseMode: ParseMode.Html,
             cancellationToken: ct);

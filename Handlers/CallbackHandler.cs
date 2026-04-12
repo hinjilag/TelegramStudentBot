@@ -2,6 +2,7 @@ using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
+using TelegramStudentBot.Helpers;
 using TelegramStudentBot.Models;
 using TelegramStudentBot.Services;
 
@@ -42,13 +43,16 @@ public class CallbackHandler
     /// <summary>Обработать входящий callback query</summary>
     public async Task HandleAsync(CallbackQuery query, CancellationToken ct)
     {
-        var chatId = query.Message!.Chat.Id;
         var userId = query.From.Id;
         var data   = query.Data ?? string.Empty;
 
         // Подтверждаем получение (убирает часики у кнопки в Telegram)
         await _bot.AnswerCallbackQuery(query.Id, cancellationToken: ct);
 
+        if (query.Message is null)
+            return;
+
+        var chatId = query.Message.Chat.Id;
         var session = _sessions.GetOrCreate(userId, query.From.FirstName);
 
         // ── Таймеры ──────────────────────────────────────────
@@ -192,9 +196,10 @@ public class CallbackHandler
             case "done":
             {
                 task.IsCompleted = true;
+                var title = TelegramHtml.Escape(task.Title);
                 await _bot.SendMessage(
                     chatId:    chatId,
-                    text:      $"✅ Задача <b>«{task.Title}»</b> отмечена как выполненная! 🎉",
+                    text:      $"✅ Задача <b>«{title}»</b> отмечена как выполненная! 🎉",
                     parseMode: ParseMode.Html,
                     cancellationToken: ct);
                 break;
@@ -202,10 +207,11 @@ public class CallbackHandler
 
             case "del":
             {
+                var title = TelegramHtml.Escape(task.Title);
                 session.Tasks.Remove(task);
                 await _bot.SendMessage(
                     chatId:    chatId,
-                    text:      $"🗑 Задача <b>«{task.Title}»</b> удалена.",
+                    text:      $"🗑 Задача <b>«{title}»</b> удалена.",
                     parseMode: ParseMode.Html,
                     cancellationToken: ct);
                 break;
@@ -277,8 +283,10 @@ public class CallbackHandler
             sb.AppendLine($"<b>{day}:</b>");
             foreach (var e in entries)
             {
-                var room = string.IsNullOrWhiteSpace(e.Room) ? "" : $" ({e.Room})";
-                sb.AppendLine($"  🕐 {e.Time} — {e.Subject}{room}");
+                var time = TelegramHtml.Escape(e.Time);
+                var subject = TelegramHtml.Escape(e.Subject);
+                var room = string.IsNullOrWhiteSpace(e.Room) ? "" : $" ({TelegramHtml.Escape(e.Room)})";
+                sb.AppendLine($"  🕐 {time} — {subject}{room}");
             }
             sb.AppendLine();
         }
@@ -347,8 +355,8 @@ public class CallbackHandler
 
             await _bot.SendMessage(
                 chatId:      chatId,
-                text:        $"📌 <b>{task.Title}</b>{urgency}\n" +
-                             $"📚 {task.Subject}{deadlineText}",
+                text:        $"📌 <b>{TelegramHtml.Escape(task.Title)}</b>{urgency}\n" +
+                             $"📚 {TelegramHtml.Escape(task.Subject)}{deadlineText}",
                 parseMode:   ParseMode.Html,
                 replyMarkup: keyboard,
                 cancellationToken: ct);
@@ -365,7 +373,8 @@ public class CallbackHandler
 
         if (completed.Count > 0)
         {
-            var completedText = string.Join("\n", completed.Take(5).Select(t => $"✅ ~~{t.Title}~~ ({t.Subject})"));
+            var completedText = string.Join("\n", completed.Take(5).Select(t =>
+                $"✅ {TelegramHtml.Escape(t.Title)} ({TelegramHtml.Escape(t.Subject)})"));
             await _bot.SendMessage(
                 chatId:    chatId,
                 text:      $"<b>Выполнено:</b>\n{completedText}" +
