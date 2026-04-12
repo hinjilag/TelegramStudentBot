@@ -1,0 +1,55 @@
+﻿# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Dd]ebug*/
+[Rr]elease*/
+x64/
+x86/
+build/
+[Bb]in/
+[Oo]bj/
+
+# Rider
+.idea/
+*.sln.iml
+
+# ASP.NET (local secrets and environment config)
+appsettings*.json
+!appsettings.example.json
+
+# User-specific files
+*.swp
+*~
+*.tmp
+*.temp
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+
+# OS files
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+
+# JetBrains Rider
+.idea/
+
+# Dotnet tool
+.dotnet/
+
+# Generated files
+*.generated.cs
+
+# Optional: recommended for EF Core migrations
+Migrations/*.Designer.cs
+Migrations/*.resx
