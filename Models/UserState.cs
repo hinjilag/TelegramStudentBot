@@ -21,6 +21,8 @@ public enum UserState
     /// <summary>Ожидание фотографии расписания (после /add_schedule)</summary>
     WaitingForSchedulePhoto,
 
+    WaitingForOcrPhoto,
+
     /// <summary>
     /// Расписание распознано, ждём подтверждения от пользователя.
     /// PendingSchedule содержит распознанные записи.
@@ -32,6 +34,18 @@ public enum UserState
     /// Например: "первой парой в среду у меня не мат анализ, а линейная алгебра"
     /// </summary>
     WaitingForScheduleCorrection,
+
+    /// <summary>Пошаговая проверка расписания: ждём решение по текущему слоту</summary>
+    WaitingForScheduleReview,
+
+    /// <summary>Ждём точное исправление текущего слота в пошаговой проверке</summary>
+    WaitingForReviewSlotCorrection,
+
+    /// <summary>Ожидание выбора подгруппы после подтверждения расписания</summary>
+    WaitingForSubGroupChoice,
+
+    /// <summary>Подгруппа уже выбрана, бот сейчас читает расписание для неё</summary>
+    WaitingForSubGroupParsing,
 
     /// <summary>Ожидание выбора типа недели (нечётная/чётная) — после подтверждения расписания</summary>
     WaitingForWeekChoice,
