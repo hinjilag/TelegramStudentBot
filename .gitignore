@@ -49,6 +49,7 @@ Desktop.ini
 
 # Generated files
 *.generated.cs
+_temp_build*/
 
 # Local assistant/tool settings
 .claude/settings.local.json
