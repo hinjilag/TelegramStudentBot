@@ -9,15 +9,14 @@ using TelegramStudentBot.Services;
 namespace TelegramStudentBot.Handlers;
 
 /// <summary>
-/// РћР±СЂР°Р±РѕС‚С‡РёРє С‚РµРєСЃС‚РѕРІС‹С… СЃРѕРѕР±С‰РµРЅРёР№ Рё С„РѕС‚РѕРіСЂР°С„РёР№.
-/// Р Р°Р±РѕС‚Р°РµС‚ РєР°Рє РјР°С€РёРЅР° СЃРѕСЃС‚РѕСЏРЅРёР№.
+/// Обработчик текстовых сообщений и фотографий.
+/// Работает как машина состояний.
 ///
-/// РџРѕС‚РѕРє Р·Р°РіСЂСѓР·РєРё СЂР°СЃРїРёСЃР°РЅРёСЏ:
-///   /add_schedule в†’ WaitingForSchedulePhoto
-///   в†’ С„РѕС‚Рѕ в†’ РїР°СЂСЃРёРЅРі в†’ WaitingForScheduleConfirmation (РїРѕРєР°Р·С‹РІР°РµРј СЂР°СЃРїРёСЃР°РЅРёРµ + РєРЅРѕРїРєРё)
-///   в†’ [РџРѕРґС‚РІРµСЂРґРёС‚СЊ] в†’ РµСЃР»Рё РµСЃС‚СЊ РґРІРѕР№РЅС‹Рµ РїР°СЂС‹ в†’ WaitingForWeekChoice в†’ [РќРµС‡С‘С‚РЅР°СЏ/Р§С‘С‚РЅР°СЏ] в†’ СЃРѕС…СЂР°РЅРµРЅРѕ
-///                  в†’ РµСЃР»Рё РЅРµС‚              в†’ СЃСЂР°Р·Сѓ СЃРѕС…СЂР°РЅСЏРµРј
-///   в†’ [РСЃРїСЂР°РІРёС‚СЊ]  в†’ WaitingForScheduleCorrection в†’ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ РїРёС€РµС‚ РїСЂР°РІРєСѓ в†’ WaitingForScheduleConfirmation
+/// Поток загрузки расписания:
+/// /add_schedule -> WaitingForSchedulePhoto
+/// фото -> парсинг -> WaitingForScheduleConfirmation
+/// Подтвердить -> при наличии недель -> WaitingForWeekChoice -> сохранение
+/// Исправить -> WaitingForScheduleCorrection -> правка -> WaitingForScheduleConfirmation
 /// </summary>
 public class TextHandler
 {
@@ -38,9 +37,7 @@ public class TextHandler
         _schedule = schedule;
     }
 
-    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
-    //  РўРµРєСЃС‚РѕРІС‹Рµ СЃРѕРѕР±С‰РµРЅРёСЏ
-    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+    // Текстовые сообщения.
 
     public async Task HandleAsync(Message msg, CancellationToken ct)
     {
@@ -72,11 +69,18 @@ public class TextHandler
                     cancellationToken: ct);
                 break;
 
-            case UserState.WaitingForScheduleConfirmation:
-                // РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РїРёС€РµС‚ С‚РµРєСЃС‚ РІРјРµСЃС‚Рѕ РЅР°Р¶Р°С‚РёСЏ РєРЅРѕРїРєРё
+            case UserState.WaitingForOcrPhoto:
                 await _bot.SendMessage(
                     msg.Chat.Id,
-                    "Нажми кнопку ниже: ✅ Подтвердить или ✏️ Исправить.",
+                    "📷 Жду фото с текстом.\nЧтобы отменить — /start",
+                    cancellationToken: ct);
+                break;
+
+            case UserState.WaitingForScheduleConfirmation:
+                // Пользователь пишет текст вместо нажатия кнопки.
+                await _bot.SendMessage(
+                    msg.Chat.Id,
+                    "Нажми кнопку ниже: ✅ Подтвердить, ✏️ Исправить или 🔎 Проверить по парам.",
                     cancellationToken: ct);
                 break;
 
@@ -84,27 +88,42 @@ public class TextHandler
                 await HandleScheduleCorrectionAsync(msg, session, text, ct);
                 break;
 
+            case UserState.WaitingForScheduleReview:
+                await _bot.SendMessage(
+                    msg.Chat.Id,
+                    "Нажми кнопку ниже: ✅ Верно или ✏️ Изменить.",
+                    cancellationToken: ct);
+                break;
+
+            case UserState.WaitingForReviewSlotCorrection:
+                await HandleReviewSlotCorrectionAsync(msg, session, text, ct);
+                break;
+
             default:
                 await _bot.SendMessage(
                     chatId:    msg.Chat.Id,
-                    text:      "в„№пёЏ РЇ РЅРµ РїРѕРЅРёРјР°СЋ СЌС‚Рѕ СЃРѕРѕР±С‰РµРЅРёРµ.\nРСЃРїРѕР»СЊР·СѓР№ /help РґР»СЏ РїСЂРѕСЃРјРѕС‚СЂР° РєРѕРјР°РЅРґ.",
+                    text:      "ℹ️ Я не понимаю это сообщение.\nИспользуй /help для просмотра команд.",
                     parseMode: ParseMode.Html,
                     cancellationToken: ct);
                 break;
         }
     }
 
-    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
-    //  Р¤РѕС‚РѕРіСЂР°С„РёРё вЂ” РїР°СЂСЃРёРЅРі СЂР°СЃРїРёСЃР°РЅРёСЏ
-    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+    // Фотографии и парсинг расписания.
 
     /// <summary>
-    /// Р’С‹Р·С‹РІР°РµС‚СЃСЏ РєРѕРіРґР° РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ РїСЂРёСЃС‹Р»Р°РµС‚ С„РѕС‚Рѕ РёР»Рё РёР·РѕР±СЂР°Р¶РµРЅРёРµ-РґРѕРєСѓРјРµРЅС‚.
-    /// Р•СЃР»Рё Р±РѕС‚ РІ СЃРѕСЃС‚РѕСЏРЅРёРё WaitingForSchedulePhoto вЂ” СЃРєР°С‡РёРІР°РµС‚ Рё РїР°СЂСЃРёС‚.
+    /// Вызывается, когда пользователь присылает фото или изображение-документ.
+    /// Если бот ждёт расписание, изображение скачивается и отправляется на парсинг.
     /// </summary>
     public async Task HandlePhotoAsync(Message msg, CancellationToken ct)
     {
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
+
+        if (session.State == UserState.WaitingForOcrPhoto)
+        {
+            await HandleOcrPhotoAsync(msg, ct);
+            return;
+        }
 
         if (session.State != UserState.WaitingForSchedulePhoto)
         {
@@ -115,7 +134,7 @@ public class TextHandler
             return;
         }
 
-        // Р’С‹Р±РёСЂР°РµРј fileId: photo (СЃР¶Р°С‚РѕРµ) РёР»Рё document (Р±РµР· СЃР¶Р°С‚РёСЏ)
+        // Выбираем fileId: photo (сжатое) или document (без сжатия).
         string? fileId = null;
 
         if (msg.Photo is { Length: > 0 })
@@ -142,55 +161,75 @@ public class TextHandler
             return;
         }
 
-        List<ScheduleEntry> entries;
-        try { entries = await _schedule.ParseScheduleAsync(imageBytes, ct); }
+        session.PendingSchedule = null;
+        session.PendingScheduleImage = imageBytes;
+        try
+        {
+            session.AvailableSubGroups = await _schedule.DetectSubGroupsAsync(imageBytes, ct);
+        }
+        catch
+        {
+            session.AvailableSubGroups = [1, 2];
+        }
+        session.State           = UserState.WaitingForSubGroupChoice;
+
+        await _bot.SendMessage(
+            chatId: msg.Chat.Id,
+            text: "❓ <b>Сначала выбери свою подгруппу</b>. После этого я отдельно прочитаю расписание именно для неё.",
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.CreateSubGroupChoice(session.AvailableSubGroups),
+            cancellationToken: ct);
+    }
+
+    private async Task HandleOcrPhotoAsync(Message msg, CancellationToken ct)
+    {
+        var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
+        string? fileId = null;
+
+        if (msg.Photo is { Length: > 0 })
+            fileId = msg.Photo.OrderByDescending(p => p.FileSize ?? 0).First().FileId;
+        else if (msg.Document is { MimeType: { } mime } doc && mime.StartsWith("image/"))
+            fileId = doc.FileId;
+
+        if (fileId is null)
+        {
+            await _bot.SendMessage(
+                msg.Chat.Id,
+                "⚠️ Не удалось получить изображение. Пришли обычное фото или изображение как документ.",
+                cancellationToken: ct);
+            return;
+        }
+
+        await _bot.SendMessage(msg.Chat.Id, "⏳ Читаю текст с изображения...", cancellationToken: ct);
+
+        try
+        {
+            var imageBytes = await DownloadFileAsync(fileId, ct);
+            var extractedText = await _schedule.ExtractTextAsync(imageBytes, ct);
+            session.State = UserState.Idle;
+
+            await _bot.SendMessage(
+                msg.Chat.Id,
+                $"📝 Вот что я прочитал:\n\n<pre>{System.Net.WebUtility.HtmlEncode(extractedText)}</pre>",
+                parseMode: ParseMode.Html,
+                cancellationToken: ct);
+        }
         catch (InvalidOperationException ex)
         {
             session.State = UserState.Idle;
-            await _bot.SendMessage(
-                chatId:    msg.Chat.Id,
-                text:      $"❌ <b>Ошибка:</b> {ex.Message}",
-                parseMode: ParseMode.Html,
-                cancellationToken: ct);
-            return;
+            await _bot.SendMessage(msg.Chat.Id, $"❌ Ошибка OCR: {ex.Message}", cancellationToken: ct);
         }
         catch (Exception ex)
         {
             session.State = UserState.Idle;
-            await _bot.SendMessage(msg.Chat.Id, $"❌ Неожиданная ошибка: {ex.Message}", cancellationToken: ct);
-            return;
+            await _bot.SendMessage(msg.Chat.Id, $"❌ Не удалось прочитать текст: {ex.Message}", cancellationToken: ct);
         }
-
-        if (entries.Count == 0)
-        {
-            await _bot.SendMessage(
-                chatId:    msg.Chat.Id,
-                text:      "😕 <b>Не удалось распознать расписание.</b>\n\n" +
-                           "Попробуй:\n• Фото четче и с ровным освещением\n" +
-                           "• Чтобы вся таблица была в кадре\n" +
-                           "• Отправить изображение как документ (без сжатия)\n\n" +
-                           "Используй /add_schedule, чтобы попробовать снова.",
-                parseMode: ParseMode.Html,
-                cancellationToken: ct);
-            session.State = UserState.Idle;
-            return;
-        }
-
-        // РџРµСЂРµС…РѕРґРёРј РІ СЂРµР¶РёРј РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ
-        session.PendingSchedule = entries;
-        session.State           = UserState.WaitingForScheduleConfirmation;
-
-        await SendScheduleConfirmationAsync(msg.Chat.Id, entries, ct);
     }
 
-    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
-    //  РСЃРїСЂР°РІР»РµРЅРёРµ СЂР°СЃРїРёСЃР°РЅРёСЏ
-    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+    // Исправление расписания.
 
     /// <summary>
-    /// РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РѕРїРёСЃС‹РІР°РµС‚ РёСЃРїСЂР°РІР»РµРЅРёРµ С‚РµРєСЃС‚РѕРј.
-    /// РџСЂРёРјРµСЂ: "РїРµСЂРІРѕР№ РїР°СЂРѕР№ РІ СЃСЂРµРґСѓ Сѓ РјРµРЅСЏ РЅРµ РјР°С‚ Р°РЅР°Р»РёР·, Р° Р»РёРЅРµР№РЅР°СЏ Р°Р»РіРµР±СЂР°"
-    /// РР»Рё:    "Р·Р°РјРµРЅРё С„РёР·РёРєСѓ РЅР° С…РёРјРёСЋ РІРѕ РІС‚РѕСЂРЅРёРє"
+    /// Пользователь описывает исправление расписания текстом.
     /// </summary>
     private async Task HandleScheduleCorrectionAsync(
         Message msg, UserSession session, string text, CancellationToken ct)
@@ -208,7 +247,7 @@ public class TextHandler
 
         if (!applied)
         {
-            // РќРµ СЃРјРѕРіР»Рё СЂР°СЃРїРѕР·РЅР°С‚СЊ РёСЃРїСЂР°РІР»РµРЅРёРµ вЂ” РїСЂРѕСЃРёРј СѓС‚РѕС‡РЅРёС‚СЊ
+            // Не смогли распознать исправление, просим уточнить.
             await _bot.SendMessage(
                 chatId:    msg.Chat.Id,
                 text:      "🤔 Не смог разобрать исправление.\n\n" +
@@ -218,7 +257,7 @@ public class TextHandler
                            "<i>«убери 5 пару в среду»</i>",
                 parseMode: ParseMode.Html,
                 cancellationToken: ct);
-            // РћСЃС‚Р°С‘РјСЃСЏ РІ WaitingForScheduleConfirmation вЂ” РїРѕРєР°Р·С‹РІР°РµРј С‚РµРєСѓС‰РµРµ СЃРѕСЃС‚РѕСЏРЅРёРµ СЃРЅРѕРІР°
+            // Остаёмся в WaitingForScheduleConfirmation и показываем текущее состояние снова.
         }
         else
         {
@@ -226,27 +265,25 @@ public class TextHandler
                 msg.Chat.Id, "✏️ Исправление применено!", cancellationToken: ct);
         }
 
-        // Р’ Р»СЋР±РѕРј СЃР»СѓС‡Р°Рµ РїРѕРєР°Р·С‹РІР°РµРј Р°РєС‚СѓР°Р»СЊРЅРѕРµ СЂР°СЃРїРёСЃР°РЅРёРµ РЅР° РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ
+        // В любом случае показываем актуальное расписание на подтверждение.
         await SendScheduleConfirmationAsync(msg.Chat.Id, updated, ct);
     }
 
-    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
-    //  Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ: РѕС‚РѕР±СЂР°Р¶РµРЅРёРµ СЂР°СЃРїРёСЃР°РЅРёСЏ РЅР° РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ
-    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+    // Вспомогательные методы для подтверждения расписания.
 
-    /// <summary>РћС‚РїСЂР°РІРёС‚СЊ СЂР°СЃРїРёСЃР°РЅРёРµ РЅР° РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ СЃ РєРЅРѕРїРєР°РјРё [РџРѕРґС‚РІРµСЂРґРёС‚СЊ] [РСЃРїСЂР°РІРёС‚СЊ]</summary>
+    /// <summary>Отправить расписание на подтверждение с кнопками действий.</summary>
     internal async Task SendScheduleConfirmationAsync(
         long chatId, List<ScheduleEntry> entries, CancellationToken ct)
     {
         var summaryText = ScheduleService.FormatSchedule(entries);
 
-        // Telegram РѕРіСЂР°РЅРёС‡РёРІР°РµС‚ СЃРѕРѕР±С‰РµРЅРёРµ РґРѕ 4096 СЃРёРјРІРѕР»РѕРІ
+        // Telegram ограничивает сообщение до 4096 символов.
         const int limit = 3800;
-        var header  = $"рџ“… <b>Р Р°СЃРїРѕР·РЅР°РЅРЅРѕРµ СЂР°СЃРїРёСЃР°РЅРёРµ</b> ({entries.Count} РїР°СЂ):\n\n";
+        var header  = $"📅 <b>Вот как я прочитал расписание</b> ({entries.Count} пар):\n\n";
         var body    = summaryText.Length > limit
-            ? summaryText[..limit] + "\n<i>... (РѕР±СЂРµР·Р°РЅРѕ)</i>"
+            ? summaryText[..limit] + "\n<i>... (обрезано)</i>"
             : summaryText;
-        var footer  = "\n\n<b>Р’СЃС‘ РІРµСЂРЅРѕ?</b>";
+        var footer  = "\n\n<b>Если всё верно — нажми Подтвердить. Если нет — нажми Исправить или Проверь по парам.</b>";
 
         await _bot.SendMessage(
             chatId:      chatId,
@@ -256,13 +293,84 @@ public class TextHandler
             cancellationToken: ct);
     }
 
-    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
-    //  РџР°СЂСЃРµСЂ РёСЃРїСЂР°РІР»РµРЅРёР№
-    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+    private async Task HandleReviewSlotCorrectionAsync(
+        Message msg, UserSession session, string text, CancellationToken ct)
+    {
+        if (session.PendingSchedule is null)
+        {
+            session.State = UserState.Idle;
+            await _bot.SendMessage(msg.Chat.Id, "⚠️ Нет расписания для пошаговой проверки.", cancellationToken: ct);
+            return;
+        }
+
+        if (!TryApplyExactSlotCorrection(session.PendingSchedule, session.ReviewSlotIndex, text))
+        {
+            await _bot.SendMessage(
+                msg.Chat.Id,
+                "🤔 Не смог точно разобрать слот.\n\n" +
+                "Напиши так:\n" +
+                "<i>первая неделя: мат анализ\nвторая неделя: пары нет</i>\n\n" +
+                "или:\n" +
+                "<i>обе недели: история россии</i>\n\n" +
+                "или:\n" +
+                "<i>пары нет</i>",
+                parseMode: ParseMode.Html,
+                cancellationToken: ct);
+            return;
+        }
+
+        session.ReviewSlotIndex++;
+        session.State = UserState.WaitingForScheduleReview;
+
+        await _bot.SendMessage(msg.Chat.Id, "✏️ Слот исправлен.", cancellationToken: ct);
+        await SendReviewSlotAsync(msg.Chat.Id, session, ct);
+    }
+
+    private async Task SendReviewSlotAsync(long chatId, UserSession session, CancellationToken ct)
+    {
+        if (session.PendingSchedule is null)
+        {
+            await _bot.SendMessage(chatId, "ℹ️ Нет ожидающего расписания для проверки.", cancellationToken: ct);
+            return;
+        }
+
+        if (session.ReviewSlotIndex >= 24)
+        {
+            session.State = UserState.WaitingForScheduleConfirmation;
+            await _bot.SendMessage(
+                chatId,
+                "✅ Пошаговая проверка завершена. Ниже итоговое расписание.",
+                cancellationToken: ct);
+            await SendScheduleConfirmationAsync(chatId, session.PendingSchedule, ct);
+            return;
+        }
+
+        var (day, lesson) = GetReviewSlot(session.ReviewSlotIndex);
+        var slotEntries = session.PendingSchedule
+            .Where(e => e.DayOfWeek == day && e.LessonNumber == lesson)
+            .OrderBy(e => e.WeekType ?? 0)
+            .ToList();
+
+        var firstWeek = slotEntries.Where(e => e.WeekType is null or 1).Select(e => e.Subject).Distinct().ToList();
+        var secondWeek = slotEntries.Where(e => e.WeekType is null or 2).Select(e => e.Subject).Distinct().ToList();
+
+        await _bot.SendMessage(
+            chatId,
+            $"🔎 <b>Проверка {session.ReviewSlotIndex + 1}/24</b>\n" +
+            $"<b>{GetDayName(day)}, {lesson} пара</b>\n\n" +
+            $"Первая неделя: {FormatReviewWeek(firstWeek)}\n" +
+            $"Вторая неделя: {FormatReviewWeek(secondWeek)}\n\n" +
+            "Это верно?",
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.ReviewSlotChoice,
+            cancellationToken: ct);
+    }
+
+    // Парсер исправлений.
 
     /// <summary>
-    /// РџСЂРёРјРµРЅСЏРµС‚ С‚РµРєСЃС‚РѕРІРѕРµ РёСЃРїСЂР°РІР»РµРЅРёРµ Рє СЃРїРёСЃРєСѓ Р·Р°РїРёСЃРµР№ СЂР°СЃРїРёСЃР°РЅРёСЏ.
-    /// Р’РѕР·РІСЂР°С‰Р°РµС‚ (РѕР±РЅРѕРІР»С‘РЅРЅС‹Р№ СЃРїРёСЃРѕРє, Р±С‹Р»Рѕ Р»Рё РёСЃРїСЂР°РІР»РµРЅРёРµ РїСЂРёРјРµРЅРµРЅРѕ).
+    /// Применяет текстовое исправление к списку записей расписания.
+    /// Возвращает обновлённый список и признак успешного применения.
     /// </summary>
     private static (List<ScheduleEntry> Entries, bool Applied) ApplyCorrection(
         List<ScheduleEntry> entries, string text)
@@ -273,7 +381,8 @@ public class TextHandler
                 DayOfWeek = e.DayOfWeek,
                 LessonNumber = e.LessonNumber,
                 Subject = e.Subject,
-                WeekType = e.WeekType
+                WeekType = e.WeekType,
+                SubGroup = e.SubGroup
             })
             .ToList();
         var instructions = Regex
@@ -293,6 +402,13 @@ public class TextHandler
         var lower = instruction.ToLowerInvariant();
         var day = ExtractDay(lower);
         var lesson = ExtractLesson(lower);
+        var knownSubjects = GetKnownSubjects(entries);
+
+        if (day.HasValue && lesson.HasValue &&
+            TryApplyWeekSpecificCorrection(entries, lower, day.Value, lesson.Value, knownSubjects))
+        {
+            return true;
+        }
 
         var remove = Regex.IsMatch(lower,
             @"\b(\u0443\u0434\u0430\u043b\u0438|\u0443\u0434\u0430\u043b\u0438\u0442\u044c|\u0443\u0431\u0435\u0440\u0438|\u0443\u0431\u0440\u0430\u0442\u044c|\u0431\u0435\u0437\s+\u043f\u0430\u0440\u044b|\u043d\u0435\u0442\s+\u043f\u0430\u0440\u044b|\u043e\u043a\u043d\u043e)\b");
@@ -303,8 +419,8 @@ public class TextHandler
         var m = Regex.Match(lower, @"\b\u043d\u0435\s+(.+?)[,\s]+\u0430\s+(.+)");
         if (m.Success)
         {
-            oldSubject = m.Groups[1].Value.Trim();
-            newSubject = m.Groups[2].Value.Trim();
+            oldSubject = ResolveSubjectName(m.Groups[1].Value.Trim(), knownSubjects);
+            newSubject = ResolveSubjectName(m.Groups[2].Value.Trim(), knownSubjects);
         }
 
         if (newSubject is null)
@@ -313,8 +429,8 @@ public class TextHandler
                 @"\b(?:\u0437\u0430\u043c\u0435\u043d\u0438|\u043f\u043e\u043c\u0435\u043d\u044f\u0439|\u0438\u0437\u043c\u0435\u043d\u0438)\s+(.+?)\s+\u043d\u0430\s+(.+?)(?:\s+\b(?:\u0432|\u0432\u043e)\b\s+|$)");
             if (m.Success)
             {
-                oldSubject = m.Groups[1].Value.Trim();
-                newSubject = m.Groups[2].Value.Trim();
+                oldSubject = ResolveSubjectName(m.Groups[1].Value.Trim(), knownSubjects);
+                newSubject = ResolveSubjectName(m.Groups[2].Value.Trim(), knownSubjects);
             }
         }
 
@@ -324,8 +440,8 @@ public class TextHandler
                 @"\b\u0432\u043c\u0435\u0441\u0442\u043e\s+(.+?)\s+(?:\u043f\u043e\u0441\u0442\u0430\u0432\u044c\s+)?(.+?)(?:\s+\b(?:\u0432|\u0432\u043e)\b\s+|$)");
             if (m.Success)
             {
-                oldSubject = m.Groups[1].Value.Trim();
-                newSubject = m.Groups[2].Value.Trim();
+                oldSubject = ResolveSubjectName(m.Groups[1].Value.Trim(), knownSubjects);
+                newSubject = ResolveSubjectName(m.Groups[2].Value.Trim(), knownSubjects);
             }
         }
 
@@ -334,7 +450,7 @@ public class TextHandler
             m = Regex.Match(lower,
                 @"\b(?:\u043f\u043e\u0441\u0442\u0430\u0432\u044c|\u0441\u0434\u0435\u043b\u0430\u0439|\u0431\u0443\u0434\u0435\u0442|\u043f\u0443\u0441\u0442\u044c\s+\u0431\u0443\u0434\u0435\u0442)\s+(.+)$");
             if (m.Success)
-                newSubject = m.Groups[1].Value.Trim();
+                newSubject = ResolveSubjectName(m.Groups[1].Value.Trim(), knownSubjects);
         }
 
         var targets = entries
@@ -356,12 +472,310 @@ public class TextHandler
         if (string.IsNullOrWhiteSpace(newSubject))
             return false;
 
-        var normalized = NormalizeSubject(newSubject);
+        var normalized = ResolveSubjectName(newSubject, knownSubjects);
         foreach (var target in targets)
             target.Subject = normalized;
 
         return true;
     }
+
+    private static bool TryApplyWeekSpecificCorrection(List<ScheduleEntry> entries, string lower, int day, int lesson, IReadOnlyList<string> knownSubjects)
+    {
+        var hasFirstWeek = Regex.IsMatch(lower, @"(?:\bпервая\b|\b1-?я\b|\bнечет\w*|\bнечёт\w*)\s+недел", RegexOptions.IgnoreCase);
+        var hasSecondWeek = Regex.IsMatch(lower, @"(?:\bвторая\b|\b2-?я\b|\bчет\w*|\bчёт\w*)\s+недел", RegexOptions.IgnoreCase);
+
+        if (!hasFirstWeek && !hasSecondWeek)
+            return false;
+
+        var firstWeek = ExtractWeekSubject(lower, firstWeek: true, knownSubjects);
+        var secondWeek = ExtractWeekSubject(lower, firstWeek: false, knownSubjects);
+
+        if (firstWeek is null && secondWeek is null)
+            return false;
+
+        entries.RemoveAll(e => e.DayOfWeek == day && e.LessonNumber == lesson);
+
+        if (firstWeek is not null && secondWeek is not null &&
+            string.Equals(firstWeek, secondWeek, StringComparison.OrdinalIgnoreCase))
+        {
+            entries.Add(new ScheduleEntry
+            {
+                DayOfWeek = day,
+                LessonNumber = lesson,
+                Subject = firstWeek,
+                WeekType = null,
+                SubGroup = null
+            });
+            return true;
+        }
+
+        if (firstWeek is not null)
+        {
+            entries.Add(new ScheduleEntry
+            {
+                DayOfWeek = day,
+                LessonNumber = lesson,
+                Subject = firstWeek,
+                WeekType = 1,
+                SubGroup = null
+            });
+        }
+
+        if (secondWeek is not null)
+        {
+            entries.Add(new ScheduleEntry
+            {
+                DayOfWeek = day,
+                LessonNumber = lesson,
+                Subject = secondWeek,
+                WeekType = 2,
+                SubGroup = null
+            });
+        }
+
+        return true;
+    }
+
+    private static string? ExtractWeekSubject(string lower, bool firstWeek, IReadOnlyList<string> knownSubjects)
+    {
+        var pattern = firstWeek
+            ? @"(?:\bпервая\b|\b1-?я\b|\bнечет\w*|\bнечёт\w*)\s+недел\w*[:\s,-]*(.+?)(?=(?:\bвторая\b|\b2-?я\b|\bчет\w*|\bчёт\w*)\s+недел|$)"
+            : @"(?:\bвторая\b|\b2-?я\b|\bчет\w*|\bчёт\w*)\s+недел\w*[:\s,-]*(.+)$";
+
+        var match = Regex.Match(lower, pattern, RegexOptions.IgnoreCase);
+        if (!match.Success)
+            return null;
+
+        var raw = match.Groups[1].Value.Trim(' ', '.', ',', ';', ':', '-');
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        if (Regex.IsMatch(raw, @"^(?:-|\u043d\u0435\u0442|\u043f\u0430\u0440\u044b?\s+\u043d\u0435\u0442|\u043e\u043a\u043d\u043e)$", RegexOptions.IgnoreCase))
+            return null;
+
+        return ResolveSubjectName(raw, knownSubjects);
+    }
+
+    private static IReadOnlyList<string> GetKnownSubjects(List<ScheduleEntry> entries)
+        => entries
+            .Select(e => e.Subject)
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private static string ResolveSubjectName(string rawSubject, IReadOnlyList<string> knownSubjects)
+    {
+        var normalized = NormalizeSubject(rawSubject);
+        if (string.IsNullOrWhiteSpace(normalized) || knownSubjects.Count == 0)
+            return normalized;
+
+        var ranked = knownSubjects
+            .Select(subject => new
+            {
+                Subject = subject,
+                Score = ScoreSubjectCandidate(normalized, subject)
+            })
+            .OrderByDescending(x => x.Score)
+            .ThenBy(x => x.Subject.Length)
+            .ToList();
+
+        var best = ranked[0];
+        var secondScore = ranked.Count > 1 ? ranked[1].Score : 0.0;
+
+        if (best.Score >= 0.90 || (best.Score >= 0.78 && best.Score - secondScore >= 0.08))
+            return best.Subject;
+
+        return normalized;
+    }
+
+    private static double ScoreSubjectCandidate(string rawSubject, string candidate)
+    {
+        var raw = NormalizeForMatch(rawSubject);
+        var cand = NormalizeForMatch(candidate);
+
+        if (string.IsNullOrWhiteSpace(raw) || string.IsNullOrWhiteSpace(cand))
+            return 0;
+
+        if (string.Equals(raw, cand, StringComparison.Ordinal))
+            return 1.0;
+
+        var fullSimilarity = Similarity(raw, cand);
+        var containment = cand.Contains(raw, StringComparison.Ordinal) || raw.Contains(cand, StringComparison.Ordinal)
+            ? 0.96
+            : 0.0;
+
+        var rawTokens = raw.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var candTokens = cand.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var tokenCoverage = rawTokens.Length == 0
+            ? 0
+            : rawTokens
+                .Select(token => candTokens.Length == 0 ? 0 : candTokens.Max(c => Similarity(token, c)))
+                .Average();
+
+        return Math.Max(Math.Max(fullSimilarity, containment), tokenCoverage);
+    }
+
+    private static string NormalizeForMatch(string text)
+    {
+        var lower = text.ToLowerInvariant().Replace('ё', 'е');
+        lower = Regex.Replace(lower, @"[^a-zа-я0-9]+", " ");
+        lower = Regex.Replace(lower, @"\s+", " ").Trim();
+        return lower;
+    }
+
+    private static double Similarity(string left, string right)
+    {
+        if (string.IsNullOrEmpty(left) || string.IsNullOrEmpty(right))
+            return 0;
+
+        if (string.Equals(left, right, StringComparison.Ordinal))
+            return 1.0;
+
+        if ((left.StartsWith(right, StringComparison.Ordinal) || right.StartsWith(left, StringComparison.Ordinal)) &&
+            Math.Min(left.Length, right.Length) >= 3)
+        {
+            return 0.92;
+        }
+
+        var distance = LevenshteinDistance(left, right);
+        return 1.0 - distance / (double)Math.Max(left.Length, right.Length);
+    }
+
+    private static int LevenshteinDistance(string left, string right)
+    {
+        var dp = new int[left.Length + 1, right.Length + 1];
+
+        for (var i = 0; i <= left.Length; i++)
+            dp[i, 0] = i;
+
+        for (var j = 0; j <= right.Length; j++)
+            dp[0, j] = j;
+
+        for (var i = 1; i <= left.Length; i++)
+        {
+            for (var j = 1; j <= right.Length; j++)
+            {
+                var cost = left[i - 1] == right[j - 1] ? 0 : 1;
+                dp[i, j] = Math.Min(
+                    Math.Min(dp[i - 1, j] + 1, dp[i, j - 1] + 1),
+                    dp[i - 1, j - 1] + cost);
+            }
+        }
+
+        return dp[left.Length, right.Length];
+    }
+
+    private static bool TryApplyExactSlotCorrection(List<ScheduleEntry> entries, int slotIndex, string text)
+    {
+        var (day, lesson) = GetReviewSlot(slotIndex);
+        var lower = text.ToLowerInvariant();
+        var knownSubjects = GetKnownSubjects(entries);
+
+        if (Regex.IsMatch(lower, @"^(?:-|\u043d\u0435\u0442|\u043f\u0430\u0440\u044b?\s+\u043d\u0435\u0442|\u043e\u043a\u043d\u043e)$", RegexOptions.IgnoreCase))
+        {
+            entries.RemoveAll(e => e.DayOfWeek == day && e.LessonNumber == lesson);
+            return true;
+        }
+
+        var bothWeeks = Regex.Match(lower, @"(?:\b\u043e\u0431\u0435\b|\b\u043e\u0431\u0435\u0438\u0445\b)\s+\u043d\u0435\u0434\u0435\u043b\w*[:\s,-]*(.+)$", RegexOptions.IgnoreCase);
+        if (bothWeeks.Success)
+        {
+            var subject = ResolveSubjectName(bothWeeks.Groups[1].Value, knownSubjects);
+            if (string.IsNullOrWhiteSpace(subject))
+                return false;
+
+            entries.RemoveAll(e => e.DayOfWeek == day && e.LessonNumber == lesson);
+            entries.Add(new ScheduleEntry
+            {
+                DayOfWeek = day,
+                LessonNumber = lesson,
+                Subject = subject,
+                WeekType = null,
+                SubGroup = null
+            });
+            return true;
+        }
+
+        var firstWeek = ExtractWeekSubject(lower, firstWeek: true, knownSubjects);
+        var secondWeek = ExtractWeekSubject(lower, firstWeek: false, knownSubjects);
+
+        if (firstWeek is null && secondWeek is null)
+        {
+            var fallback = ResolveSubjectName(text, knownSubjects);
+            if (string.IsNullOrWhiteSpace(fallback))
+                return false;
+
+            entries.RemoveAll(e => e.DayOfWeek == day && e.LessonNumber == lesson);
+            entries.Add(new ScheduleEntry
+            {
+                DayOfWeek = day,
+                LessonNumber = lesson,
+                Subject = fallback,
+                WeekType = null,
+                SubGroup = null
+            });
+            return true;
+        }
+
+        entries.RemoveAll(e => e.DayOfWeek == day && e.LessonNumber == lesson);
+
+        if (firstWeek is not null && secondWeek is not null &&
+            string.Equals(firstWeek, secondWeek, StringComparison.OrdinalIgnoreCase))
+        {
+            entries.Add(new ScheduleEntry
+            {
+                DayOfWeek = day,
+                LessonNumber = lesson,
+                Subject = firstWeek,
+                WeekType = null,
+                SubGroup = null
+            });
+            return true;
+        }
+
+        if (firstWeek is not null)
+        {
+            entries.Add(new ScheduleEntry
+            {
+                DayOfWeek = day,
+                LessonNumber = lesson,
+                Subject = firstWeek,
+                WeekType = 1,
+                SubGroup = null
+            });
+        }
+
+        if (secondWeek is not null)
+        {
+            entries.Add(new ScheduleEntry
+            {
+                DayOfWeek = day,
+                LessonNumber = lesson,
+                Subject = secondWeek,
+                WeekType = 2,
+                SubGroup = null
+            });
+        }
+
+        return true;
+    }
+
+    private static (int Day, int Lesson) GetReviewSlot(int slotIndex)
+        => (slotIndex / 4 + 1, slotIndex % 4 + 1);
+
+    private static string GetDayName(int day) => day switch
+    {
+        1 => "Понедельник",
+        2 => "Вторник",
+        3 => "Среда",
+        4 => "Четверг",
+        5 => "Пятница",
+        6 => "Суббота",
+        _ => $"День {day}"
+    };
+
+    private static string FormatReviewWeek(List<string> subjects)
+        => subjects.Count == 0 ? "пары нет" : string.Join("; ", subjects);
 
     private static int? ExtractDay(string lower)
     {
@@ -382,14 +796,27 @@ public class TextHandler
         if (m.Success && int.TryParse(m.Groups[1].Value, out var n))
             return n;
 
-        if (Regex.IsMatch(lower, @"\b\u043f\u0435\u0440(\u0432|\u0432\u043e)\w*")) return 1;
-        if (Regex.IsMatch(lower, @"\b\u0432\u0442\u043e\u0440\w*")) return 2;
-        if (Regex.IsMatch(lower, @"\b\u0442\u0440\u0435\u0442\w*")) return 3;
-        if (Regex.IsMatch(lower, @"\b\u0447\u0435\u0442\u0432[\u0435\u0451]\u0440\u0442\w*")) return 4;
-        if (Regex.IsMatch(lower, @"\b\u043f\u044f\u0442\w*")) return 5;
-        if (Regex.IsMatch(lower, @"\b\u0448\u0435\u0441\u0442\w*")) return 6;
-        if (Regex.IsMatch(lower, @"\b\u0441\u0435\u0434\u044c\u043c\w*")) return 7;
-        if (Regex.IsMatch(lower, @"\b\u0432\u043e\u0441\u044c\u043c\w*")) return 8;
+        if (Regex.IsMatch(lower, @"\b\u043f\u0435\u0440\w*\s+(?:\u043f\u0430\u0440\w*|\u0443\u0440\u043e\u043a\w*)")) return 1;
+        if (Regex.IsMatch(lower, @"\b\u0432\u0442\u043e\u0440\w*\s+(?:\u043f\u0430\u0440\w*|\u0443\u0440\u043e\u043a\w*)")) return 2;
+        if (Regex.IsMatch(lower, @"\b\u0442\u0440\u0435\u0442\w*\s+(?:\u043f\u0430\u0440\w*|\u0443\u0440\u043e\u043a\w*)")) return 3;
+        if (Regex.IsMatch(lower, @"\b\u0447\u0435\u0442\u0432[\u0435\u0451]\u0440\u0442\w*\s+(?:\u043f\u0430\u0440\w*|\u0443\u0440\u043e\u043a\w*)")) return 4;
+        if (Regex.IsMatch(lower, @"\b\u043f\u044f\u0442\w*\s+(?:\u043f\u0430\u0440\w*|\u0443\u0440\u043e\u043a\w*)")) return 5;
+        if (Regex.IsMatch(lower, @"\b\u0448\u0435\u0441\u0442\w*\s+(?:\u043f\u0430\u0440\w*|\u0443\u0440\u043e\u043a\w*)")) return 6;
+        if (Regex.IsMatch(lower, @"\b\u0441\u0435\u0434\u044c\u043c\w*\s+(?:\u043f\u0430\u0440\w*|\u0443\u0440\u043e\u043a\w*)")) return 7;
+        if (Regex.IsMatch(lower, @"\b\u0432\u043e\u0441\u044c\u043c\w*\s+(?:\u043f\u0430\u0440\w*|\u0443\u0440\u043e\u043a\w*)")) return 8;
+
+        if (!lower.Contains("\u043d\u0435\u0434\u0435\u043b", StringComparison.OrdinalIgnoreCase))
+        {
+            if (Regex.IsMatch(lower, @"\b\u043f\u0435\u0440(\u0432|\u0432\u043e)\w*")) return 1;
+            if (Regex.IsMatch(lower, @"\b\u0432\u0442\u043e\u0440\w*")) return 2;
+            if (Regex.IsMatch(lower, @"\b\u0442\u0440\u0435\u0442\w*")) return 3;
+            if (Regex.IsMatch(lower, @"\b\u0447\u0435\u0442\u0432[\u0435\u0451]\u0440\u0442\w*")) return 4;
+            if (Regex.IsMatch(lower, @"\b\u043f\u044f\u0442\w*")) return 5;
+            if (Regex.IsMatch(lower, @"\b\u0448\u0435\u0441\u0442\w*")) return 6;
+            if (Regex.IsMatch(lower, @"\b\u0441\u0435\u0434\u044c\u043c\w*")) return 7;
+            if (Regex.IsMatch(lower, @"\b\u0432\u043e\u0441\u044c\u043c\w*")) return 8;
+        }
+
         return null;
     }
     private static string NormalizeSubject(string subject)
@@ -403,14 +830,14 @@ public class TextHandler
     {
         if (string.IsNullOrWhiteSpace(text))
         {
-            await _bot.SendMessage(msg.Chat.Id, "вљ пёЏ РќР°Р·РІР°РЅРёРµ РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ РїСѓСЃС‚С‹Рј. Р’РІРµРґРё РЅР°Р·РІР°РЅРёРµ Р·Р°РґР°С‡Рё:", cancellationToken: ct);
+            await _bot.SendMessage(msg.Chat.Id, "⚠️ Название не может быть пустым. Введи название задачи:", cancellationToken: ct);
             return;
         }
         session.DraftTask = new StudyTask { Title = text };
         session.State     = UserState.WaitingForTaskSubject;
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
-            text:      $"вњ… РќР°Р·РІР°РЅРёРµ: <b>{text}</b>\n\nРўРµРїРµСЂСЊ РІРІРµРґРё <b>РїСЂРµРґРјРµС‚</b> (РЅР°РїСЂРёРјРµСЂ: РњР°С‚РµРјР°С‚РёРєР°):",
+            text:      $"✅ Название: <b>{text}</b>\n\nТеперь введи <b>предмет</b> (например: Математика):",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
     }
@@ -420,15 +847,15 @@ public class TextHandler
     {
         if (string.IsNullOrWhiteSpace(text))
         {
-            await _bot.SendMessage(msg.Chat.Id, "вљ пёЏ РџСЂРµРґРјРµС‚ РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ РїСѓСЃС‚С‹Рј.", cancellationToken: ct);
+            await _bot.SendMessage(msg.Chat.Id, "⚠️ Предмет не может быть пустым.", cancellationToken: ct);
             return;
         }
         session.DraftTask!.Subject = text;
         session.State              = UserState.WaitingForTaskDeadline;
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
-            text:      $"вњ… РџСЂРµРґРјРµС‚: <b>{text}</b>\n\n" +
-                       "Р’РІРµРґРё <b>РґРµРґР»Р°Р№РЅ</b> РІ С„РѕСЂРјР°С‚Рµ Р”Р”.РњРњ.Р“Р“Р“Р“\n(РёР»Рё РЅР°РїРёС€Рё <b>РЅРµС‚</b>):",
+            text:      $"✅ Предмет: <b>{text}</b>\n\n" +
+                       "Введи <b>дедлайн</b> в формате ДД.ММ.ГГГГ\n(или напиши <b>нет</b>):",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
     }
@@ -436,7 +863,7 @@ public class TextHandler
     private async Task HandleTaskDeadlineAsync(
         Message msg, UserSession session, string text, CancellationToken ct)
     {
-        if (text.Equals("РЅРµС‚", StringComparison.OrdinalIgnoreCase) ||
+        if (text.Equals("нет", StringComparison.OrdinalIgnoreCase) ||
             text.Equals("no",  StringComparison.OrdinalIgnoreCase) ||
             text == "-")
         {
@@ -450,7 +877,7 @@ public class TextHandler
             {
                 await _bot.SendMessage(
                     chatId:    msg.Chat.Id,
-                    text:      "вљ пёЏ РќРµРІРµСЂРЅС‹Р№ С„РѕСЂРјР°С‚ РґР°С‚С‹. РСЃРїРѕР»СЊР·СѓР№ Р”Р”.РњРњ.Р“Р“Р“Р“\nРР»Рё РЅР°РїРёС€Рё <b>РЅРµС‚</b>.",
+                    text:      "⚠️ Неверный формат даты. Используй ДД.ММ.ГГГГ\nИли напиши <b>нет</b>.",
                     parseMode: ParseMode.Html,
                     cancellationToken: ct);
                 return;
@@ -463,10 +890,10 @@ public class TextHandler
         session.DraftTask = null;
         session.State     = UserState.Idle;
 
-        var dl = task.Deadline.HasValue ? task.Deadline.Value.ToString("dd.MM.yyyy") : "РЅРµ Р·Р°РґР°РЅ";
+        var dl = task.Deadline.HasValue ? task.Deadline.Value.ToString("dd.MM.yyyy") : "не задан";
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
-            text:      $"рџЋ‰ <b>Р—Р°РґР°С‡Р° РґРѕР±Р°РІР»РµРЅР°!</b>\n\nрџ“Њ <b>{task.Title}</b>\nрџ“љ {task.Subject}\nрџ“… {dl}",
+            text:      $"🎉 <b>Задача добавлена!</b>\n\n📌 <b>{task.Title}</b>\n📚 {task.Subject}\n📅 {dl}",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
     }
@@ -476,16 +903,14 @@ public class TextHandler
     {
         if (!int.TryParse(text, out int minutes) || minutes < 1 || minutes > 300)
         {
-            await _bot.SendMessage(msg.Chat.Id, "вљ пёЏ Р’РІРµРґРё С‡РёСЃР»Рѕ РјРёРЅСѓС‚ РѕС‚ 1 РґРѕ 300:", cancellationToken: ct);
+            await _bot.SendMessage(msg.Chat.Id, "⚠️ Введи число минут от 1 до 300:", cancellationToken: ct);
             return;
         }
         session.State = UserState.Idle;
         await _timers.StartWorkTimerAsync(msg.Chat.Id, msg.From!.Id, minutes);
     }
 
-    // в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
-    //  РЈС‚РёР»РёС‚С‹
-    // в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+    // Утилиты.
 
     private async Task<byte[]> DownloadFileAsync(string fileId, CancellationToken ct)
     {

@@ -42,11 +42,23 @@ public class UserSession
     /// </summary>
     public List<ScheduleEntry>? PendingSchedule { get; set; }
 
+    /// <summary>Исходное изображение расписания для повторного разбора после выбора подгруппы</summary>
+    public byte[]? PendingScheduleImage { get; set; }
+
+    /// <summary>Найденные на изображении номера подгрупп слева направо</summary>
+    public List<int> AvailableSubGroups { get; set; } = new();
+
     /// <summary>
     /// Текущий тип недели: 1 = нечётная, 2 = чётная, null = не задан.
     /// Используется для показа/напоминаний когда пара только на одной неделе.
     /// </summary>
     public int? CurrentWeekType { get; set; }
+
+    /// <summary>Выбранная пользователем подгруппа (например 3 или 4)</summary>
+    public int? CurrentSubGroup { get; set; }
+
+    /// <summary>Текущий индекс слота при пошаговой проверке расписания: 0..23</summary>
+    public int ReviewSlotIndex { get; set; }
 
     /// <summary>Человекочитаемое описание уровня усталости</summary>
     public string FatigueDescription => FatigueLevel switch

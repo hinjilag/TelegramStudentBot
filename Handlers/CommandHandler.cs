@@ -254,6 +254,17 @@ public class CommandHandler
     public Task HandleScheduleAsync(Message msg, CancellationToken ct)
         => HandleAddScheduleAsync(msg, ct);
 
+    public async Task HandleOcrAsync(Message msg, CancellationToken ct)
+    {
+        var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
+        session.State = UserState.WaitingForOcrPhoto;
+
+        await _bot.SendMessage(
+            chatId: msg.Chat.Id,
+            text: "📷 Пришли фото с текстом, и я верну распознанный текст обратно.",
+            cancellationToken: ct);
+    }
+
     // ══════════════════════════════════════════════════════════
     //  Построители клавиатур (приватные)
     // ══════════════════════════════════════════════════════════
