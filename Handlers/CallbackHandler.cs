@@ -285,8 +285,14 @@ public class CallbackHandler
             {
                 var time = TelegramHtml.Escape(e.Time);
                 var subject = TelegramHtml.Escape(e.Subject);
-                var room = string.IsNullOrWhiteSpace(e.Room) ? "" : $" ({TelegramHtml.Escape(e.Room)})";
-                sb.AppendLine($"  🕐 {time} — {subject}{room}");
+                var week = e.WeekType switch
+                {
+                    "even" => " — чётная неделя",
+                    "odd" => " — нечётная неделя",
+                    _ => ""
+                };
+                var priority = e.IsPriority ? " 🔴 приоритет" : "";
+                sb.AppendLine($"  🕐 {time} — {subject}{week}{priority}");
             }
             sb.AppendLine();
         }

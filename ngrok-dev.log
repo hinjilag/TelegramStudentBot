@@ -1,0 +1,68 @@
+t=2026-04-15T21:55:02+0300 lvl=info msg="command usage" msg="Flag --host-header has been deprecated, use traffic policy instead"
+t=2026-04-15T21:55:02+0300 lvl=info msg="no configuration paths supplied"
+t=2026-04-15T21:55:02+0300 lvl=info msg="using configuration at default config path" path=C:\\Users\\User\\AppData\\Local\\ngrok\\ngrok.yml
+t=2026-04-15T21:55:02+0300 lvl=info msg="open config file" path=C:\\Users\\User\\AppData\\Local\\ngrok\\ngrok.yml err=nil
+t=2026-04-15T21:55:02+0300 lvl=info msg="FIPS 140 mode" enabled=false
+t=2026-04-15T21:55:02+0300 lvl=info msg="starting web service" obj=web addr=127.0.0.1:4040 allow_hosts=[]
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=2cd64c3bcde094a7
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=2cd64c3bcde094a7 status=200 dur=693.7µs
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=ef006b0cec5e755a
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=ef006b0cec5e755a status=200 dur=396.2µs
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=5e84e3f570be4114
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=5e84e3f570be4114 status=200 dur=994.7µs
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=1d688bda4929c7e3
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=1d688bda4929c7e3 status=200 dur=0s
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=ac51d519b5133a81
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=ac51d519b5133a81 status=200 dur=0s
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=c697547d64afded2
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=c697547d64afded2 status=200 dur=564.8µs
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=cd9c5a2cb3644f93
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=cd9c5a2cb3644f93 status=200 dur=571.4µs
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=bda554acfffc507a
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=bda554acfffc507a status=200 dur=664.9µs
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=0fc5a04bb86d99cd
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=0fc5a04bb86d99cd status=200 dur=543.6µs
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=36e90e0e5f2ce7c0
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=36e90e0e5f2ce7c0 status=200 dur=2.3951ms
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=5b015429762f8d22
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=5b015429762f8d22 status=200 dur=887.6µs
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=04a0308184452653
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=04a0308184452653 status=200 dur=4.0006ms
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=f2ac1015bc7bb288
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=f2ac1015bc7bb288 status=200 dur=993.6µs
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=353eb80bdc8dfd00
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=353eb80bdc8dfd00 status=200 dur=996.5µs
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=a7b2fa130567aa15
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=a7b2fa130567aa15 status=200 dur=0s
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=ad5133068ab03a21
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=ad5133068ab03a21 status=200 dur=998.7µs
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=a189a137383c2b7a
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=a189a137383c2b7a status=200 dur=997.8µs
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=066bfb5c5d992733
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=066bfb5c5d992733 status=200 dur=996.8µs
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=e2340601cd5d7afa
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=e2340601cd5d7afa status=200 dur=1.0046ms
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=f904c6d528787e06
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=f904c6d528787e06 status=200 dur=0s
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=1909eed77d39d569
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=1909eed77d39d569 status=200 dur=916µs
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=24e3f8669ec31653
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=24e3f8669ec31653 status=200 dur=0s
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=40da550615db132d
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=40da550615db132d status=200 dur=1.749ms
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=56a444c475ff6d68
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=56a444c475ff6d68 status=200 dur=548.7µs
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=1a0cef38a08eae78
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=1a0cef38a08eae78 status=200 dur=2.6926ms
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=360efdfc86d21766
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=360efdfc86d21766 status=200 dur=1.0041ms
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=7fedb5530dbbb510
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=7fedb5530dbbb510 status=200 dur=421.1µs
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=bc96cb0b5efd100c
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=bc96cb0b5efd100c status=200 dur=577.1µs
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=355dc96a4a229577
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=355dc96a4a229577 status=200 dur=560.8µs
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=d17444aff4fa6bc5
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=d17444aff4fa6bc5 status=200 dur=0s
+t=2026-04-15T21:55:02+0300 lvl=info msg=start pg=/api/tunnels id=69232723aa535695
+t=2026-04-15T21:55:02+0300 lvl=info msg=end pg=/api/tunnels id=69232723aa535695 status=200 dur=998.2µs

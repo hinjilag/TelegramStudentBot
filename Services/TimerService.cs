@@ -159,17 +159,19 @@ public class TimerService
         var type     = timer.Type == TimerType.Work ? "work" : "rest";
         var duration = timer.DurationMinutes * 60;
         var started  = new DateTimeOffset(timer.StartedAt).ToUnixTimeMilliseconds();
-        // Поддерживаем оба варианта: GitHub Pages (/timer.html) и встроенный сервер (/timer)
+        // Поддерживаем оба варианта: GitHub Pages (/timer.html) и встроенный сервер (/app)
         var isStaticPage = _webAppUrl!.Contains("github.io", StringComparison.OrdinalIgnoreCase);
-        var timerPath = isStaticPage ? "/timer.html" : "/timer";
-        var url       = $"{_webAppUrl}{timerPath}?type={type}&duration={duration}&started={started}";
+        var timerPath = isStaticPage ? "/timer.html" : "/app";
+        var url       = $"{_webAppUrl}{timerPath}?view=timer&type={type}&duration={duration}&started={started}" +
+                        $"&userId={userId}&chatId={chatId}&timerId={timer.Id:N}";
 
         var stopBaseUrl = isStaticPage ? _webAppStopUrl : _webAppUrl;
         if (!string.IsNullOrWhiteSpace(stopBaseUrl))
         {
             var stopUrl = Uri.EscapeDataString($"{stopBaseUrl}/timer/stop");
             var statusUrl = Uri.EscapeDataString($"{stopBaseUrl}/timer/status");
-            url += $"&userId={userId}&chatId={chatId}&timerId={timer.Id:N}&stopUrl={stopUrl}&statusUrl={statusUrl}";
+            var apiBase = Uri.EscapeDataString(stopBaseUrl);
+            url += $"&stopUrl={stopUrl}&statusUrl={statusUrl}&apiBase={apiBase}";
         }
 
         var label = timer.Type == TimerType.Work ? "📚 Открыть таймер" : "☕ Открыть таймер";

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using TelegramStudentBot.Models;
 using TelegramStudentBot.Services;
 
 namespace TelegramStudentBot.Handlers;
@@ -20,6 +21,7 @@ public class UpdateRouter
     private readonly TextHandler    _text;
     private readonly CallbackHandler _callbacks;
     private readonly TimerService _timers;
+    private readonly SessionService _sessions;
     private readonly ILogger<UpdateRouter> _logger;
 
     public UpdateRouter(
@@ -27,12 +29,14 @@ public class UpdateRouter
         TextHandler    text,
         CallbackHandler callbacks,
         TimerService timers,
+        SessionService sessions,
         ILogger<UpdateRouter> logger)
     {
         _commands  = commands;
         _text      = text;
         _callbacks = callbacks;
         _timers    = timers;
+        _sessions  = sessions;
         _logger    = logger;
     }
 
@@ -109,10 +113,12 @@ public class UpdateRouter
         if (string.IsNullOrWhiteSpace(data))
             return;
 
+        JsonElement root;
         string? action = null;
         try
         {
             using var payload = JsonDocument.Parse(data);
+            root = payload.RootElement.Clone();
             if (payload.RootElement.TryGetProperty("action", out var actionElement))
             {
                 action = actionElement.GetString();
@@ -124,20 +130,132 @@ public class UpdateRouter
             return;
         }
 
-        if (action != "stop_timer")
-            return;
+        switch (action)
+        {
+            case "stop_timer":
+                await HandleMiniAppStopTimerAsync(bot, msg, ct);
+                break;
 
+            case "start_timer":
+                await HandleMiniAppStartTimerAsync(bot, msg, root, ct);
+                break;
+
+            case "add_task":
+                await HandleMiniAppAddTaskAsync(bot, msg, root, ct);
+                break;
+
+            case "save_schedule":
+                await HandleMiniAppSaveScheduleAsync(bot, msg, root, ct);
+                break;
+
+            case "clear_schedule":
+                _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName).Schedule.Clear();
+                await bot.SendMessage(msg.Chat.Id, "🗑 Расписание очищено из Mini App.", cancellationToken: ct);
+                break;
+        }
+    }
+
+    private async Task HandleMiniAppStopTimerAsync(ITelegramBotClient bot, Message msg, CancellationToken ct)
+    {
         var stopped = _timers.StopTimer(msg.From!.Id);
         var text = stopped
             ? "⏹ Таймер остановлен из Mini App."
             : "ℹ️ Нет активного таймера.";
 
-        await bot.SendMessage(
-            chatId: msg.Chat.Id,
-            text: text,
-            parseMode: ParseMode.Html,
-            cancellationToken: ct);
+        await bot.SendMessage(msg.Chat.Id, text, parseMode: ParseMode.Html, cancellationToken: ct);
     }
+
+    private async Task HandleMiniAppStartTimerAsync(ITelegramBotClient bot, Message msg, JsonElement root, CancellationToken ct)
+    {
+        var type = root.TryGetProperty("type", out var typeElement) ? typeElement.GetString() : "work";
+        var minutes = root.TryGetProperty("minutes", out var minutesElement) ? minutesElement.GetInt32() : 25;
+
+        if (minutes is < 1 or > 300)
+        {
+            await bot.SendMessage(msg.Chat.Id, "⚠️ Время таймера должно быть от 1 до 300 минут.", cancellationToken: ct);
+            return;
+        }
+
+        if (string.Equals(type, "rest", StringComparison.OrdinalIgnoreCase))
+            await _timers.StartRestTimerAsync(msg.Chat.Id, msg.From!.Id, minutes);
+        else
+            await _timers.StartWorkTimerAsync(msg.Chat.Id, msg.From!.Id, minutes);
+    }
+
+    private async Task HandleMiniAppAddTaskAsync(ITelegramBotClient bot, Message msg, JsonElement root, CancellationToken ct)
+    {
+        var title = root.TryGetProperty("title", out var titleElement) ? titleElement.GetString()?.Trim() : null;
+        var subject = root.TryGetProperty("subject", out var subjectElement) ? subjectElement.GetString()?.Trim() : null;
+        var deadlineText = root.TryGetProperty("deadline", out var deadlineElement) ? deadlineElement.GetString() : null;
+
+        if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(subject))
+            return;
+
+        DateTime? deadline = DateTime.TryParse(deadlineText, out var parsedDeadline)
+            ? parsedDeadline.Date
+            : null;
+
+        var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
+        session.Tasks.Add(new StudyTask
+        {
+            Title = title,
+            Subject = subject,
+            Deadline = deadline
+        });
+
+        await bot.SendMessage(msg.Chat.Id, "📌 ДЗ добавлено из Mini App.", cancellationToken: ct);
+    }
+
+    private async Task HandleMiniAppSaveScheduleAsync(ITelegramBotClient bot, Message msg, JsonElement root, CancellationToken ct)
+    {
+        if (!root.TryGetProperty("entries", out var entriesElement) ||
+            entriesElement.ValueKind != JsonValueKind.Array)
+        {
+            return;
+        }
+
+        var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
+        session.Schedule.Clear();
+
+        foreach (var item in entriesElement.EnumerateArray())
+        {
+            var day = GetString(item, "day");
+            var time = GetString(item, "time");
+            var subject = GetString(item, "subject");
+            var weekType = NormalizeWeekType(GetString(item, "weekType"));
+            var isPriority = item.TryGetProperty("isPriority", out var priorityElement) &&
+                             priorityElement.ValueKind == JsonValueKind.True;
+
+            if (string.IsNullOrWhiteSpace(day) &&
+                string.IsNullOrWhiteSpace(time) &&
+                string.IsNullOrWhiteSpace(subject))
+            {
+                continue;
+            }
+
+            session.Schedule.Add(new ScheduleEntry
+            {
+                Day = day,
+                Time = time,
+                Subject = subject,
+                WeekType = weekType,
+                IsPriority = isPriority
+            });
+        }
+
+        await bot.SendMessage(msg.Chat.Id, $"🗓 Расписание сохранено из Mini App. Строк: {session.Schedule.Count}.", cancellationToken: ct);
+    }
+
+    private static string GetString(JsonElement item, string name) =>
+        item.TryGetProperty(name, out var element) ? element.GetString()?.Trim() ?? "" : "";
+
+    private static string NormalizeWeekType(string value) =>
+        value.Trim().ToLowerInvariant() switch
+        {
+            "even" => "even",
+            "odd" => "odd",
+            _ => "every"
+        };
 
     /// <summary>Маршрутизация команд по имени</summary>
     private async Task RouteCommandAsync(Message msg, string command, CancellationToken ct)
@@ -152,6 +270,10 @@ public class UpdateRouter
 
             case "/help":
                 await _commands.HandleHelpAsync(msg, ct);
+                break;
+
+            case "/app":
+                await _commands.HandleAppAsync(msg, ct);
                 break;
 
             case "/timer":

@@ -36,6 +36,9 @@ public class UserSession
     /// <summary>Расписание занятий студента</summary>
     public List<ScheduleEntry> Schedule { get; set; } = new();
 
+    /// <summary>Фото расписания, загруженное через Mini App (data URL)</summary>
+    public string? SchedulePhotoDataUrl { get; set; }
+
     /// <summary>Черновик записи расписания при пошаговом добавлении</summary>
     public ScheduleEntry? DraftSchedule { get; set; }
 

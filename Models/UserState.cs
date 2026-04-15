@@ -27,6 +27,6 @@ public enum UserState
     /// <summary>Ожидание времени занятия (например, 09:00–10:30)</summary>
     WaitingForScheduleTime,
 
-    /// <summary>Ожидание аудитории / места (можно пропустить)</summary>
-    WaitingForScheduleRoom,
+    /// <summary>Ожидание типа недели для занятия</summary>
+    WaitingForScheduleWeekType,
 }

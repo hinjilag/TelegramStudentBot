@@ -1,0 +1,1452 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Student Mini App</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: #10130f;
+      --bg-deep: #181d17;
+      --paper: #f1ead2;
+      --paper-soft: #fbf6e6;
+      --surface: #f1ead2;
+      --surface-strong: #fffaf0;
+      --ink: #11140f;
+      --muted: #5f6257;
+      --line: #11140f;
+      --accent: #b7ff5a;
+      --accent-dark: #4b7f2d;
+      --rose: #ff6b57;
+      --sky: #63d6ff;
+      --sun: #ffd84d;
+      --shadow: 8px 8px 0 #11140f;
+      --soft-shadow: 5px 5px 0 #11140f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-height: 100%;
+    }
+
+    body {
+      min-height: 100%;
+      margin: 0;
+      padding: 16px 16px 34px;
+      color: var(--paper);
+      background:
+        radial-gradient(circle at 14% 10%, rgba(183, 255, 90, 0.20), transparent 23%),
+        radial-gradient(circle at 88% 6%, rgba(99, 214, 255, 0.18), transparent 24%),
+        linear-gradient(180deg, var(--bg), var(--bg-deep));
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(241, 234, 210, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(241, 234, 210, 0.08) 1px, transparent 1px);
+      background-size: 32px 32px;
+      mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.85), transparent 84%);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+      letter-spacing: 0;
+    }
+
+    button {
+      min-height: 42px;
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--ink);
+      background: var(--accent);
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 4px 4px 0 var(--line);
+      transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
+    }
+
+    button:active {
+      transform: translate(2px, 2px);
+      box-shadow: 2px 2px 0 var(--line);
+    }
+
+    button:disabled {
+      cursor: default;
+      opacity: 0.5;
+      transform: none;
+      box-shadow: none;
+    }
+
+    input,
+    select {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px 11px;
+      color: var(--ink);
+      background: var(--paper-soft);
+      outline: none;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: rgba(31, 143, 112, 0.58);
+      box-shadow: 0 0 0 3px rgba(183, 255, 90, 0.28);
+    }
+
+    label {
+      display: block;
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .app {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+    }
+
+    .top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+      padding: 14px;
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: var(--paper);
+      box-shadow: var(--soft-shadow);
+    }
+
+    .top h1 {
+      margin: 0;
+      font-size: 34px;
+      line-height: 1.1;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .muted {
+      color: var(--muted);
+      line-height: 1.38;
+    }
+
+    .pill {
+      flex: 0 0 auto;
+      max-width: 260px;
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--ink);
+      background: var(--accent);
+      font-size: 13px;
+      font-weight: 850;
+      box-shadow: 4px 4px 0 var(--line);
+    }
+
+    .tabs {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      padding: 8px 0 14px;
+      background: linear-gradient(180deg, rgba(16, 19, 15, 0.98), rgba(16, 19, 15, 0.82));
+    }
+
+    .tab {
+      color: var(--paper);
+      background: #20251d;
+      border: 2px solid var(--paper);
+      box-shadow: none;
+    }
+
+    .tab.active {
+      color: var(--ink);
+      background: var(--sun);
+      border-color: var(--paper);
+    }
+
+    .screen {
+      display: none;
+    }
+
+    .screen.active {
+      display: block;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 12px;
+    }
+
+    .c3 { grid-column: span 3; }
+    .c4 { grid-column: span 4; }
+    .c5 { grid-column: span 5; }
+    .c6 { grid-column: span 6; }
+    .c12 { grid-column: span 12; }
+
+    .band,
+    .metric,
+    .task {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      color: var(--ink);
+    }
+
+    .band {
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+
+    .head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 13px 14px;
+      border-bottom: 2px solid var(--line);
+      background: var(--paper-soft);
+    }
+
+    .head h2 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.2;
+    }
+
+    .body {
+      padding: 14px;
+    }
+
+    .metric {
+      min-height: 112px;
+      padding: 15px;
+    }
+
+    .metric b {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      text-transform: uppercase;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 28px;
+      line-height: 1;
+      overflow-wrap: anywhere;
+    }
+
+    .timer {
+      display: grid;
+      grid-template-columns: 230px minmax(0, 1fr);
+      gap: 18px;
+      align-items: center;
+    }
+
+    .ring {
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      position: relative;
+      background: conic-gradient(var(--accent) var(--p, 0%), rgba(23, 33, 30, 0.10) 0);
+      box-shadow: inset 0 0 0 2px var(--line), 8px 8px 0 var(--line);
+    }
+
+    .ring::after {
+      content: "";
+      position: absolute;
+      inset: 16px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: var(--paper-soft);
+    }
+
+    .center {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+    }
+
+    .time {
+      display: block;
+      font-size: 38px;
+      font-weight: 950;
+      line-height: 1;
+    }
+
+    .row,
+    .music,
+    .toolbar,
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .inline {
+      display: grid;
+      grid-template-columns: minmax(120px, 1fr) auto;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .secondary {
+      color: var(--ink);
+      background: var(--paper-soft);
+      border: 2px solid var(--line);
+      box-shadow: none;
+    }
+
+    .danger { background: var(--rose); color: var(--ink); }
+    .blue { background: var(--sky); color: var(--ink); }
+    .yellow { color: #241b04; background: var(--sun); }
+
+    .music {
+      margin-top: 12px;
+    }
+
+    .music button {
+      color: var(--paper);
+      background: var(--ink);
+      box-shadow: 4px 4px 0 var(--line);
+    }
+
+    .music button.active {
+      color: var(--ink);
+      background: var(--rose);
+    }
+
+    .tasks {
+      display: grid;
+      gap: 10px;
+    }
+
+    .task {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+    }
+
+    .task.done {
+      opacity: 0.66;
+      background: var(--paper-soft);
+    }
+
+    .task h3 {
+      margin: 0;
+      font-size: 16px;
+      overflow-wrap: anywhere;
+    }
+
+    .actions {
+      justify-content: flex-end;
+    }
+
+    .actions button {
+      min-height: 36px;
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+
+    .empty {
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 15px;
+      color: var(--muted);
+      background: var(--paper-soft);
+    }
+
+    .photo-tools {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .photo {
+      margin-top: 12px;
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper-soft);
+      overflow: hidden;
+    }
+
+    .photo img {
+      display: block;
+      width: 100%;
+      max-height: 520px;
+      object-fit: contain;
+      background: rgba(17, 20, 15, 0.08);
+    }
+
+    .placeholder {
+      padding: 18px;
+      color: var(--muted);
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper-soft);
+    }
+
+    table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 8px;
+      border-bottom: 2px solid var(--line);
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th {
+      color: var(--muted);
+      background: var(--sun);
+      font-size: 13px;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    td input,
+    td select {
+      min-height: 38px;
+      padding: 7px 9px;
+    }
+
+    .prio {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .prio input {
+      width: 18px;
+      min-height: 18px;
+      height: 18px;
+      accent-color: var(--rose);
+    }
+
+    .toolbar {
+      margin-top: 12px;
+    }
+
+    .notice {
+      position: fixed;
+      left: 14px;
+      right: 14px;
+      bottom: 14px;
+      z-index: 50;
+      display: none;
+      max-width: 760px;
+      margin: auto;
+      border-radius: 8px;
+      padding: 12px 14px;
+      color: #fff;
+      background: var(--ink);
+      font-weight: 800;
+      box-shadow: var(--shadow);
+    }
+
+    .notice.show {
+      display: block;
+    }
+
+    .notice.error {
+      background: var(--rose);
+    }
+
+    @media (max-width: 760px) {
+      body {
+        padding: 12px 12px 28px;
+      }
+
+      .top {
+        display: block;
+      }
+
+      .pill {
+        max-width: none;
+        margin-top: 10px;
+      }
+
+      .tabs {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .c3,
+      .c4,
+      .c5,
+      .c6,
+      .c12 {
+        grid-column: span 1;
+      }
+
+      .timer {
+        grid-template-columns: 1fr;
+        justify-items: center;
+      }
+
+      .inline,
+      .photo-tools {
+        grid-template-columns: 1fr;
+      }
+
+      .task {
+        grid-template-columns: 1fr;
+      }
+
+      .actions {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <div>
+        <h1>Учёба под рукой</h1>
+        <div class="muted">Таймеры, домашка и расписание в одном Mini App.</div>
+      </div>
+      <div class="pill" id="conn">Подключаюсь...</div>
+    </header>
+
+    <nav class="tabs" aria-label="Разделы">
+      <button class="tab active" data-tab="overview" type="button">Обзор</button>
+      <button class="tab" data-tab="timers" type="button">Таймеры</button>
+      <button class="tab" data-tab="tasks" type="button">ДЗ</button>
+      <button class="tab" data-tab="schedule" type="button">Расписание</button>
+    </nav>
+
+    <section class="screen active" id="overview">
+      <div class="grid">
+        <div class="metric c3">
+          <b>Таймер</b>
+          <strong id="ovTimer">Нет</strong>
+          <span class="muted" id="ovTimerMeta">Можно запускать фокус или отдых.</span>
+        </div>
+        <div class="metric c3">
+          <b>Усталость</b>
+          <strong id="ovFatigue">0%</strong>
+          <span class="muted" id="ovFatigueMeta">Появится после сессий.</span>
+        </div>
+        <div class="metric c3">
+          <b>Домашка</b>
+          <strong id="ovTasks">0</strong>
+          <span class="muted">активных задач</span>
+        </div>
+        <div class="metric c3">
+          <b>Расписание</b>
+          <strong id="ovSchedule">0</strong>
+          <span class="muted">строк в таблице</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" id="timers">
+      <div class="band">
+        <div class="head">
+          <h2>Текущий таймер</h2>
+          <button class="secondary" id="refresh" type="button">Обновить</button>
+        </div>
+        <div class="body timer">
+          <div class="ring" id="ring">
+            <div class="center">
+              <span class="time" id="time">00:00</span>
+              <b id="timerLabel">не запущен</b>
+            </div>
+          </div>
+          <div>
+            <p class="muted" id="timerText">Выбери длительность, и бот запустит таймер с уведомлением в Telegram.</p>
+            <button class="danger" id="stop" type="button">Остановить таймер</button>
+            <div class="music">
+              <button id="musicToggle" type="button">Музыка</button>
+              <button id="trackToggle" type="button">Трек: Tape</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="band c6">
+          <div class="head"><h2>Фокус</h2></div>
+          <div class="body">
+            <div class="row">
+              <button data-start="work:25" type="button">25 мин</button>
+              <button data-start="work:30" type="button">30 мин</button>
+              <button data-start="work:45" type="button">45 мин</button>
+              <button data-start="work:60" type="button">60 мин</button>
+            </div>
+            <div class="inline">
+              <input id="workMin" type="number" min="1" max="300" placeholder="Своё время в минутах">
+              <button id="workCustom" type="button">Запустить</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="band c6">
+          <div class="head"><h2>Отдых</h2></div>
+          <div class="body">
+            <div class="row">
+              <button class="blue" data-start="rest:5" type="button">5 мин</button>
+              <button class="blue" data-start="rest:15" type="button">15 мин</button>
+              <button class="blue" data-start="rest:30" type="button">30 мин</button>
+            </div>
+            <div class="inline">
+              <input id="restMin" type="number" min="1" max="300" placeholder="Своё время отдыха">
+              <button class="blue" id="restCustom" type="button">Запустить</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" id="tasks">
+      <div class="band">
+        <div class="head"><h2>Добавить ДЗ</h2></div>
+        <div class="body">
+          <div class="grid">
+            <div class="c5">
+              <label for="taskTitle">Что нужно сделать</label>
+              <input id="taskTitle" placeholder="Решить задачи 12-18">
+            </div>
+            <div class="c4">
+              <label for="taskSubject">Предмет</label>
+              <input id="taskSubject" placeholder="Математика">
+            </div>
+            <div class="c3">
+              <label for="taskDeadline">Дедлайн</label>
+              <input id="taskDeadline" type="date">
+            </div>
+            <div class="c12">
+              <button id="addTask" type="button">Добавить домашку</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="band">
+        <div class="head"><h2>Список ДЗ</h2></div>
+        <div class="body">
+          <div class="tasks" id="taskList"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" id="schedule">
+      <div class="band">
+        <div class="head"><h2>Фото расписания</h2></div>
+        <div class="body">
+          <div class="photo-tools">
+            <div>
+              <label for="photoInput">Вставь фото расписания</label>
+              <input id="photoInput" type="file" accept="image/*">
+            </div>
+            <button class="secondary" id="removePhoto" type="button">Убрать фото</button>
+          </div>
+          <div class="photo" id="photoBox">
+            <div class="placeholder">Фото появится здесь. Ниже можно сразу переписать пары в таблицу.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="band">
+        <div class="head">
+          <h2>Таблица расписания</h2>
+          <button id="addRow" type="button">Добавить строку</button>
+        </div>
+        <div class="body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>День</th>
+                  <th>Время пары</th>
+                  <th>Название предмета</th>
+                  <th>Неделя</th>
+                  <th>Приоритетный</th>
+                  <th>Действие</th>
+                </tr>
+              </thead>
+              <tbody id="scheduleBody"></tbody>
+            </table>
+          </div>
+          <div class="toolbar">
+            <button id="saveSchedule" type="button">Сохранить расписание</button>
+            <button class="danger" id="clearSchedule" type="button">Очистить</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="notice" id="notice"></div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.expand();
+      tg.ready();
+      tg.setHeaderColor("#edf5f0");
+      tg.setBackgroundColor("#edf5f0");
+    }
+
+    const params = new URLSearchParams(location.search);
+    const tgUser = tg?.initDataUnsafe?.user;
+    const userId = params.get("userId") || (tgUser?.id ? String(tgUser.id) : "");
+    const chatId = params.get("chatId") || userId;
+    const apiBase = (params.get("apiBase") || location.origin).replace(/\/$/, "");
+    const staticMode = location.hostname.includes("github.io") && !params.get("apiBase");
+    const storeKey = "student-mini-app-state-" + (userId || "guest");
+
+    const days = [
+      "Понедельник",
+      "Вторник",
+      "Среда",
+      "Четверг",
+      "Пятница",
+      "Суббота",
+      "Воскресенье"
+    ];
+
+    const tracks = [
+      { name: "Tape", src: "./lofi.mp3" },
+      { name: "First Girl", src: "./barradeen-first-girl-talking-to-me.mp3" },
+      { name: "Life", src: "./extenz-life.mp3" },
+      { name: "No Words", src: "./le-gang-i-dont-need-u-2-say-anything.mp3" }
+    ];
+
+    let state = null;
+    let rows = [];
+    let photo = null;
+    let tickTimer = null;
+    let trackIndex = 0;
+    let musicOn = false;
+
+    const audio = new Audio();
+    audio.loop = true;
+    audio.volume = 0.45;
+
+    const $ = (id) => document.getElementById(id);
+
+    function showNotice(text, isError = false) {
+      const element = $("notice");
+      element.textContent = text;
+      element.className = "notice show" + (isError ? " error" : "");
+      clearTimeout(showNotice.timer);
+      showNotice.timer = setTimeout(() => {
+        element.className = "notice";
+      }, 2600);
+    }
+
+    async function api(path, options = {}) {
+      if (!staticMode) {
+        try {
+          const response = await fetch(apiBase + path, {
+            ...options,
+            headers: options.body ? { "Content-Type": "application/json" } : {}
+          });
+          const data = await response.json().catch(() => null);
+          if (response.ok && data?.ok) return data;
+        } catch {
+          // Static fallback below.
+        }
+      }
+
+      return localApi(path, options);
+    }
+
+    function baseState() {
+      return {
+        ok: true,
+        profile: {
+          userId: Number(userId) || 0,
+          firstName: tgUser?.first_name || "Студент",
+          fatigueLevel: 0,
+          fatigueDescription: "Локальный режим",
+          needsRest: false,
+          workSessionsWithoutRest: 0
+        },
+        timer: { active: false },
+        tasks: [],
+        schedulePhotoDataUrl: null,
+        schedule: []
+      };
+    }
+
+    function getLocalState() {
+      try {
+        return {
+          ...baseState(),
+          ...(JSON.parse(localStorage.getItem(storeKey) || "{}"))
+        };
+      } catch {
+        return baseState();
+      }
+    }
+
+    function saveLocalState(nextState) {
+      localStorage.setItem(storeKey, JSON.stringify({
+        profile: nextState.profile,
+        timer: nextState.timer,
+        tasks: nextState.tasks,
+        schedule: nextState.schedule,
+        schedulePhotoDataUrl: nextState.schedulePhotoDataUrl
+      }));
+      return nextState;
+    }
+
+    function requestBody(options) {
+      try {
+        return options.body ? JSON.parse(options.body) : {};
+      } catch {
+        return {};
+      }
+    }
+
+    function sendBot(payload) {
+      if (!tg) return;
+
+      try {
+        tg.sendData(JSON.stringify(payload));
+      } catch {
+        // Telegram may reject sendData outside Mini App context.
+      }
+    }
+
+    async function localApi(path, options = {}) {
+      const cleanPath = path.split("?")[0];
+      const body = requestBody(options);
+      const nextState = getLocalState();
+
+      if (cleanPath === "/api/state") {
+        return nextState;
+      }
+
+      if (cleanPath === "/api/timer/start") {
+        const now = Date.now();
+        const minutes = Number(body.minutes) || 25;
+        const type = body.type === "rest" ? "rest" : "work";
+
+        nextState.timer = {
+          active: true,
+          id: createId(),
+          type,
+          durationMinutes: minutes,
+          startedAtUnixMs: now,
+          startedAt: new Date(now).toISOString(),
+          endsAt: new Date(now + minutes * 60000).toISOString(),
+          remainingSeconds: minutes * 60
+        };
+
+        sendBot({ action: "start_timer", type, minutes });
+      } else if (cleanPath === "/api/timer/stop") {
+        nextState.timer = { active: false };
+        stopMusic();
+        sendBot({ action: "stop_timer" });
+      } else if (cleanPath === "/api/tasks/add") {
+        const id = createId();
+        const task = {
+          id,
+          shortId: id.slice(0, 8),
+          title: body.title || "",
+          subject: body.subject || "",
+          deadline: body.deadline || null,
+          isCompleted: false,
+          createdAt: new Date().toISOString()
+        };
+
+        nextState.tasks = [task, ...(nextState.tasks || [])];
+        sendBot({
+          action: "add_task",
+          title: task.title,
+          subject: task.subject,
+          deadline: task.deadline
+        });
+      } else if (cleanPath === "/api/tasks/toggle") {
+        nextState.tasks = (nextState.tasks || []).map((task) =>
+          task.id === body.taskId ? { ...task, isCompleted: !!body.isCompleted } : task
+        );
+      } else if (cleanPath === "/api/tasks/delete") {
+        nextState.tasks = (nextState.tasks || []).filter((task) => task.id !== body.taskId);
+      } else if (cleanPath === "/api/schedule/save") {
+        nextState.schedule = body.entries || [];
+        nextState.schedulePhotoDataUrl = body.photoDataUrl || null;
+        sendBot({
+          action: "save_schedule",
+          entries: nextState.schedule.map((row) => ({
+            day: row.day,
+            time: row.time,
+            subject: row.subject,
+            weekType: row.weekType || "every",
+            isPriority: !!row.isPriority
+          }))
+        });
+      } else if (cleanPath === "/api/schedule/clear") {
+        nextState.schedule = [];
+        nextState.schedulePhotoDataUrl = null;
+        sendBot({ action: "clear_schedule" });
+      }
+
+      return saveLocalState(nextState);
+    }
+
+    async function loadState() {
+      if (!userId) {
+        $("conn").textContent = "Открой из Telegram";
+        showNotice("Не вижу Telegram userId. Открой Mini App через кнопку бота.", true);
+        return;
+      }
+
+      try {
+        state = await api("/api/state?userId=" + encodeURIComponent(userId));
+        rows = (state.schedule || []).map((row) => ({ ...row }));
+        photo = state.schedulePhotoDataUrl || null;
+        render();
+        $("conn").textContent = "Готово: " + (state.profile.firstName || "студент");
+      } catch {
+        $("conn").textContent = "Нет связи";
+        showNotice("Данные будут сохранены локально.", true);
+      }
+    }
+
+    function render() {
+      renderOverview();
+      renderTimer();
+      renderTasks();
+      renderPhoto();
+      renderScheduleTable();
+    }
+
+    function renderOverview() {
+      const pending = (state.tasks || []).filter((task) => !task.isCompleted).length;
+      $("ovTasks").textContent = pending;
+      $("ovSchedule").textContent = (state.schedule || []).length;
+      $("ovFatigue").textContent = state.profile.fatigueLevel + "%";
+      $("ovFatigueMeta").textContent = state.profile.fatigueDescription;
+
+      if (state.timer?.active) {
+        $("ovTimer").textContent = state.timer.type === "rest" ? "Отдых" : "Фокус";
+        $("ovTimerMeta").textContent = "Осталось " + formatSeconds(state.timer.remainingSeconds || 0);
+      } else {
+        $("ovTimer").textContent = "Нет";
+        $("ovTimerMeta").textContent = "Можно запускать фокус или отдых.";
+      }
+    }
+
+    function renderTimer() {
+      clearInterval(tickTimer);
+      const timer = state?.timer;
+
+      if (!timer?.active) {
+        $("time").textContent = "00:00";
+        $("timerLabel").textContent = "не запущен";
+        $("timerText").textContent = "Выбери длительность, и бот запустит таймер с уведомлением в Telegram.";
+        $("ring").style.setProperty("--p", "0%");
+        $("stop").disabled = true;
+        return;
+      }
+
+      $("stop").disabled = false;
+      const totalSeconds = Math.max(1, timer.durationMinutes * 60);
+      const started = timer.startedAtUnixMs || Date.now();
+      const label = timer.type === "rest" ? "отдых" : "фокус";
+
+      const tick = () => {
+        const elapsed = Math.floor((Date.now() - started) / 1000);
+        const remaining = Math.max(0, totalSeconds - elapsed);
+        const progress = Math.max(0, Math.min(100, (remaining / totalSeconds) * 100));
+
+        $("time").textContent = formatSeconds(remaining);
+        $("timerLabel").textContent = label;
+        $("timerText").textContent = remaining > 0
+          ? "Завершится примерно в " + formatTime(timer.endsAt)
+          : "Таймер завершается, скоро придёт уведомление.";
+        $("ring").style.setProperty("--p", progress + "%");
+
+        if (remaining <= 0) clearInterval(tickTimer);
+      };
+
+      tick();
+      tickTimer = setInterval(tick, 1000);
+    }
+
+    function renderTasks() {
+      const list = $("taskList");
+      const tasks = state.tasks || [];
+      list.innerHTML = "";
+
+      if (!tasks.length) {
+        list.innerHTML = '<div class="empty">Домашки пока нет. Добавь первое задание сверху.</div>';
+        return;
+      }
+
+      tasks.forEach((task) => {
+        const deadline = task.deadline ? ", дедлайн " + formatDate(task.deadline) : "";
+        const item = document.createElement("div");
+        item.className = "task " + (task.isCompleted ? "done" : "");
+        item.innerHTML = `
+          <div>
+            <h3>${escapeHtml(task.title)}</h3>
+            <div class="muted">${escapeHtml(task.subject)}${deadline}</div>
+          </div>
+          <div class="actions">
+            <button class="${task.isCompleted ? "secondary" : "yellow"}" data-toggle="${task.id}" type="button">
+              ${task.isCompleted ? "Вернуть" : "Готово"}
+            </button>
+            <button class="danger" data-delete="${task.id}" type="button">Удалить</button>
+          </div>`;
+        list.appendChild(item);
+      });
+    }
+
+    function renderPhoto() {
+      $("photoBox").innerHTML = photo
+        ? `<img src="${photo}" alt="Фото расписания">`
+        : '<div class="placeholder">Фото появится здесь. Ниже можно сразу переписать пары в таблицу.</div>';
+    }
+
+    function renderScheduleTable() {
+      const body = $("scheduleBody");
+      body.innerHTML = "";
+
+      if (!rows.length) rows.push(createEmptyRow());
+
+      rows.forEach((row, index) => {
+        const tr = document.createElement("tr");
+        tr.dataset.index = index;
+        tr.innerHTML = `
+          <td>
+            <select data-field="day">
+              ${days.map((day) => `<option ${row.day === day ? "selected" : ""}>${day}</option>`).join("")}
+            </select>
+          </td>
+          <td><input data-field="time" value="${escapeAttr(row.time)}" placeholder="09:00-10:30"></td>
+          <td><input data-field="subject" value="${escapeAttr(row.subject)}" placeholder="Название пары"></td>
+          <td>
+            <select data-field="weekType">
+              <option value="every" ${normalizeWeekType(row.weekType) === "every" ? "selected" : ""}>Каждую неделю</option>
+              <option value="even" ${normalizeWeekType(row.weekType) === "even" ? "selected" : ""}>Только чётная</option>
+              <option value="odd" ${normalizeWeekType(row.weekType) === "odd" ? "selected" : ""}>Только нечётная</option>
+            </select>
+          </td>
+          <td>
+            <label class="prio">
+              <input data-field="isPriority" type="checkbox" ${row.isPriority ? "checked" : ""}>
+              Важно
+            </label>
+          </td>
+          <td><button class="danger" data-remove="${index}" type="button">Удалить</button></td>`;
+        body.appendChild(tr);
+      });
+    }
+
+    async function startTimer(type, minutes) {
+      const value = Number(minutes);
+      if (!Number.isInteger(value) || value < 1 || value > 300) {
+        showNotice("Введи время от 1 до 300 минут.", true);
+        return;
+      }
+
+      try {
+        state = await api("/api/timer/start", {
+          method: "POST",
+          body: JSON.stringify({
+            userId: Number(userId),
+            chatId: Number(chatId),
+            type,
+            minutes: value
+          })
+        });
+        render();
+        setTab("timers");
+        showNotice(type === "rest" ? "Таймер отдыха запущен." : "Рабочий таймер запущен.");
+      } catch {
+        showNotice("Не удалось запустить таймер.", true);
+      }
+    }
+
+    async function stopTimer() {
+      try {
+        state = await api("/api/timer/stop", {
+          method: "POST",
+          body: JSON.stringify({
+            userId: Number(userId),
+            chatId: Number(chatId),
+            timerId: state.timer?.id
+          })
+        });
+        render();
+        showNotice("Таймер остановлен.");
+      } catch {
+        showNotice("Не удалось остановить таймер.", true);
+      }
+    }
+
+    function updateMusic() {
+      $("musicToggle").textContent = musicOn ? "Выключить музыку" : "Музыка";
+      $("musicToggle").classList.toggle("active", musicOn);
+      $("trackToggle").textContent = "Трек: " + tracks[trackIndex].name;
+      $("trackToggle").classList.toggle("active", musicOn);
+    }
+
+    function playMusic() {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.src = tracks[trackIndex].src;
+      audio.load();
+
+      audio.play()
+        .then(() => {
+          musicOn = true;
+          updateMusic();
+        })
+        .catch(() => {
+          musicOn = false;
+          updateMusic();
+          showNotice("Не удалось включить трек. Проверь, что mp3 загружен рядом с timer.html.", true);
+        });
+    }
+
+    function toggleMusic() {
+      if (musicOn) {
+        stopMusic();
+        return;
+      }
+
+      playMusic();
+    }
+
+    function stopMusic() {
+      audio.pause();
+      audio.currentTime = 0;
+      musicOn = false;
+      updateMusic();
+    }
+
+    function nextTrack() {
+      trackIndex = (trackIndex + 1) % tracks.length;
+      if (musicOn) {
+        playMusic();
+      }
+      updateMusic();
+    }
+
+    async function addTask() {
+      const title = $("taskTitle").value.trim();
+      const subject = $("taskSubject").value.trim();
+      const deadline = $("taskDeadline").value || null;
+
+      if (!title || !subject) {
+        showNotice("Заполни название ДЗ и предмет.", true);
+        return;
+      }
+
+      try {
+        state = await api("/api/tasks/add", {
+          method: "POST",
+          body: JSON.stringify({ userId: Number(userId), title, subject, deadline })
+        });
+        $("taskTitle").value = "";
+        $("taskSubject").value = "";
+        $("taskDeadline").value = "";
+        render();
+        showNotice("Домашка добавлена.");
+      } catch {
+        showNotice("Не удалось добавить ДЗ.", true);
+      }
+    }
+
+    async function toggleTask(taskId) {
+      const task = state.tasks.find((item) => item.id === taskId);
+      if (!task) return;
+
+      try {
+        state = await api("/api/tasks/toggle", {
+          method: "POST",
+          body: JSON.stringify({
+            userId: Number(userId),
+            taskId,
+            isCompleted: !task.isCompleted
+          })
+        });
+        render();
+      } catch {
+        showNotice("Не удалось обновить задачу.", true);
+      }
+    }
+
+    async function deleteTask(taskId) {
+      try {
+        state = await api("/api/tasks/delete", {
+          method: "POST",
+          body: JSON.stringify({ userId: Number(userId), taskId })
+        });
+        render();
+        showNotice("Задача удалена.");
+      } catch {
+        showNotice("Не удалось удалить задачу.", true);
+      }
+    }
+
+    function collectScheduleRows() {
+      rows = [...$("scheduleBody").querySelectorAll("tr")].map((tr) => {
+        const oldRow = rows[Number(tr.dataset.index)] || createEmptyRow();
+        const field = (name) => tr.querySelector(`[data-field="${name}"]`);
+
+        return {
+          ...oldRow,
+          day: field("day").value,
+          time: field("time").value.trim(),
+          subject: field("subject").value.trim(),
+          weekType: normalizeWeekType(field("weekType").value),
+          isPriority: field("isPriority").checked
+        };
+      });
+    }
+
+    async function saveSchedule() {
+      collectScheduleRows();
+
+      try {
+        state = await api("/api/schedule/save", {
+          method: "POST",
+          body: JSON.stringify({
+            userId: Number(userId),
+            photoDataUrl: photo,
+            entries: rows
+          })
+        });
+        rows = (state.schedule || []).map((row) => ({ ...row }));
+        photo = state.schedulePhotoDataUrl || null;
+        render();
+        showNotice("Расписание сохранено.");
+      } catch {
+        showNotice("Не удалось сохранить расписание.", true);
+      }
+    }
+
+    async function clearSchedule() {
+      try {
+        state = await api("/api/schedule/clear", {
+          method: "POST",
+          body: JSON.stringify({ userId: Number(userId) })
+        });
+        rows = [];
+        photo = null;
+        $("photoInput").value = "";
+        render();
+        showNotice("Расписание очищено.");
+      } catch {
+        showNotice("Не удалось очистить расписание.", true);
+      }
+    }
+
+    function addRow() {
+      collectScheduleRows();
+      rows.push(createEmptyRow());
+      renderScheduleTable();
+    }
+
+    function removeRow(index) {
+      collectScheduleRows();
+      rows.splice(index, 1);
+      renderScheduleTable();
+    }
+
+    function createId() {
+      return crypto.randomUUID
+        ? crypto.randomUUID().replaceAll("-", "")
+        : String(Date.now() + Math.random());
+    }
+
+    function createEmptyRow() {
+      return {
+        id: createId(),
+        day: days[0],
+        time: "",
+        subject: "",
+        weekType: "every",
+        isPriority: false
+      };
+    }
+
+    function normalizeWeekType(value) {
+      if (value === "even" || value === "odd") return value;
+      return "every";
+    }
+
+    async function handlePhoto(file) {
+      if (!file) return;
+
+      if (!file.type.startsWith("image/")) {
+        showNotice("Выбери изображение.", true);
+        return;
+      }
+
+      try {
+        photo = await resizeImage(file, 1400, 0.86);
+        renderPhoto();
+        showNotice("Фото добавлено. Нажми сохранить, чтобы закрепить его.");
+      } catch {
+        showNotice("Не удалось загрузить фото.", true);
+      }
+    }
+
+    function resizeImage(file, maxWidth, quality) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = reject;
+        reader.onload = () => {
+          const image = new Image();
+          image.onerror = reject;
+          image.onload = () => {
+            const scale = Math.min(1, maxWidth / image.width);
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.round(image.width * scale);
+            canvas.height = Math.round(image.height * scale);
+            canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL("image/jpeg", quality));
+          };
+          image.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function setTab(name) {
+      document.querySelectorAll(".tab").forEach((button) => {
+        button.classList.toggle("active", button.dataset.tab === name);
+      });
+      document.querySelectorAll(".screen").forEach((screen) => {
+        screen.classList.toggle("active", screen.id === name);
+      });
+    }
+
+    function formatSeconds(seconds) {
+      const total = Math.max(0, Number(seconds) || 0);
+      const hours = Math.floor(total / 3600);
+      const minutes = String(Math.floor((total % 3600) / 60)).padStart(2, "0");
+      const secs = String(total % 60).padStart(2, "0");
+      return hours ? `${hours}:${minutes}:${secs}` : `${minutes}:${secs}`;
+    }
+
+    function formatDate(value) {
+      const [year, month, day] = value.split("-");
+      return `${day}.${month}.${year}`;
+    }
+
+    function formatTime(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      return date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value).replaceAll("`", "&#096;");
+    }
+
+    document.querySelectorAll(".tab").forEach((button) => {
+      button.addEventListener("click", () => setTab(button.dataset.tab));
+    });
+
+    document.querySelectorAll("[data-start]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const [type, minutes] = button.dataset.start.split(":");
+        startTimer(type, minutes);
+      });
+    });
+
+    $("refresh").addEventListener("click", loadState);
+    $("stop").addEventListener("click", stopTimer);
+    $("musicToggle").addEventListener("click", toggleMusic);
+    $("trackToggle").addEventListener("click", nextTrack);
+    $("workCustom").addEventListener("click", () => startTimer("work", $("workMin").value));
+    $("restCustom").addEventListener("click", () => startTimer("rest", $("restMin").value));
+    $("addTask").addEventListener("click", addTask);
+    $("addRow").addEventListener("click", addRow);
+    $("saveSchedule").addEventListener("click", saveSchedule);
+    $("clearSchedule").addEventListener("click", clearSchedule);
+    $("removePhoto").addEventListener("click", () => {
+      photo = null;
+      $("photoInput").value = "";
+      renderPhoto();
+    });
+    $("photoInput").addEventListener("change", (event) => handlePhoto(event.target.files?.[0]));
+
+    $("taskList").addEventListener("click", (event) => {
+      const toggleId = event.target.closest("[data-toggle]")?.dataset.toggle;
+      const deleteId = event.target.closest("[data-delete]")?.dataset.delete;
+      if (toggleId) toggleTask(toggleId);
+      if (deleteId) deleteTask(deleteId);
+    });
+
+    $("scheduleBody").addEventListener("click", (event) => {
+      const index = event.target.closest("[data-remove]")?.dataset.remove;
+      if (index !== undefined) removeRow(Number(index));
+    });
+
+    const startTab = params.get("view") === "timer"
+      ? "timers"
+      : params.get("view");
+
+    updateMusic();
+    setTab(["overview", "timers", "tasks", "schedule"].includes(startTab) ? startTab : "overview");
+    loadState();
+  </script>
+</body>
+</html>
