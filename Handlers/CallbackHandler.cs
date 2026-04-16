@@ -4,6 +4,7 @@ using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
 using TelegramStudentBot.Models;
 using TelegramStudentBot.Services;
+using System.Net;
 
 namespace TelegramStudentBot.Handlers;
 
@@ -12,18 +13,21 @@ public class CallbackHandler
     private readonly ITelegramBotClient _bot;
     private readonly SessionService _sessions;
     private readonly TimerService _timers;
-    private readonly ScheduleService _schedule;
+    private readonly ScheduleCatalogService _scheduleCatalog;
+    private readonly UserScheduleSelectionService _scheduleSelections;
 
     public CallbackHandler(
         ITelegramBotClient bot,
         SessionService sessions,
         TimerService timers,
-        ScheduleService schedule)
+        ScheduleCatalogService scheduleCatalog,
+        UserScheduleSelectionService scheduleSelections)
     {
         _bot = bot;
         _sessions = sessions;
         _timers = timers;
-        _schedule = schedule;
+        _scheduleCatalog = scheduleCatalog;
+        _scheduleSelections = scheduleSelections;
     }
 
     public async Task HandleAsync(CallbackQuery query, CancellationToken ct)
@@ -43,7 +47,7 @@ public class CallbackHandler
         if (data.StartsWith("rest_")) { await HandleRestAsync(chatId, userId, data, ct); return; }
         if (data.StartsWith("plan_")) { await HandlePlanAsync(chatId, session, data, ct); return; }
         if (data.StartsWith("task_")) { await HandleTaskAsync(chatId, session, data, ct); return; }
-        if (data.StartsWith("sched_")) { await HandleScheduleAsync(chatId, session, data, ct); return; }
+        if (data.StartsWith("sched_")) { await HandleScheduleAsync(chatId, userId, session, data, ct); return; }
         if (data.StartsWith("review_")) { await HandleReviewActionAsync(chatId, session, data, ct); return; }
         if (data.StartsWith("week_")) { await HandleWeekChoiceAsync(chatId, session, data, ct); return; }
     }
@@ -54,23 +58,8 @@ public class CallbackHandler
         if (!data.StartsWith("subgroup_"))
             return false;
 
-        if (session.State == UserState.WaitingForSubGroupParsing)
-        {
-            await AnswerCallbackPopupAsync(query.Id, "Расписание считывается...", ct);
-            return true;
-        }
-
-        if (session.State is UserState.WaitingForScheduleConfirmation
-            or UserState.WaitingForWeekChoice
-            or UserState.WaitingForScheduleReview
-            or UserState.WaitingForReviewSlotCorrection)
-        {
-            await AnswerCallbackPopupAsync(query.Id, "Подгруппа уже выбрана.", ct);
-            return true;
-        }
-
-        await _bot.AnswerCallbackQuery(query.Id, cancellationToken: ct);
-        await HandleSubGroupChoiceAsync(query.Message!.Chat.Id, session, data, ct);
+        session.State = UserState.Idle;
+        await AnswerCallbackPopupAsync(query.Id, "Распознавание расписания из фото удалено.", ct);
         return true;
     }
 
@@ -170,10 +159,76 @@ public class CallbackHandler
     }
 
     private async Task HandleScheduleAsync(
-        long chatId, UserSession session, string data, CancellationToken ct)
+        long chatId, long userId, UserSession session, string data, CancellationToken ct)
     {
+        if (data.StartsWith("sched_dir_"))
+        {
+            var directionCode = data["sched_dir_".Length..];
+            await SendCourseChoiceAsync(chatId, directionCode, ct);
+            return;
+        }
+
+        if (data.StartsWith("sched_course_"))
+        {
+            var parts = data.Split('_', 4);
+            if (parts.Length == 4 && int.TryParse(parts[3], out var course))
+                await SendSubGroupChoiceOrSaveAsync(chatId, userId, session, parts[2], course, ct);
+
+            return;
+        }
+
+        if (data.StartsWith("sched_pick_"))
+        {
+            var parts = data.Split('_', 4);
+            if (parts.Length == 4)
+            {
+                var subGroup = parts[3] == "none" ? (int?)null : int.Parse(parts[3]);
+                await SaveScheduleSelectionAsync(chatId, userId, session, parts[2], subGroup, ct);
+            }
+
+            return;
+        }
+
         switch (data)
         {
+            case "sched_today":
+                await SendScheduleAsync(chatId, userId, session, onlyToday: true, ct);
+                break;
+
+            case "sched_week":
+                await SendScheduleAsync(chatId, userId, session, onlyToday: false, ct);
+                break;
+
+            case "sched_change":
+                await SendDirectionChoiceAsync(chatId, ct);
+                break;
+
+            case "sched_delete":
+                await _bot.SendMessage(
+                    chatId: chatId,
+                    text: "Удалить сохранённое расписание?",
+                    replyMarkup: ScheduleKeyboards.DeleteConfirmation,
+                    cancellationToken: ct);
+                break;
+
+            case "sched_delete_yes":
+                _scheduleSelections.Delete(userId);
+                session.Schedule.Clear();
+                session.CurrentSubGroup = null;
+                session.CurrentWeekType = null;
+                session.PendingSchedule = null;
+                session.State = UserState.Idle;
+
+                await _bot.SendMessage(
+                    chatId,
+                    "Расписание удалено. Чтобы выбрать новое, используй /schedule.",
+                    cancellationToken: ct);
+                break;
+
+            case "sched_delete_no":
+                await SendSelectedScheduleMenuAsync(chatId, userId, session, ct);
+                break;
+
             case "sched_confirm":
                 await ConfirmScheduleAsync(chatId, session, ct);
                 break;
@@ -183,28 +238,216 @@ public class CallbackHandler
                 break;
 
             case "sched_edit":
-                if (session.State != UserState.WaitingForScheduleConfirmation)
-                {
-                    await _bot.SendMessage(
-                        chatId,
-                        "ℹ️ Сначала загрузи расписание через /add_schedule.",
-                        cancellationToken: ct);
-                    return;
-                }
-
-                session.State = UserState.WaitingForScheduleCorrection;
                 await _bot.SendMessage(
-                    chatId: chatId,
-                    text: "✏️ <b>Напиши, что исправить</b>, например:\n\n" +
-                          "<i>«В среду второй парой не линейная алгебра, а мат анализ»</i>\n" +
-                          "<i>«Замени историю России на дискретную математику в пятницу 2 парой»</i>\n" +
-                          "<i>«Убери 4 пару в среду»</i>\n\n" +
-                          "После правки я снова покажу, как прочитал расписание.",
-                    parseMode: ParseMode.Html,
+                    chatId,
+                    "Редактирование фото-расписания больше не используется. Выбери группу через /schedule.",
                     cancellationToken: ct);
                 break;
         }
     }
+
+    private async Task SendDirectionChoiceAsync(long chatId, CancellationToken ct)
+    {
+        var buttons = _scheduleCatalog.GetDirections()
+            .Select(d => ($"{d.ShortTitle} — {d.DirectionName}", $"sched_dir_{d.DirectionCode}"));
+
+        await _bot.SendMessage(
+            chatId: chatId,
+            text: "Выбери направление:",
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: ct);
+    }
+
+    private async Task SendCourseChoiceAsync(long chatId, string directionCode, CancellationToken ct)
+    {
+        var groups = _scheduleCatalog.GetGroupsByDirection(directionCode);
+        if (groups.Count == 0)
+        {
+            await _bot.SendMessage(chatId, "Не нашёл курсы для этого направления.", cancellationToken: ct);
+            return;
+        }
+
+        var directionName = groups[0].DirectionName;
+        var buttons = groups.Select(g => ($"{g.Course} курс", $"sched_course_{g.DirectionCode}_{g.Course}"));
+
+        await _bot.SendMessage(
+            chatId: chatId,
+            text: $"Направление: <b>{Escape(directionName)}</b>\nВыбери курс:",
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: ct);
+    }
+
+    private async Task SendSubGroupChoiceOrSaveAsync(
+        long chatId,
+        long userId,
+        UserSession session,
+        string directionCode,
+        int course,
+        CancellationToken ct)
+    {
+        var group = _scheduleCatalog.GetGroup(directionCode, course);
+        if (group is null)
+        {
+            await _bot.SendMessage(chatId, "Не нашёл расписание для этого курса.", cancellationToken: ct);
+            return;
+        }
+
+        if (group.SubGroups.Count == 0)
+        {
+            await SaveScheduleSelectionAsync(chatId, userId, session, group.Id, null, ct);
+            return;
+        }
+
+        var buttons = group.SubGroups
+            .OrderBy(x => x)
+            .Select(x => ($"Подгруппа {x}", $"sched_pick_{group.Id}_{x}"));
+
+        await _bot.SendMessage(
+            chatId: chatId,
+            text: $"Курс: <b>{Escape(group.Title)}</b>\nВыбери подгруппу:",
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: ct);
+    }
+
+    private async Task SaveScheduleSelectionAsync(
+        long chatId,
+        long userId,
+        UserSession session,
+        string scheduleId,
+        int? subGroup,
+        CancellationToken ct)
+    {
+        var group = _scheduleCatalog.GetGroup(scheduleId);
+        if (group is null)
+        {
+            await _bot.SendMessage(chatId, "Не нашёл выбранное расписание.", cancellationToken: ct);
+            return;
+        }
+
+        _scheduleSelections.Save(userId, new UserScheduleSelection
+        {
+            ScheduleId = group.Id,
+            SubGroup = subGroup
+        });
+
+        ApplySelectionToSession(session, group, subGroup);
+
+        await _bot.SendMessage(
+            chatId: chatId,
+            text: $"Расписание сохранено: <b>{Escape(FormatGroupTitle(group, subGroup))}</b>.",
+            parseMode: ParseMode.Html,
+            cancellationToken: ct);
+
+        await SendSelectedScheduleMenuAsync(chatId, group, subGroup, ct);
+    }
+
+    private async Task SendSelectedScheduleMenuAsync(
+        long chatId,
+        long userId,
+        UserSession session,
+        CancellationToken ct)
+    {
+        var selection = _scheduleSelections.Get(userId);
+        if (selection is null)
+        {
+            await SendDirectionChoiceAsync(chatId, ct);
+            return;
+        }
+
+        var group = _scheduleCatalog.GetGroup(selection.ScheduleId);
+        if (group is null)
+        {
+            _scheduleSelections.Delete(userId);
+            await SendDirectionChoiceAsync(chatId, ct);
+            return;
+        }
+
+        ApplySelectionToSession(session, group, selection.SubGroup);
+        await SendSelectedScheduleMenuAsync(chatId, group, selection.SubGroup, ct);
+    }
+
+    private async Task SendSelectedScheduleMenuAsync(
+        long chatId,
+        ScheduleGroup group,
+        int? subGroup,
+        CancellationToken ct)
+    {
+        await _bot.SendMessage(
+            chatId: chatId,
+            text: $"📅 <b>Твоё расписание</b>\n" +
+                  $"{Escape(FormatGroupTitle(group, subGroup))}\n" +
+                  $"Текущая неделя: <b>{_scheduleCatalog.GetCurrentWeekLabel()}</b>\n\n" +
+                  "Что показать?",
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.ScheduleMenu,
+            cancellationToken: ct);
+    }
+
+    private async Task SendScheduleAsync(
+        long chatId,
+        long userId,
+        UserSession session,
+        bool onlyToday,
+        CancellationToken ct)
+    {
+        var selection = _scheduleSelections.Get(userId);
+        if (selection is null)
+        {
+            await SendDirectionChoiceAsync(chatId, ct);
+            return;
+        }
+
+        var group = _scheduleCatalog.GetGroup(selection.ScheduleId);
+        if (group is null)
+        {
+            _scheduleSelections.Delete(userId);
+            await SendDirectionChoiceAsync(chatId, ct);
+            return;
+        }
+
+        ApplySelectionToSession(session, group, selection.SubGroup);
+
+        var entries = session.Schedule;
+        var title = "Расписание на неделю";
+        if (onlyToday)
+        {
+            var today = ScheduleCatalogService.GetDayNumber(DateTime.Today);
+            entries = entries.Where(e => e.DayOfWeek == today).ToList();
+            title = $"Расписание на сегодня, {ScheduleService.GetDayName(today).ToLowerInvariant()}";
+        }
+
+        var summary = entries.Count == 0
+            ? "Пар нет."
+            : ScheduleService.FormatSchedule(entries, session.CurrentWeekType);
+
+        await _bot.SendMessage(
+            chatId: chatId,
+            text: $"<b>{title}</b>\n" +
+                  $"{Escape(FormatGroupTitle(group, selection.SubGroup))}\n" +
+                  $"Неделя: <b>{_scheduleCatalog.GetCurrentWeekLabel()}</b>\n\n" +
+                  summary,
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.ScheduleMenu,
+            cancellationToken: ct);
+    }
+
+    private void ApplySelectionToSession(UserSession session, ScheduleGroup group, int? subGroup)
+    {
+        var weekType = _scheduleCatalog.GetCurrentWeekType();
+        session.CurrentWeekType = weekType;
+        session.CurrentSubGroup = subGroup;
+        session.Schedule = _scheduleCatalog.GetEntriesForSelection(group, subGroup, weekType);
+        session.PendingSchedule = null;
+        session.State = UserState.Idle;
+    }
+
+    private static string FormatGroupTitle(ScheduleGroup group, int? subGroup)
+        => subGroup.HasValue ? $"{group.Title}, подгруппа {subGroup.Value}" : group.Title;
+
+    private static string Escape(string text)
+        => WebUtility.HtmlEncode(text);
 
     private async Task StartScheduleReviewAsync(long chatId, UserSession session, CancellationToken ct)
     {
@@ -299,110 +542,6 @@ public class CallbackHandler
         await SendSavedScheduleAsync(chatId, session, includeWeek: false, ct);
     }
 
-    private async Task HandleSubGroupChoiceAsync(
-        long chatId, UserSession session, string data, CancellationToken ct)
-    {
-        if (session.State != UserState.WaitingForSubGroupChoice || session.PendingScheduleImage is null)
-        {
-            await _bot.SendMessage(chatId, "ℹ️ Нет ожидающего расписания.", cancellationToken: ct);
-            return;
-        }
-
-        if (!int.TryParse(data.Split('_')[1], out var subGroup) ||
-            session.AvailableSubGroups.Count == 0 ||
-            !session.AvailableSubGroups.Contains(subGroup))
-        {
-            await _bot.SendMessage(chatId, "⚠️ Неизвестная подгруппа.", cancellationToken: ct);
-            return;
-        }
-
-        session.CurrentSubGroup = subGroup;
-        session.CurrentWeekType = null;
-        session.PendingSchedule = null;
-        session.State = UserState.WaitingForSubGroupParsing;
-
-        var imageBytes = session.PendingScheduleImage;
-        _ = ProcessSubGroupChoiceAsync(chatId, session, imageBytes, subGroup);
-    }
-
-    private async Task ProcessSubGroupChoiceAsync(
-        long chatId, UserSession session, byte[]? imageBytes, int subGroup)
-    {
-        if (imageBytes is null)
-        {
-            await FailPendingScheduleAsync(
-                chatId,
-                session,
-                "ℹ️ Нет ожидающего расписания.",
-                CancellationToken.None);
-            return;
-        }
-
-        try
-        {
-            using var subgroupParseCts = new CancellationTokenSource(TimeSpan.FromMinutes(4));
-
-            session.PendingSchedule = await _schedule.ParseScheduleForSubGroupAsync(
-                imageBytes,
-                subGroup,
-                session.AvailableSubGroups,
-                subgroupParseCts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            await FailPendingScheduleAsync(
-                chatId,
-                session,
-                "⏳ Анализ занял слишком много времени и был остановлен. Сейчас на чтение подгруппы даётся до 4 минут. Попробуй ещё раз, лучше отправить фото как документ или более чёткое изображение.",
-                CancellationToken.None);
-            return;
-        }
-        catch (InvalidOperationException ex)
-        {
-            await FailPendingScheduleAsync(
-                chatId,
-                session,
-                $"❌ <b>Ошибка:</b> {ex.Message}",
-                CancellationToken.None,
-                ParseMode.Html);
-            return;
-        }
-        catch (Exception ex)
-        {
-            await FailPendingScheduleAsync(
-                chatId,
-                session,
-                $"❌ Не удалось прочитать расписание для подгруппы: {ex.Message}",
-                CancellationToken.None);
-            return;
-        }
-
-        if (session.PendingSchedule is null || session.PendingSchedule.Count == 0)
-        {
-            await FailPendingScheduleAsync(
-                chatId,
-                session,
-                "😕 Не удалось уверенно прочитать расписание для выбранной подгруппы. Попробуй более чёткое фото или изображение как документ.",
-                CancellationToken.None);
-            return;
-        }
-
-        session.State = UserState.WaitingForScheduleConfirmation;
-
-        await _bot.SendMessage(
-            chatId: chatId,
-            text: $"✅ Подгруппа выбрана: <b>{subGroup}</b>. Ниже показываю, как я прочитал расписание только для неё.",
-            parseMode: ParseMode.Html,
-            cancellationToken: CancellationToken.None);
-
-        await _bot.SendMessage(
-            chatId: chatId,
-            text: ScheduleService.FormatSchedule(session.PendingSchedule),
-            parseMode: ParseMode.Html,
-            replyMarkup: ScheduleKeyboards.Confirmation,
-            cancellationToken: CancellationToken.None);
-    }
-
     private async Task HandleWeekChoiceAsync(
         long chatId, UserSession session, string data, CancellationToken ct)
     {
@@ -473,8 +612,6 @@ public class CallbackHandler
     private static void ClearPendingScheduleDraft(UserSession session)
     {
         session.PendingSchedule = null;
-        session.PendingScheduleImage = null;
-        session.AvailableSubGroups.Clear();
     }
 
     private static List<ScheduleEntry> FilterScheduleForUser(
@@ -487,6 +624,7 @@ public class CallbackHandler
             {
                 DayOfWeek = e.DayOfWeek,
                 LessonNumber = e.LessonNumber,
+                Time = e.Time,
                 Subject = e.Subject,
                 SubGroup = subGroup.HasValue ? null : e.SubGroup,
                 WeekType = e.WeekType

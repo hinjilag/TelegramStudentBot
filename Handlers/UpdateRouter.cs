@@ -149,10 +149,6 @@ public class UpdateRouter
                 await _commands.HandleAddScheduleAsync(msg, ct);
                 break;
 
-            case "/ocr":
-                await _commands.HandleOcrAsync(msg, ct);
-                break;
-
             default:
                 // Неизвестная команда
                 await _text.HandleAsync(msg, ct);

@@ -18,10 +18,8 @@ public enum UserState
     /// <summary>Ожидание произвольного времени таймера в минутах</summary>
     WaitingForTimerMinutes,
 
-    /// <summary>Ожидание фотографии расписания (после /add_schedule)</summary>
+    /// <summary>Ожидание фотографии расписания (оставлено только для совместимости старых сессий)</summary>
     WaitingForSchedulePhoto,
-
-    WaitingForOcrPhoto,
 
     /// <summary>
     /// Расписание распознано, ждём подтверждения от пользователя.
@@ -40,12 +38,6 @@ public enum UserState
 
     /// <summary>Ждём точное исправление текущего слота в пошаговой проверке</summary>
     WaitingForReviewSlotCorrection,
-
-    /// <summary>Ожидание выбора подгруппы после подтверждения расписания</summary>
-    WaitingForSubGroupChoice,
-
-    /// <summary>Подгруппа уже выбрана, бот сейчас читает расписание для неё</summary>
-    WaitingForSubGroupParsing,
 
     /// <summary>Ожидание выбора типа недели (нечётная/чётная) — после подтверждения расписания</summary>
     WaitingForWeekChoice,

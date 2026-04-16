@@ -4,6 +4,7 @@ using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
 using TelegramStudentBot.Models;
 using TelegramStudentBot.Services;
+using System.Net;
 
 namespace TelegramStudentBot.Handlers;
 
@@ -16,12 +17,21 @@ public class CommandHandler
     private readonly ITelegramBotClient _bot;
     private readonly SessionService _sessions;
     private readonly TimerService _timers;
+    private readonly ScheduleCatalogService _scheduleCatalog;
+    private readonly UserScheduleSelectionService _scheduleSelections;
 
-    public CommandHandler(ITelegramBotClient bot, SessionService sessions, TimerService timers)
+    public CommandHandler(
+        ITelegramBotClient bot,
+        SessionService sessions,
+        TimerService timers,
+        ScheduleCatalogService scheduleCatalog,
+        UserScheduleSelectionService scheduleSelections)
     {
-        _bot      = bot;
+        _bot = bot;
         _sessions = sessions;
-        _timers   = timers;
+        _timers = timers;
+        _scheduleCatalog = scheduleCatalog;
+        _scheduleSelections = scheduleSelections;
     }
 
     // ══════════════════════════════════════════════════════════
@@ -60,7 +70,7 @@ public class CommandHandler
                        "📋 <b>Планирование:</b>\n" +
                        "/plan — управление задачами\n\n" +
                        "📅 <b>Расписание:</b>\n" +
-                       "/schedule — загрузить расписание из фото (ИИ-парсинг)\n\n" +
+                       "/schedule — моё расписание занятий\n\n" +
                        "😴 <b>Усталость:</b>\n" +
                        "/fatigue — показать уровень усталости\n\n" +
                        "📊 <b>Статус:</b>\n" +
@@ -238,32 +248,77 @@ public class CommandHandler
     //  /add_schedule  (и алиас /schedule)
     // ══════════════════════════════════════════════════════════
 
-    /// <summary>Начать загрузку расписания: ждём фото от пользователя</summary>
-    public async Task HandleAddScheduleAsync(Message msg, CancellationToken ct)
+    /// <summary>Алиас для старой команды: теперь открывает выбор готового расписания.</summary>
+    public Task HandleAddScheduleAsync(Message msg, CancellationToken ct)
+        => HandleScheduleAsync(msg, ct);
+
+    public async Task HandleScheduleAsync(Message msg, CancellationToken ct)
     {
-        var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
-        session.State = UserState.WaitingForSchedulePhoto;
+        var userId = msg.From!.Id;
+        var session = _sessions.GetOrCreate(userId, msg.From.FirstName);
+        session.State = UserState.Idle;
+
+        var selection = _scheduleSelections.Get(userId);
+        if (selection is not null)
+        {
+            var group = _scheduleCatalog.GetGroup(selection.ScheduleId);
+            if (group is not null)
+            {
+                ApplySelectionToSession(session, group, selection.SubGroup);
+                await SendSelectedScheduleMenuAsync(msg.Chat.Id, group, selection.SubGroup, ct);
+                return;
+            }
+
+            _scheduleSelections.Delete(userId);
+        }
+
+        await SendDirectionChoiceAsync(msg.Chat.Id, ct);
+    }
+
+    private async Task SendDirectionChoiceAsync(long chatId, CancellationToken ct)
+    {
+        var buttons = _scheduleCatalog.GetDirections()
+            .Select(d => ($"{d.ShortTitle} — {d.DirectionName}", $"sched_dir_{d.DirectionCode}"));
 
         await _bot.SendMessage(
-            chatId:    msg.Chat.Id,
-            text:      "📸 Отправь фото расписания пар.",
+            chatId: chatId,
+            text: "Выбери направление:",
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
             cancellationToken: ct);
     }
 
-    /// <summary>Алиас для /schedule (обратная совместимость)</summary>
-    public Task HandleScheduleAsync(Message msg, CancellationToken ct)
-        => HandleAddScheduleAsync(msg, ct);
-
-    public async Task HandleOcrAsync(Message msg, CancellationToken ct)
+    private async Task SendSelectedScheduleMenuAsync(
+        long chatId,
+        ScheduleGroup group,
+        int? subGroup,
+        CancellationToken ct)
     {
-        var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
-        session.State = UserState.WaitingForOcrPhoto;
+        var subGroupText = subGroup.HasValue ? $", подгруппа {subGroup.Value}" : string.Empty;
+        var weekLabel = _scheduleCatalog.GetCurrentWeekLabel();
 
         await _bot.SendMessage(
-            chatId: msg.Chat.Id,
-            text: "📷 Пришли фото с текстом, и я верну распознанный текст обратно.",
+            chatId: chatId,
+            text: $"📅 <b>Твоё расписание</b>\n" +
+                  $"{Escape(group.Title)}{subGroupText}\n" +
+                  $"Текущая неделя: <b>{weekLabel}</b>\n\n" +
+                  "Что показать?",
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.ScheduleMenu,
             cancellationToken: ct);
     }
+
+    private void ApplySelectionToSession(UserSession session, ScheduleGroup group, int? subGroup)
+    {
+        var weekType = _scheduleCatalog.GetCurrentWeekType();
+
+        session.CurrentWeekType = weekType;
+        session.CurrentSubGroup = subGroup;
+        session.Schedule = _scheduleCatalog.GetEntriesForSelection(group, subGroup, weekType);
+        session.PendingSchedule = null;
+    }
+
+    private static string Escape(string text)
+        => WebUtility.HtmlEncode(text);
 
     // ══════════════════════════════════════════════════════════
     //  Построители клавиатур (приватные)

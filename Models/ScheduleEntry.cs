@@ -10,6 +10,9 @@ public class ScheduleEntry
     [JsonPropertyName("lesson")]
     public int LessonNumber { get; set; }
 
+    [JsonPropertyName("time")]
+    public string? Time { get; set; }
+
     [JsonPropertyName("subject")]
     public string Subject { get; set; } = string.Empty;
 

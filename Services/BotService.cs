@@ -79,9 +79,8 @@ public class BotService : IHostedService
     {
         var commands = new[]
         {
-            new BotCommand { Command = "add_schedule", Description = "Добавить расписание" },
-            new BotCommand { Command = "ocr",          Description = "Прочитать текст с фото" },
             new BotCommand { Command = "plan",         Description = "Управление задачами" },
+            new BotCommand { Command = "schedule",     Description = "Моё расписание занятий" },
             new BotCommand { Command = "timer",        Description = "Запустить таймер учёбы" },
             new BotCommand { Command = "rest",         Description = "Запустить таймер отдыха" },
             new BotCommand { Command = "status",       Description = "Мой статус (таймер + усталость)" },

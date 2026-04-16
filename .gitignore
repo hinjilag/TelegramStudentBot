@@ -41,6 +41,10 @@ Desktop.ini
 # Logs
 *.log
 
+# Runtime user data
+Data/user-schedule-selections.json
+Data/user-schedule-selections.json.tmp
+
 # JetBrains Rider
 .idea/
 
