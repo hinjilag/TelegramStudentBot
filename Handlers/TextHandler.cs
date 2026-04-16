@@ -13,8 +13,7 @@ namespace TelegramStudentBot.Handlers;
 /// Работает как машина состояний.
 ///
 /// Поток загрузки расписания:
-/// /add_schedule -> WaitingForSchedulePhoto
-/// фото -> парсинг -> WaitingForScheduleConfirmation
+/// Распознавание расписания из фото удалено.
 /// Подтвердить -> при наличии недель -> WaitingForWeekChoice -> сохранение
 /// Исправить -> WaitingForScheduleCorrection -> правка -> WaitingForScheduleConfirmation
 /// </summary>
@@ -23,18 +22,15 @@ public class TextHandler
     private readonly ITelegramBotClient _bot;
     private readonly SessionService     _sessions;
     private readonly TimerService       _timers;
-    private readonly ScheduleService    _schedule;
 
     public TextHandler(
         ITelegramBotClient bot,
         SessionService     sessions,
-        TimerService       timers,
-        ScheduleService    schedule)
+        TimerService       timers)
     {
         _bot      = bot;
         _sessions = sessions;
         _timers   = timers;
-        _schedule = schedule;
     }
 
     // Текстовые сообщения.
@@ -65,14 +61,7 @@ public class TextHandler
             case UserState.WaitingForSchedulePhoto:
                 await _bot.SendMessage(
                     msg.Chat.Id,
-                    "📸 Жду фотографию расписания.\nЧтобы отменить — /start",
-                    cancellationToken: ct);
-                break;
-
-            case UserState.WaitingForOcrPhoto:
-                await _bot.SendMessage(
-                    msg.Chat.Id,
-                    "📷 Жду фото с текстом.\nЧтобы отменить — /start",
+                    "Распознавание расписания из фото удалено. Чтобы выйти из этого режима — /start",
                     cancellationToken: ct);
                 break;
 
@@ -118,112 +107,12 @@ public class TextHandler
     public async Task HandlePhotoAsync(Message msg, CancellationToken ct)
     {
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
-
-        if (session.State == UserState.WaitingForOcrPhoto)
-        {
-            await HandleOcrPhotoAsync(msg, ct);
-            return;
-        }
-
-        if (session.State != UserState.WaitingForSchedulePhoto)
-        {
-            await _bot.SendMessage(
-                msg.Chat.Id,
-                "📸 Для загрузки расписания сначала используй /add_schedule",
-                cancellationToken: ct);
-            return;
-        }
-
-        // Выбираем fileId: photo (сжатое) или document (без сжатия).
-        string? fileId = null;
-
-        if (msg.Photo is { Length: > 0 })
-            fileId = msg.Photo.OrderByDescending(p => p.FileSize ?? 0).First().FileId;
-        else if (msg.Document is { MimeType: { } mime } doc && mime.StartsWith("image/"))
-            fileId = doc.FileId;
-
-        if (fileId is null)
-        {
-            await _bot.SendMessage(
-                msg.Chat.Id,
-                "⚠️ Не удалось получить изображение. Пришли обычное фото или изображение как документ.",
-                cancellationToken: ct);
-            return;
-        }
-
-        await _bot.SendMessage(msg.Chat.Id, "⏳ Анализирую расписание... Это займет 1-3 минуты.", cancellationToken: ct);
-
-        byte[] imageBytes;
-        try { imageBytes = await DownloadFileAsync(fileId, ct); }
-        catch (Exception ex)
-        {
-            await _bot.SendMessage(msg.Chat.Id, $"⚠️ Не удалось скачать фото: {ex.Message}", cancellationToken: ct);
-            return;
-        }
-
-        session.PendingSchedule = null;
-        session.PendingScheduleImage = imageBytes;
-        try
-        {
-            session.AvailableSubGroups = await _schedule.DetectSubGroupsAsync(imageBytes, ct);
-        }
-        catch
-        {
-            session.AvailableSubGroups = [1, 2];
-        }
-        session.State           = UserState.WaitingForSubGroupChoice;
+        session.State = UserState.Idle;
 
         await _bot.SendMessage(
-            chatId: msg.Chat.Id,
-            text: "❓ <b>Сначала выбери свою подгруппу</b>. После этого я отдельно прочитаю расписание именно для неё.",
-            parseMode: ParseMode.Html,
-            replyMarkup: ScheduleKeyboards.CreateSubGroupChoice(session.AvailableSubGroups),
+            msg.Chat.Id,
+            "Фото больше не обрабатываются. Распознавание расписания из изображения удалено из бота.",
             cancellationToken: ct);
-    }
-
-    private async Task HandleOcrPhotoAsync(Message msg, CancellationToken ct)
-    {
-        var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
-        string? fileId = null;
-
-        if (msg.Photo is { Length: > 0 })
-            fileId = msg.Photo.OrderByDescending(p => p.FileSize ?? 0).First().FileId;
-        else if (msg.Document is { MimeType: { } mime } doc && mime.StartsWith("image/"))
-            fileId = doc.FileId;
-
-        if (fileId is null)
-        {
-            await _bot.SendMessage(
-                msg.Chat.Id,
-                "⚠️ Не удалось получить изображение. Пришли обычное фото или изображение как документ.",
-                cancellationToken: ct);
-            return;
-        }
-
-        await _bot.SendMessage(msg.Chat.Id, "⏳ Читаю текст с изображения...", cancellationToken: ct);
-
-        try
-        {
-            var imageBytes = await DownloadFileAsync(fileId, ct);
-            var extractedText = await _schedule.ExtractTextAsync(imageBytes, ct);
-            session.State = UserState.Idle;
-
-            await _bot.SendMessage(
-                msg.Chat.Id,
-                $"📝 Вот что я прочитал:\n\n<pre>{System.Net.WebUtility.HtmlEncode(extractedText)}</pre>",
-                parseMode: ParseMode.Html,
-                cancellationToken: ct);
-        }
-        catch (InvalidOperationException ex)
-        {
-            session.State = UserState.Idle;
-            await _bot.SendMessage(msg.Chat.Id, $"❌ Ошибка OCR: {ex.Message}", cancellationToken: ct);
-        }
-        catch (Exception ex)
-        {
-            session.State = UserState.Idle;
-            await _bot.SendMessage(msg.Chat.Id, $"❌ Не удалось прочитать текст: {ex.Message}", cancellationToken: ct);
-        }
     }
 
     // Исправление расписания.
@@ -912,12 +801,5 @@ public class TextHandler
 
     // Утилиты.
 
-    private async Task<byte[]> DownloadFileAsync(string fileId, CancellationToken ct)
-    {
-        var file = await _bot.GetFile(fileId, ct);
-        using var stream = new MemoryStream();
-        await _bot.DownloadFile(file.FilePath!, stream, ct);
-        return stream.ToArray();
-    }
 }
 

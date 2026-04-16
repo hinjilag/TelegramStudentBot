@@ -33,19 +33,8 @@ var host = Host.CreateDefaultBuilder(args)
 
         services.AddSingleton<SessionService>();
         services.AddSingleton<TimerService>();
-
-        services.AddSingleton<ScheduleService>(sp =>
-        {
-            var cfg = sp.GetRequiredService<IConfiguration>();
-            var logger = sp.GetRequiredService<ILogger<ScheduleService>>();
-            var baseUrl = (cfg["OllamaUrl"] ?? "http://localhost:11434").TrimEnd('/');
-            var client = new System.Net.Http.HttpClient
-            {
-                BaseAddress = new Uri(baseUrl),
-                Timeout = TimeSpan.FromMinutes(6)
-            };
-            return new ScheduleService(client, cfg, logger);
-        });
+        services.AddSingleton<ScheduleCatalogService>();
+        services.AddSingleton<UserScheduleSelectionService>();
 
         services.AddSingleton<CommandHandler>();
         services.AddSingleton<TextHandler>();

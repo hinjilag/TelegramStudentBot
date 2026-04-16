@@ -33,7 +33,7 @@ public class UserSession
     /// <summary>Черновик задачи при пошаговом добавлении</summary>
     public StudyTask? DraftTask { get; set; }
 
-    /// <summary>Сохранённое расписание пар (загружается через /schedule + фото)</summary>
+    /// <summary>Сохранённое расписание пар.</summary>
     public List<ScheduleEntry> Schedule { get; set; } = new();
 
     /// <summary>
@@ -41,12 +41,6 @@ public class UserSession
     /// Очищается после подтверждения пользователем.
     /// </summary>
     public List<ScheduleEntry>? PendingSchedule { get; set; }
-
-    /// <summary>Исходное изображение расписания для повторного разбора после выбора подгруппы</summary>
-    public byte[]? PendingScheduleImage { get; set; }
-
-    /// <summary>Найденные на изображении номера подгрупп слева направо</summary>
-    public List<int> AvailableSubGroups { get; set; } = new();
 
     /// <summary>
     /// Текущий тип недели: 1 = нечётная, 2 = чётная, null = не задан.
