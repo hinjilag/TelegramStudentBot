@@ -1,10 +1,10 @@
-using System.Net;
 using System.Text.Json;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Telegram.Bot;
-using Telegram.Bot.Types.Enums;
 using TelegramStudentBot.Models;
 
 namespace TelegramStudentBot.Services;
@@ -25,28 +25,25 @@ public class WebAppService : BackgroundService
         PropertyNameCaseInsensitive = true
     };
 
-    private readonly HttpListener _listener = new();
     private readonly string _wwwrootPath;
     private readonly string _htmlPath;
     private readonly int _port;
-    private readonly string? _webAppHost;
     private readonly SessionService _sessions;
     private readonly TimerService _timers;
-    private readonly ITelegramBotClient _bot;
+    private readonly ChatSyncService _chatSync;
     private readonly ILogger<WebAppService> _logger;
 
     public WebAppService(
         IConfiguration config,
         SessionService sessions,
         TimerService timers,
-        ITelegramBotClient bot,
+        ChatSyncService chatSync,
         ILogger<WebAppService> logger)
     {
         _port     = config.GetValue("WebAppPort", 8080);
-        _webAppHost = TryGetHost(config["WebAppUrl"]);
         _sessions = sessions;
         _timers   = timers;
-        _bot      = bot;
+        _chatSync = chatSync;
         _logger   = logger;
         _wwwrootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot");
         _htmlPath = Path.Combine(_wwwrootPath, "timer.html");
@@ -60,54 +57,49 @@ public class WebAppService : BackgroundService
             return;
         }
 
+        var builder = WebApplication.CreateBuilder();
+        builder.Logging.ClearProviders();
+        builder.WebHost.UseUrls($"http://127.0.0.1:{_port}");
+
+        await using var app = builder.Build();
+        app.Run(context => HandleAsync(context, ct));
+
         try
         {
-            if (!TryStartListener())
-            {
-                _logger.LogError("Не удалось запустить HTTP сервер на порту {Port}.", _port);
-                return;
-            }
+            await app.StartAsync(ct);
+            _logger.LogInformation("Mini App HTTP сервер запущен: http://localhost:{Port}/app", _port);
+            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // штатная остановка
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
-                "Не удалось запустить HTTP сервер на порту {Port}. " +
-                "Проверь, что порт не занят другим процессом.",
+                "Не удалось запустить HTTP сервер на порту {Port}. Проверь, что порт не занят другим процессом.",
                 _port);
-            return;
         }
-
-        while (!ct.IsCancellationRequested)
+        finally
         {
-            try
-            {
-                var context = await _listener.GetContextAsync().WaitAsync(ct);
-                _ = HandleAsync(context, ct);
-            }
-            catch (OperationCanceledException) { break; }
-            catch (Exception ex) when (!ct.IsCancellationRequested)
-            {
-                _logger.LogError(ex, "Ошибка в HTTP цикле WebAppService");
-            }
+            await app.StopAsync(CancellationToken.None);
+            _logger.LogInformation("Mini App HTTP сервер остановлен.");
         }
-
-        _listener.Stop();
-        _logger.LogInformation("Mini App HTTP сервер остановлен.");
     }
 
-    private async Task HandleAsync(HttpListenerContext ctx, CancellationToken ct)
+    private async Task HandleAsync(HttpContext ctx, CancellationToken ct)
     {
         try
         {
             SetCorsHeaders(ctx);
 
-            if (ctx.Request.HttpMethod == "OPTIONS")
+            if (ctx.Request.Method == "OPTIONS")
             {
                 ctx.Response.StatusCode = 204;
                 return;
             }
 
-            var path = ctx.Request.Url?.AbsolutePath ?? "/";
+            var path = ctx.Request.Path.Value ?? "/";
 
             if (path == "/" || path == "/app" || path == "/timer")
             {
@@ -140,70 +132,20 @@ public class WebAppService : BackgroundService
             try { await WriteJsonAsync(ctx, 500, new { ok = false, message = "server_error" }, ct); }
             catch { /* игнор */ }
         }
-        finally
-        {
-            try { ctx.Response.Close(); } catch { /* игнор */ }
-        }
     }
 
-    private bool TryStartListener()
-    {
-        var attempts = new List<string[]>
-        {
-            new[] { $"http://localhost:{_port}/", $"http://127.0.0.1:{_port}/" }
-        };
-
-        if (!string.IsNullOrWhiteSpace(_webAppHost))
-        {
-            attempts.Add(new[]
-            {
-                $"http://{_webAppHost}:{_port}/",
-                $"http://localhost:{_port}/",
-                $"http://127.0.0.1:{_port}/"
-            });
-        }
-
-        attempts.Add(new[] { $"http://*:{_port}/" });
-
-        foreach (var prefixes in attempts)
-        {
-            try
-            {
-                _listener.Prefixes.Clear();
-
-                foreach (var prefix in prefixes.Distinct(StringComparer.OrdinalIgnoreCase))
-                {
-                    _listener.Prefixes.Add(prefix);
-                }
-
-                _listener.Start();
-                _logger.LogInformation(
-                    "Mini App HTTP сервер запущен: http://localhost:{Port}/app. Prefixes: {Prefixes}",
-                    _port,
-                    string.Join(", ", prefixes));
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Не удалось запустить HTTP listener с prefixes: {Prefixes}", string.Join(", ", prefixes));
-            }
-        }
-
-        return false;
-    }
-
-    private async Task ServeMiniAppAsync(HttpListenerContext ctx, CancellationToken ct)
+    private async Task ServeMiniAppAsync(HttpContext ctx, CancellationToken ct)
     {
         var html = await File.ReadAllBytesAsync(_htmlPath, ct);
         ctx.Response.StatusCode  = 200;
         ctx.Response.ContentType = "text/html; charset=utf-8";
         ctx.Response.Headers["X-Frame-Options"] = "ALLOWALL";
         SetNoCacheHeaders(ctx);
-        ctx.Response.ContentLength64 = html.Length;
-        await ctx.Response.OutputStream.WriteAsync(html, ct);
+        ctx.Response.ContentLength = html.Length;
+        await ctx.Response.Body.WriteAsync(html, ct);
     }
 
-    private async Task HandleApiAsync(HttpListenerContext ctx, string path, CancellationToken ct)
+    private async Task HandleApiAsync(HttpContext ctx, string path, CancellationToken ct)
     {
         switch (path)
         {
@@ -245,7 +187,7 @@ public class WebAppService : BackgroundService
         }
     }
 
-    private async Task HandleStateAsync(HttpListenerContext ctx, CancellationToken ct)
+    private async Task HandleStateAsync(HttpContext ctx, CancellationToken ct)
     {
         if (!TryGetUserId(ctx, out var userId))
         {
@@ -257,7 +199,7 @@ public class WebAppService : BackgroundService
         await WriteStateAsync(ctx, session, ct);
     }
 
-    private async Task HandleStartTimerFromApiAsync(HttpListenerContext ctx, CancellationToken ct)
+    private async Task HandleStartTimerFromApiAsync(HttpContext ctx, CancellationToken ct)
     {
         var request = await ReadJsonAsync<StartTimerRequest>(ctx, ct);
         if (request is null || request.UserId <= 0 || request.Minutes is < 1 or > 300)
@@ -279,7 +221,7 @@ public class WebAppService : BackgroundService
         await WriteStateAsync(ctx, _sessions.GetOrCreate(request.UserId), ct);
     }
 
-    private async Task HandleStopTimerFromApiAsync(HttpListenerContext ctx, CancellationToken ct)
+    private async Task HandleStopTimerFromApiAsync(HttpContext ctx, CancellationToken ct)
     {
         var request = await ReadJsonAsync<StopTimerRequest>(ctx, ct);
         if (request is null || request.UserId <= 0)
@@ -292,19 +234,15 @@ public class WebAppService : BackgroundService
             ? _timers.StopTimer(request.UserId, timerId)
             : _timers.StopTimer(request.UserId);
 
-        if (stopped && request.ChatId != 0)
+        if (stopped)
         {
-            await _bot.SendMessage(
-                chatId: request.ChatId,
-                text: "⏹ Таймер остановлен из Mini App.",
-                parseMode: ParseMode.Html,
-                cancellationToken: ct);
+            await _chatSync.TrySendTimerStoppedAsync(ResolveChatId(request.ChatId, request.UserId), ct);
         }
 
         await WriteStateAsync(ctx, _sessions.GetOrCreate(request.UserId), ct, new { stopped });
     }
 
-    private async Task HandleAddTaskAsync(HttpListenerContext ctx, CancellationToken ct)
+    private async Task HandleAddTaskAsync(HttpContext ctx, CancellationToken ct)
     {
         var request = await ReadJsonAsync<TaskRequest>(ctx, ct);
         if (request is null ||
@@ -317,17 +255,21 @@ public class WebAppService : BackgroundService
         }
 
         var session = _sessions.GetOrCreate(request.UserId);
-        session.Tasks.Add(new StudyTask
+        var task = new StudyTask
         {
             Title = request.Title.Trim(),
             Subject = request.Subject.Trim(),
             Deadline = request.Deadline?.Date
-        });
+        };
+        session.Tasks.Add(task);
+        _sessions.Save();
+
+        await _chatSync.TrySendTaskAddedAsync(ResolveChatId(request.ChatId, request.UserId), task, ct);
 
         await WriteStateAsync(ctx, session, ct);
     }
 
-    private async Task HandleToggleTaskAsync(HttpListenerContext ctx, CancellationToken ct)
+    private async Task HandleToggleTaskAsync(HttpContext ctx, CancellationToken ct)
     {
         var request = await ReadJsonAsync<TaskToggleRequest>(ctx, ct);
         if (request is null || request.UserId <= 0)
@@ -345,10 +287,13 @@ public class WebAppService : BackgroundService
         }
 
         task.IsCompleted = request.IsCompleted;
+        _sessions.Save();
+        await _chatSync.TrySendTaskStatusChangedAsync(ResolveChatId(request.ChatId, request.UserId), task, ct);
+
         await WriteStateAsync(ctx, session, ct);
     }
 
-    private async Task HandleDeleteTaskAsync(HttpListenerContext ctx, CancellationToken ct)
+    private async Task HandleDeleteTaskAsync(HttpContext ctx, CancellationToken ct)
     {
         var request = await ReadJsonAsync<TaskDeleteRequest>(ctx, ct);
         if (request is null || request.UserId <= 0)
@@ -362,12 +307,14 @@ public class WebAppService : BackgroundService
         if (task is not null)
         {
             session.Tasks.Remove(task);
+            _sessions.Save();
+            await _chatSync.TrySendTaskDeletedAsync(ResolveChatId(request.ChatId, request.UserId), task, ct);
         }
 
         await WriteStateAsync(ctx, session, ct);
     }
 
-    private async Task HandleSaveScheduleAsync(HttpListenerContext ctx, CancellationToken ct)
+    private async Task HandleSaveScheduleAsync(HttpContext ctx, CancellationToken ct)
     {
         var request = await ReadJsonAsync<ScheduleSaveRequest>(ctx, ct);
         if (request is null || request.UserId <= 0)
@@ -395,11 +342,18 @@ public class WebAppService : BackgroundService
         session.SchedulePhotoDataUrl = string.IsNullOrWhiteSpace(request.PhotoDataUrl)
             ? null
             : request.PhotoDataUrl;
+        _sessions.Save();
+
+        await _chatSync.TrySendScheduleSavedAsync(
+            ResolveChatId(request.ChatId, request.UserId),
+            session.Schedule,
+            session.SchedulePhotoDataUrl is not null,
+            ct);
 
         await WriteStateAsync(ctx, session, ct);
     }
 
-    private async Task HandleClearScheduleAsync(HttpListenerContext ctx, CancellationToken ct)
+    private async Task HandleClearScheduleAsync(HttpContext ctx, CancellationToken ct)
     {
         var request = await ReadJsonAsync<UserRequest>(ctx, ct);
         if (request is null || request.UserId <= 0)
@@ -411,12 +365,14 @@ public class WebAppService : BackgroundService
         var session = _sessions.GetOrCreate(request.UserId);
         session.Schedule.Clear();
         session.SchedulePhotoDataUrl = null;
+        _sessions.Save();
+        await _chatSync.TrySendScheduleClearedAsync(ResolveChatId(request.ChatId, request.UserId), ct);
         await WriteStateAsync(ctx, session, ct);
     }
 
-    private async Task HandleStopTimerAsync(HttpListenerContext ctx, CancellationToken ct)
+    private async Task HandleStopTimerAsync(HttpContext ctx, CancellationToken ct)
     {
-        var query = ctx.Request.QueryString;
+        var query = ctx.Request.Query;
 
         if (!long.TryParse(query["userId"], out var userId) ||
             !long.TryParse(query["chatId"], out var chatId))
@@ -431,11 +387,7 @@ public class WebAppService : BackgroundService
 
         if (stopped)
         {
-            await _bot.SendMessage(
-                chatId: chatId,
-                text: "⏹ Таймер остановлен из Mini App.",
-                parseMode: ParseMode.Html,
-                cancellationToken: ct);
+            await _chatSync.TrySendTimerStoppedAsync(chatId, ct);
         }
 
         await WriteJsonAsync(ctx, 200, stopped
@@ -443,9 +395,9 @@ public class WebAppService : BackgroundService
             : new { ok = false, message = "not_active" }, ct);
     }
 
-    private async Task HandleTimerStatusAsync(HttpListenerContext ctx, CancellationToken ct)
+    private async Task HandleTimerStatusAsync(HttpContext ctx, CancellationToken ct)
     {
-        var query = ctx.Request.QueryString;
+        var query = ctx.Request.Query;
 
         if (!long.TryParse(query["userId"], out var userId) ||
             !Guid.TryParse(query["timerId"], out var timerId))
@@ -458,7 +410,7 @@ public class WebAppService : BackgroundService
         await WriteJsonAsync(ctx, 200, new { ok = true, active }, ct);
     }
 
-    private async Task<bool> TryServeStaticFileAsync(HttpListenerContext ctx, string path, CancellationToken ct)
+    private async Task<bool> TryServeStaticFileAsync(HttpContext ctx, string path, CancellationToken ct)
     {
         var relativePath = Uri.UnescapeDataString(path.TrimStart('/'))
             .Replace('/', Path.DirectorySeparatorChar);
@@ -478,13 +430,13 @@ public class WebAppService : BackgroundService
         ctx.Response.ContentType = GetContentType(fullPath);
         ctx.Response.Headers["X-Frame-Options"] = "ALLOWALL";
         SetNoCacheHeaders(ctx);
-        ctx.Response.ContentLength64 = bytes.Length;
-        await ctx.Response.OutputStream.WriteAsync(bytes, ct);
+        ctx.Response.ContentLength = bytes.Length;
+        await ctx.Response.Body.WriteAsync(bytes, ct);
         return true;
     }
 
     private async Task WriteStateAsync(
-        HttpListenerContext ctx,
+        HttpContext ctx,
         UserSession session,
         CancellationToken ct,
         object? extra = null)
@@ -548,8 +500,10 @@ public class WebAppService : BackgroundService
         }, ct);
     }
 
-    private static bool TryGetUserId(HttpListenerContext ctx, out long userId) =>
-        long.TryParse(ctx.Request.QueryString["userId"], out userId) && userId > 0;
+    private static bool TryGetUserId(HttpContext ctx, out long userId) =>
+        long.TryParse(ctx.Request.Query["userId"].ToString(), out userId) && userId > 0;
+
+    private static long ResolveChatId(long chatId, long userId) => chatId != 0 ? chatId : userId;
 
     private static StudyTask? FindTask(UserSession session, string? taskId)
     {
@@ -588,22 +542,12 @@ public class WebAppService : BackgroundService
             _ => "every"
         };
 
-    private static string? TryGetHost(string? url)
+    private static async Task<T?> ReadJsonAsync<T>(HttpContext ctx, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(url))
-            return null;
-
-        return Uri.TryCreate(url, UriKind.Absolute, out var uri)
-            ? uri.Host
-            : null;
-    }
-
-    private static async Task<T?> ReadJsonAsync<T>(HttpListenerContext ctx, CancellationToken ct)
-    {
-        if (!ctx.Request.HasEntityBody)
+        if (ctx.Request.ContentLength is 0 or null)
             return default;
 
-        return await JsonSerializer.DeserializeAsync<T>(ctx.Request.InputStream, JsonOptions, ct);
+        return await JsonSerializer.DeserializeAsync<T>(ctx.Request.Body, JsonOptions, ct);
     }
 
     private static string GetContentType(string path) =>
@@ -623,14 +567,14 @@ public class WebAppService : BackgroundService
             _       => "application/octet-stream"
         };
 
-    private static void SetNoCacheHeaders(HttpListenerContext ctx)
+    private static void SetNoCacheHeaders(HttpContext ctx)
     {
         ctx.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
         ctx.Response.Headers["Pragma"] = "no-cache";
         ctx.Response.Headers["Expires"] = "0";
     }
 
-    private static void SetCorsHeaders(HttpListenerContext ctx)
+    private static void SetCorsHeaders(HttpContext ctx)
     {
         ctx.Response.Headers["Access-Control-Allow-Origin"] = "*";
         ctx.Response.Headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS";
@@ -638,7 +582,7 @@ public class WebAppService : BackgroundService
     }
 
     private static async Task WriteJsonAsync(
-        HttpListenerContext ctx,
+        HttpContext ctx,
         int statusCode,
         object body,
         CancellationToken ct)
@@ -647,23 +591,17 @@ public class WebAppService : BackgroundService
         ctx.Response.StatusCode = statusCode;
         ctx.Response.ContentType = "application/json; charset=utf-8";
         SetCorsHeaders(ctx);
-        ctx.Response.ContentLength64 = bytes.Length;
-        await ctx.Response.OutputStream.WriteAsync(bytes, ct);
+        ctx.Response.ContentLength = bytes.Length;
+        await ctx.Response.Body.WriteAsync(bytes, ct);
     }
 
-    public override void Dispose()
-    {
-        _listener.Close();
-        base.Dispose();
-    }
-
-    private sealed record UserRequest(long UserId);
+    private sealed record UserRequest(long UserId, long ChatId);
     private sealed record StartTimerRequest(long UserId, long ChatId, string? Type, int Minutes);
     private sealed record StopTimerRequest(long UserId, long ChatId, string? TimerId);
-    private sealed record TaskRequest(long UserId, string Title, string Subject, DateTime? Deadline);
-    private sealed record TaskToggleRequest(long UserId, string? TaskId, bool IsCompleted);
-    private sealed record TaskDeleteRequest(long UserId, string? TaskId);
-    private sealed record ScheduleSaveRequest(long UserId, string? PhotoDataUrl, List<ScheduleRowRequest> Entries);
+    private sealed record TaskRequest(long UserId, long ChatId, string Title, string Subject, DateTime? Deadline);
+    private sealed record TaskToggleRequest(long UserId, long ChatId, string? TaskId, bool IsCompleted);
+    private sealed record TaskDeleteRequest(long UserId, long ChatId, string? TaskId);
+    private sealed record ScheduleSaveRequest(long UserId, long ChatId, string? PhotoDataUrl, List<ScheduleRowRequest> Entries);
     private sealed record ScheduleRowRequest(
         string? Id,
         string? Day,

@@ -28,7 +28,7 @@ function Find-Ngrok {
 }
 
 function Get-NgrokHttpsUrl {
-    for ($i = 0; $i -lt 30; $i++) {
+    for ($i = 0; $i -lt 60; $i++) {
         try {
             $response = Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels" -TimeoutSec 2
             $tunnel = $response.tunnels |
@@ -40,8 +40,9 @@ function Get-NgrokHttpsUrl {
             }
         }
         catch {
-            Start-Sleep -Milliseconds 500
         }
+
+        Start-Sleep -Milliseconds 500
     }
 
     return $null
@@ -55,6 +56,52 @@ function Get-NgrokApiSnapshot {
     catch {
         return "ngrok API недоступен: $($_.Exception.Message)"
     }
+}
+
+function Get-ConfiguredNgrokEndpoint($settingsPath) {
+    if (-not (Test-Path -LiteralPath $settingsPath)) {
+        return $null
+    }
+
+    try {
+        $settings = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
+        $url = [string]$settings.WebAppUrl
+
+        if ([string]::IsNullOrWhiteSpace($url)) {
+            return $null
+        }
+
+        $uri = [Uri]$url
+        if ($uri.Host -notlike "*.ngrok-*") {
+            return $null
+        }
+
+        return $uri.Host
+    }
+    catch {
+        return $null
+    }
+}
+
+function Clear-ProxyEnvironment {
+    foreach ($name in @(
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "GIT_HTTP_PROXY",
+        "GIT_HTTPS_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy"
+    )) {
+        Remove-Item -Path "Env:$name" -ErrorAction SilentlyContinue
+    }
+}
+
+function Stop-PreviousDevProcesses {
+    Get-Process -Name "TelegramStudentBot", "ngrok" -ErrorAction SilentlyContinue |
+        Where-Object { $_.Id -ne $PID } |
+        Stop-Process -Force
 }
 
 function Update-Settings($settingsPath, $webAppUrl, $port) {
@@ -102,6 +149,8 @@ $ngrokLogPath = Join-Path $repoRoot "ngrok-dev.log"
 $ngrokErrorPath = Join-Path $repoRoot "ngrok-dev.err.log"
 $ngrokPath = Find-Ngrok
 
+Stop-PreviousDevProcesses
+
 if (-not $ngrokPath) {
     Write-Host ""
     Write-Host "ngrok не найден." -ForegroundColor Yellow
@@ -112,10 +161,20 @@ if (-not $ngrokPath) {
 
 Remove-Item -LiteralPath $ngrokLogPath, $ngrokErrorPath -Force -ErrorAction SilentlyContinue
 
-Write-Host "Запускаю ngrok для порта $Port..." -ForegroundColor Cyan
+$configuredEndpoint = Get-ConfiguredNgrokEndpoint -settingsPath $settingsPath
+$ngrokArgs = @("http", "http://127.0.0.1:$Port", "--log=stdout")
+if ($configuredEndpoint) {
+    $ngrokArgs += "--url=$configuredEndpoint"
+    Write-Host "Запускаю ngrok для порта $Port на домене $configuredEndpoint..." -ForegroundColor Cyan
+}
+else {
+    Write-Host "Запускаю ngrok для порта $Port..." -ForegroundColor Cyan
+}
+
+Clear-ProxyEnvironment
 $ngrokProcess = Start-Process `
     -FilePath $ngrokPath `
-    -ArgumentList @("http", "$Port", "--host-header=rewrite", "--log=stdout") `
+    -ArgumentList $ngrokArgs `
     -RedirectStandardOutput $ngrokLogPath `
     -RedirectStandardError $ngrokErrorPath `
     -PassThru `
@@ -136,7 +195,7 @@ try {
         }
 
         if ([string]::IsNullOrWhiteSpace($logText)) {
-            $logText = "Лог ngrok пуст. Попробуй запустить вручную: $ngrokPath http $Port --host-header=localhost:$Port"
+            $logText = "Лог ngrok пуст. Попробуй запустить вручную: $ngrokPath http http://127.0.0.1:$Port"
         }
 
         $apiSnapshot = Get-NgrokApiSnapshot

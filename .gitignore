@@ -26,6 +26,7 @@
 # Build output
 bin/
 obj/
+build-check/
 
 # NuGet packages
 *.nupkg
@@ -50,6 +51,11 @@ appsettings.Development.json
 secrets.json
 .env
 *.env
+data/
+
+# Local dev logs
+ngrok-dev*.log
+bot-test*.log
 
 # Local tools downloaded for development
 tools/

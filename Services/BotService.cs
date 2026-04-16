@@ -21,6 +21,7 @@ public class BotService : IHostedService
 
     // Токен для остановки polling при завершении работы
     private CancellationTokenSource? _cts;
+    private Task? _startupTask;
 
     public BotService(ITelegramBotClient bot, UpdateRouter router, ILogger<BotService> logger)
     {
@@ -30,10 +31,46 @@ public class BotService : IHostedService
     }
 
     /// <summary>Запуск бота — начинаем получать обновления от Telegram</summary>
-    public async Task StartAsync(CancellationToken cancellationToken)
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _startupTask = StartBotWithRetryAsync(_cts.Token);
+        return Task.CompletedTask;
+    }
+
+    private async Task StartBotWithRetryAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                await StartPollingAsync(ct);
+                return;
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Не удалось подключиться к Telegram. Повтор через 30 секунд.");
+
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(30), ct);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    return;
+                }
+            }
+        }
+    }
+
+    private async Task StartPollingAsync(CancellationToken ct)
     {
         // Проверяем токен, получаем информацию о боте
-        var me = await _bot.GetMe(cancellationToken);
+        var me = await _bot.GetMe(ct);
         _logger.LogInformation("Бот запущен: @{Username} (ID: {Id})", me.Username, me.Id);
 
         // Регистрируем команды — они появятся в меню "/" у каждого пользователя
@@ -50,10 +87,8 @@ public class BotService : IHostedService
                 new Telegram.Bot.Types.BotCommand { Command = "status",   Description = "📊 Общий статус" },
                 new Telegram.Bot.Types.BotCommand { Command = "help",     Description = "❓ Справка" },
             },
-            cancellationToken: cancellationToken);
+            cancellationToken: ct);
         _logger.LogInformation("Команды бота зарегистрированы.");
-
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
         // Настройки polling: принимаем только сообщения и callback query
         var receiverOptions = new ReceiverOptions
@@ -72,7 +107,7 @@ public class BotService : IHostedService
             updateHandler: _router.HandleUpdateAsync,
             errorHandler:  HandleErrorAsync,
             receiverOptions: receiverOptions,
-            cancellationToken: _cts.Token);
+            cancellationToken: ct);
 
         _logger.LogInformation("Long polling запущен. Ожидаю сообщений...");
     }
@@ -83,6 +118,7 @@ public class BotService : IHostedService
         _logger.LogInformation("Остановка бота...");
         _cts?.Cancel();
         _cts?.Dispose();
+        _startupTask = null;
         return Task.CompletedTask;
     }
 

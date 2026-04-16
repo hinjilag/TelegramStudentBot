@@ -22,6 +22,7 @@ public class UpdateRouter
     private readonly CallbackHandler _callbacks;
     private readonly TimerService _timers;
     private readonly SessionService _sessions;
+    private readonly ChatSyncService _chatSync;
     private readonly ILogger<UpdateRouter> _logger;
 
     public UpdateRouter(
@@ -30,6 +31,7 @@ public class UpdateRouter
         CallbackHandler callbacks,
         TimerService timers,
         SessionService sessions,
+        ChatSyncService chatSync,
         ILogger<UpdateRouter> logger)
     {
         _commands  = commands;
@@ -37,6 +39,7 @@ public class UpdateRouter
         _callbacks = callbacks;
         _timers    = timers;
         _sessions  = sessions;
+        _chatSync  = chatSync;
         _logger    = logger;
     }
 
@@ -141,16 +144,27 @@ public class UpdateRouter
                 break;
 
             case "add_task":
-                await HandleMiniAppAddTaskAsync(bot, msg, root, ct);
+                await HandleMiniAppAddTaskAsync(msg, root, ct);
+                break;
+
+            case "toggle_task":
+                await HandleMiniAppToggleTaskAsync(msg, root, ct);
+                break;
+
+            case "delete_task":
+                await HandleMiniAppDeleteTaskAsync(msg, root, ct);
                 break;
 
             case "save_schedule":
-                await HandleMiniAppSaveScheduleAsync(bot, msg, root, ct);
+                await HandleMiniAppSaveScheduleAsync(msg, root, ct);
                 break;
 
             case "clear_schedule":
-                _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName).Schedule.Clear();
-                await bot.SendMessage(msg.Chat.Id, "🗑 Расписание очищено из Mini App.", cancellationToken: ct);
+                var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
+                session.Schedule.Clear();
+                session.SchedulePhotoDataUrl = null;
+                _sessions.Save();
+                await _chatSync.TrySendScheduleClearedAsync(msg.Chat.Id, ct);
                 break;
         }
     }
@@ -182,8 +196,9 @@ public class UpdateRouter
             await _timers.StartWorkTimerAsync(msg.Chat.Id, msg.From!.Id, minutes);
     }
 
-    private async Task HandleMiniAppAddTaskAsync(ITelegramBotClient bot, Message msg, JsonElement root, CancellationToken ct)
+    private async Task HandleMiniAppAddTaskAsync(Message msg, JsonElement root, CancellationToken ct)
     {
+        var idText = root.TryGetProperty("id", out var idElement) ? idElement.GetString() : null;
         var title = root.TryGetProperty("title", out var titleElement) ? titleElement.GetString()?.Trim() : null;
         var subject = root.TryGetProperty("subject", out var subjectElement) ? subjectElement.GetString()?.Trim() : null;
         var deadlineText = root.TryGetProperty("deadline", out var deadlineElement) ? deadlineElement.GetString() : null;
@@ -196,17 +211,54 @@ public class UpdateRouter
             : null;
 
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
-        session.Tasks.Add(new StudyTask
+        var task = new StudyTask
         {
+            Id = Guid.TryParse(idText, out var id) ? id : Guid.NewGuid(),
             Title = title,
             Subject = subject,
             Deadline = deadline
-        });
+        };
+        session.Tasks.Add(task);
+        _sessions.Save();
 
-        await bot.SendMessage(msg.Chat.Id, "📌 ДЗ добавлено из Mini App.", cancellationToken: ct);
+        await _chatSync.TrySendTaskAddedAsync(msg.Chat.Id, task, ct);
     }
 
-    private async Task HandleMiniAppSaveScheduleAsync(ITelegramBotClient bot, Message msg, JsonElement root, CancellationToken ct)
+    private async Task HandleMiniAppToggleTaskAsync(Message msg, JsonElement root, CancellationToken ct)
+    {
+        var taskId = root.TryGetProperty("taskId", out var taskIdElement) ? taskIdElement.GetString() : null;
+        var title = root.TryGetProperty("title", out var titleElement) ? titleElement.GetString() : null;
+        var subject = root.TryGetProperty("subject", out var subjectElement) ? subjectElement.GetString() : null;
+        var isCompleted = root.TryGetProperty("isCompleted", out var completedElement) &&
+                          completedElement.ValueKind == JsonValueKind.True;
+
+        var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
+        var task = FindTask(session, taskId, title, subject);
+        if (task is null)
+            return;
+
+        task.IsCompleted = isCompleted;
+        _sessions.Save();
+        await _chatSync.TrySendTaskStatusChangedAsync(msg.Chat.Id, task, ct);
+    }
+
+    private async Task HandleMiniAppDeleteTaskAsync(Message msg, JsonElement root, CancellationToken ct)
+    {
+        var taskId = root.TryGetProperty("taskId", out var taskIdElement) ? taskIdElement.GetString() : null;
+        var title = root.TryGetProperty("title", out var titleElement) ? titleElement.GetString() : null;
+        var subject = root.TryGetProperty("subject", out var subjectElement) ? subjectElement.GetString() : null;
+
+        var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
+        var task = FindTask(session, taskId, title, subject);
+        if (task is null)
+            return;
+
+        session.Tasks.Remove(task);
+        _sessions.Save();
+        await _chatSync.TrySendTaskDeletedAsync(msg.Chat.Id, task, ct);
+    }
+
+    private async Task HandleMiniAppSaveScheduleAsync(Message msg, JsonElement root, CancellationToken ct)
     {
         if (!root.TryGetProperty("entries", out var entriesElement) ||
             entriesElement.ValueKind != JsonValueKind.Array)
@@ -235,6 +287,7 @@ public class UpdateRouter
 
             session.Schedule.Add(new ScheduleEntry
             {
+                Id = Guid.TryParse(GetString(item, "id"), out var id) ? id : Guid.NewGuid(),
                 Day = day,
                 Time = time,
                 Subject = subject,
@@ -242,8 +295,32 @@ public class UpdateRouter
                 IsPriority = isPriority
             });
         }
+        _sessions.Save();
 
-        await bot.SendMessage(msg.Chat.Id, $"🗓 Расписание сохранено из Mini App. Строк: {session.Schedule.Count}.", cancellationToken: ct);
+        await _chatSync.TrySendScheduleSavedAsync(
+            msg.Chat.Id,
+            session.Schedule,
+            session.SchedulePhotoDataUrl is not null,
+            ct);
+    }
+
+    private static StudyTask? FindTask(UserSession session, string? taskId, string? title, string? subject)
+    {
+        if (!string.IsNullOrWhiteSpace(taskId))
+        {
+            var task = session.Tasks.FirstOrDefault(t =>
+                t.Id.ToString("N").Equals(taskId, StringComparison.OrdinalIgnoreCase) ||
+                t.ShortId.Equals(taskId, StringComparison.OrdinalIgnoreCase));
+
+            if (task is not null)
+                return task;
+        }
+
+        return session.Tasks.FirstOrDefault(t =>
+            !string.IsNullOrWhiteSpace(title) &&
+            !string.IsNullOrWhiteSpace(subject) &&
+            t.Title.Equals(title.Trim(), StringComparison.OrdinalIgnoreCase) &&
+            t.Subject.Equals(subject.Trim(), StringComparison.OrdinalIgnoreCase));
     }
 
     private static string GetString(JsonElement item, string name) =>

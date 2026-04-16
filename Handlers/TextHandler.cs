@@ -146,6 +146,7 @@ public class TextHandler
         session.Tasks.Add(task);
         session.DraftTask = null;
         session.State     = UserState.Idle;
+        _sessions.Save();
 
         var deadlineText = task.Deadline.HasValue
             ? task.Deadline.Value.ToString("dd.MM.yyyy")
@@ -275,6 +276,7 @@ public class TextHandler
         session.Schedule.Add(entry);
         session.DraftSchedule = null;
         session.State         = UserState.Idle;
+        _sessions.Save();
 
         var weekText = entry.WeekType switch
         {

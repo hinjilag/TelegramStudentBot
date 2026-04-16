@@ -238,6 +238,7 @@ public class TimerService
         // Увеличиваем усталость за рабочую сессию (+20, максимум 100)
         session.FatigueLevel           = Math.Min(100, session.FatigueLevel + 20);
         session.WorkSessionsWithoutRest++;
+        _sessions.Save();
 
         // Формируем предупреждение об усталости
         string fatigueNote;
@@ -282,6 +283,7 @@ public class TimerService
 
         session.FatigueLevel           = Math.Max(0, session.FatigueLevel - reduction);
         session.WorkSessionsWithoutRest = 0; // Сбрасываем счётчик сессий без отдыха
+        _sessions.Save();
 
         await _bot.SendMessage(
             chatId:           chatId,

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using TelegramStudentBot.Handlers;
 using TelegramStudentBot.Services;
@@ -10,6 +11,15 @@ using TelegramStudentBot.Services;
 // ──────────────────────────────────────────────────────────────
 
 var host = Host.CreateDefaultBuilder(args)
+    .ConfigureLogging(logging =>
+    {
+        logging.ClearProviders();
+        logging.AddSimpleConsole(options =>
+        {
+            options.SingleLine = false;
+            options.TimestampFormat = "HH:mm:ss ";
+        });
+    })
     .ConfigureAppConfiguration((ctx, config) =>
     {
         // Локальный файл с секретами: помогает, если IDE не передала DOTNET_ENVIRONMENT=Development.
@@ -56,17 +66,20 @@ var host = Host.CreateDefaultBuilder(args)
         // Сервис управления таймерами
         services.AddSingleton<TimerService>();
 
+        // Синхронизация изменений Mini App с Telegram-чатом
+        services.AddSingleton<ChatSyncService>();
+
         // Обработчики обновлений
         services.AddSingleton<CommandHandler>();
         services.AddSingleton<TextHandler>();
         services.AddSingleton<CallbackHandler>();
         services.AddSingleton<UpdateRouter>();
 
-        // Фоновый сервис бота (запускается автоматически при старте хоста)
-        services.AddHostedService<BotService>();
-
         // HTTP-сервер для Mini App (timer.html)
         services.AddHostedService<WebAppService>();
+
+        // Фоновый сервис бота (запускается автоматически при старте хоста)
+        services.AddHostedService<BotService>();
     })
     .Build();
 

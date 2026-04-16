@@ -196,6 +196,7 @@ public class CallbackHandler
             case "done":
             {
                 task.IsCompleted = true;
+                _sessions.Save();
                 var title = TelegramHtml.Escape(task.Title);
                 await _bot.SendMessage(
                     chatId:    chatId,
@@ -209,6 +210,7 @@ public class CallbackHandler
             {
                 var title = TelegramHtml.Escape(task.Title);
                 session.Tasks.Remove(task);
+                _sessions.Save();
                 await _bot.SendMessage(
                     chatId:    chatId,
                     text:      $"🗑 Задача <b>«{title}»</b> удалена.",
@@ -251,6 +253,7 @@ public class CallbackHandler
             case "schedule_clear":
             {
                 session.Schedule.Clear();
+                _sessions.Save();
                 await _bot.SendMessage(
                     chatId,
                     "🗑 Расписание очищено.",
