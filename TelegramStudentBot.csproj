@@ -8,9 +8,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Копируем appsettings.json в папку сборки -->
+    <!-- Копируем настройки в папку сборки -->
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+    <None Update="appsettings.Production.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
     <!-- Копируем Mini App в папку сборки -->
     <Content Include="wwwroot\**\*">

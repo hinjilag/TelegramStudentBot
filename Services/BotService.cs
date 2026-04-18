@@ -99,7 +99,7 @@ public class BotService : IHostedService
                 UpdateType.CallbackQuery
             },
             // Пропускаем обновления, накопившиеся пока бот был выключен
-            DropPendingUpdates = true
+            DropPendingUpdates = false
         };
 
         // Запускаем polling в фоне (не блокируем StartAsync)

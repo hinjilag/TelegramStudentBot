@@ -139,7 +139,18 @@ public class TextHandler
                     cancellationToken: ct);
                 return;
             }
-            session.DraftTask!.Deadline = deadline;
+
+            if (TaskDeadlineRules.IsInPast(deadline))
+            {
+                await _bot.SendMessage(
+                    chatId:    msg.Chat.Id,
+                    text:      $"⚠️ Дедлайн не может быть раньше сегодняшней даты. Укажи дату от <b>{TaskDeadlineRules.TodayForUser}</b> и позже.",
+                    parseMode: ParseMode.Html,
+                    cancellationToken: ct);
+                return;
+            }
+
+            session.DraftTask!.Deadline = deadline.Date;
         }
 
         var task = session.DraftTask!;

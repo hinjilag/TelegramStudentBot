@@ -22,10 +22,12 @@ var host = Host.CreateDefaultBuilder(args)
     })
     .ConfigureAppConfiguration((ctx, config) =>
     {
-        // Локальный файл с секретами: помогает, если IDE не передала DOTNET_ENVIRONMENT=Development.
-        config.AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: true);
+        var environmentSettingsFile = $"appsettings.{ctx.HostingEnvironment.EnvironmentName}.json";
 
-        var localSettingsPath = FindFileUpwards("appsettings.Development.json");
+        // Локальный файл с секретами: помогает, если IDE не передала DOTNET_ENVIRONMENT=Development.
+        config.AddJsonFile(environmentSettingsFile, optional: true, reloadOnChange: true);
+
+        var localSettingsPath = FindFileUpwards(environmentSettingsFile);
         if (localSettingsPath is not null)
         {
             config.AddJsonFile(localSettingsPath, optional: true, reloadOnChange: true);
@@ -33,17 +35,17 @@ var host = Host.CreateDefaultBuilder(args)
         }
         else
         {
-            Console.WriteLine("[DEBUG] appsettings.Development.json не найден рядом с папкой запуска.");
+            Console.WriteLine($"[DEBUG] {environmentSettingsFile} не найден рядом с папкой запуска.");
         }
     })
     .ConfigureServices((ctx, services) =>
     {
-        // Читаем токен из переменной окружения, appsettings.json или локального appsettings.Development.json.
+        // Читаем токен из переменной окружения, appsettings.json или appsettings.{DOTNET_ENVIRONMENT}.json.
         var rawToken = ctx.Configuration["BotToken"];
         if (string.IsNullOrWhiteSpace(rawToken))
         {
             throw new InvalidOperationException(
-                "Токен бота не найден. Укажи BotToken в переменной окружения BotToken или в локальном appsettings.Development.json. Пример есть в appsettings.Development.example.json.");
+                "Токен бота не найден. Укажи BotToken в переменной окружения BotToken, appsettings.json или appsettings.{DOTNET_ENVIRONMENT}.json.");
         }
 
         // Убираем пробелы и невидимые символы (могут попасть при копировании из Telegram)
@@ -51,7 +53,7 @@ var host = Host.CreateDefaultBuilder(args)
         if (string.IsNullOrWhiteSpace(token))
         {
             throw new InvalidOperationException(
-                "Токен бота пустой. Укажи BotToken в переменной окружения BotToken или в локальном appsettings.Development.json. Пример есть в appsettings.Development.example.json.");
+                "Токен бота пустой. Укажи BotToken в переменной окружения BotToken, appsettings.json или appsettings.{DOTNET_ENVIRONMENT}.json.");
         }
 
         // Диагностика без вывода содержимого токена.

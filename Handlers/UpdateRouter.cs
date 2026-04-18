@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using TelegramStudentBot.Helpers;
 using TelegramStudentBot.Models;
 using TelegramStudentBot.Services;
 
@@ -144,7 +145,7 @@ public class UpdateRouter
                 break;
 
             case "add_task":
-                await HandleMiniAppAddTaskAsync(msg, root, ct);
+                await HandleMiniAppAddTaskAsync(bot, msg, root, ct);
                 break;
 
             case "toggle_task":
@@ -196,7 +197,7 @@ public class UpdateRouter
             await _timers.StartWorkTimerAsync(msg.Chat.Id, msg.From!.Id, minutes);
     }
 
-    private async Task HandleMiniAppAddTaskAsync(Message msg, JsonElement root, CancellationToken ct)
+    private async Task HandleMiniAppAddTaskAsync(ITelegramBotClient bot, Message msg, JsonElement root, CancellationToken ct)
     {
         var idText = root.TryGetProperty("id", out var idElement) ? idElement.GetString() : null;
         var title = root.TryGetProperty("title", out var titleElement) ? titleElement.GetString()?.Trim() : null;
@@ -209,6 +210,16 @@ public class UpdateRouter
         DateTime? deadline = DateTime.TryParse(deadlineText, out var parsedDeadline)
             ? parsedDeadline.Date
             : null;
+
+        if (deadline.HasValue && TaskDeadlineRules.IsInPast(deadline.Value))
+        {
+            await bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: $"⚠️ Дедлайн не может быть раньше сегодняшней даты. Укажи дату от <b>{TaskDeadlineRules.TodayForUser}</b> и позже.",
+                parseMode: ParseMode.Html,
+                cancellationToken: ct);
+            return;
+        }
 
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
         var task = new StudyTask

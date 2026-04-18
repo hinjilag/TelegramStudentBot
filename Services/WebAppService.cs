@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using TelegramStudentBot.Helpers;
 using TelegramStudentBot.Models;
 
 namespace TelegramStudentBot.Services;
@@ -251,6 +252,17 @@ public class WebAppService : BackgroundService
             string.IsNullOrWhiteSpace(request.Subject))
         {
             await WriteJsonAsync(ctx, 400, new { ok = false, message = "bad_request" }, ct);
+            return;
+        }
+
+        if (request.Deadline.HasValue && TaskDeadlineRules.IsInPast(request.Deadline.Value))
+        {
+            await WriteJsonAsync(ctx, 400, new
+            {
+                ok = false,
+                message = "deadline_in_past",
+                minDeadline = TaskDeadlineRules.TodayForInput
+            }, ct);
             return;
         }
 
