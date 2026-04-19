@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
@@ -17,12 +18,16 @@ public class CommandHandler
     private readonly ITelegramBotClient _bot;
     private readonly SessionService _sessions;
     private readonly TimerService _timers;
+    private readonly string? _webAppUrl;
+    private readonly string? _webAppStopUrl;
 
-    public CommandHandler(ITelegramBotClient bot, SessionService sessions, TimerService timers)
+    public CommandHandler(ITelegramBotClient bot, SessionService sessions, TimerService timers, IConfiguration config)
     {
-        _bot      = bot;
-        _sessions = sessions;
-        _timers   = timers;
+        _bot           = bot;
+        _sessions      = sessions;
+        _timers        = timers;
+        _webAppUrl     = config["WebAppUrl"]?.TrimEnd('/');
+        _webAppStopUrl = config["WebAppStopUrl"]?.TrimEnd('/');
     }
 
     // ══════════════════════════════════════════════════════════
@@ -44,9 +49,9 @@ public class CommandHandler
                          $"🗓 Вести расписание занятий\n" +
                          $"⏱ Запускать таймеры (Помодоро)\n" +
                          $"😴 Следить за усталостью\n\n" +
-                         $"Все команды доступны через меню — нажми <b>/</b> чтобы увидеть список.",
+                         $"Открой Mini App, чтобы управлять всем из одного окна.",
             parseMode:   ParseMode.Html,
-            replyMarkup: new ReplyKeyboardRemove(),
+            replyMarkup: BuildMiniAppKeyboard(msg),
             cancellationToken: ct);
     }
 
@@ -60,6 +65,8 @@ public class CommandHandler
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
             text:      "📖 <b>Список команд:</b>\n\n" +
+                       "📱 <b>Mini App:</b>\n" +
+                       "/app — открыть полный интерфейс\n\n" +
                        "⏱ <b>Таймер учёбы:</b>\n" +
                        "/timer — запустить таймер (25/30/45/60 мин или своё)\n" +
                        "/stop — остановить текущий таймер\n\n" +
@@ -75,6 +82,18 @@ public class CommandHandler
                        "/schedule — добавить и посмотреть расписание занятий\n\n" +
                        "❓ /help — эта справка",
             parseMode: ParseMode.Html,
+            replyMarkup: BuildMiniAppKeyboard(msg),
+            cancellationToken: ct);
+    }
+
+    /// <summary>Открыть полноценный Mini App интерфейс</summary>
+    public async Task HandleAppAsync(Message msg, CancellationToken ct)
+    {
+        await _bot.SendMessage(
+            chatId:      msg.Chat.Id,
+            text:        "📱 <b>Mini App</b>\n\nЗдесь можно запускать таймеры, вести ДЗ и заполнять расписание по фото.",
+            parseMode:   ParseMode.Html,
+            replyMarkup: BuildMiniAppKeyboard(msg),
             cancellationToken: ct);
     }
 
@@ -330,4 +349,35 @@ public class CommandHandler
                 InlineKeyboardButton.WithCallbackData("🗑 Очистить всё",        "schedule_clear")
             }
         });
+
+    private InlineKeyboardMarkup? BuildMiniAppKeyboard(Message msg, string view = "overview")
+    {
+        var url = BuildMiniAppUrl(msg, view);
+        if (url is null)
+            return null;
+
+        return new InlineKeyboardMarkup(new[]
+        {
+            new[] { InlineKeyboardButton.WithWebApp("📱 Открыть Mini App", new WebAppInfo { Url = url }) }
+        });
+    }
+
+    private string? BuildMiniAppUrl(Message msg, string view)
+    {
+        if (string.IsNullOrWhiteSpace(_webAppUrl) || msg.From is null)
+            return null;
+
+        var isStaticPage = _webAppUrl.Contains("github.io", StringComparison.OrdinalIgnoreCase);
+        var pagePath = isStaticPage ? "/timer.html" : "/app";
+        var url = $"{_webAppUrl}{pagePath}?view={Uri.EscapeDataString(view)}" +
+                  $"&userId={msg.From.Id}&chatId={msg.Chat.Id}";
+
+        var apiBase = isStaticPage ? _webAppStopUrl : _webAppUrl;
+        if (!string.IsNullOrWhiteSpace(apiBase))
+        {
+            url += $"&apiBase={Uri.EscapeDataString(apiBase)}";
+        }
+
+        return url;
+    }
 }

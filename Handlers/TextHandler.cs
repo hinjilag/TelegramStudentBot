@@ -62,8 +62,8 @@ public class TextHandler
                 await HandleScheduleTimeAsync(msg, session, text, ct);
                 break;
 
-            case UserState.WaitingForScheduleRoom:
-                await HandleScheduleRoomAsync(msg, session, text, ct);
+            case UserState.WaitingForScheduleWeekType:
+                await HandleScheduleWeekTypeAsync(msg, session, text, ct);
                 break;
 
             default:
@@ -139,13 +139,25 @@ public class TextHandler
                     cancellationToken: ct);
                 return;
             }
-            session.DraftTask!.Deadline = deadline;
+
+            if (TaskDeadlineRules.IsInPast(deadline))
+            {
+                await _bot.SendMessage(
+                    chatId:    msg.Chat.Id,
+                    text:      $"⚠️ Дедлайн не может быть раньше сегодняшней даты. Укажи дату от <b>{TaskDeadlineRules.TodayForUser}</b> и позже.",
+                    parseMode: ParseMode.Html,
+                    cancellationToken: ct);
+                return;
+            }
+
+            session.DraftTask!.Deadline = deadline.Date;
         }
 
         var task = session.DraftTask!;
         session.Tasks.Add(task);
         session.DraftTask = null;
         session.State     = UserState.Idle;
+        _sessions.Save();
 
         var deadlineText = task.Deadline.HasValue
             ? task.Deadline.Value.ToString("dd.MM.yyyy")
@@ -255,39 +267,54 @@ public class TextHandler
         }
 
         session.DraftSchedule!.Time = text;
-        session.State = UserState.WaitingForScheduleRoom;
+        session.State = UserState.WaitingForScheduleWeekType;
 
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
             text:      $"✅ Время: <b>{TelegramHtml.Escape(text)}</b>\n\n" +
-                       $"Введи <b>аудиторию</b> (или напиши <b>нет</b> чтобы пропустить):",
+                       $"Укажи, когда проходит пара:\n" +
+                       $"<b>каждую</b> / <b>четная</b> / <b>нечетная</b>",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
     }
 
-    /// <summary>Шаг 4: аудитория (необязательно)</summary>
-    private async Task HandleScheduleRoomAsync(Message msg, UserSession session, string text, CancellationToken ct)
+    /// <summary>Шаг 4: тип недели</summary>
+    private async Task HandleScheduleWeekTypeAsync(Message msg, UserSession session, string text, CancellationToken ct)
     {
-        var skip = text.Equals("нет", StringComparison.OrdinalIgnoreCase) ||
-                   text.Equals("no",  StringComparison.OrdinalIgnoreCase) ||
-                   text == "-";
-
-        session.DraftSchedule!.Room = skip ? null : text;
+        session.DraftSchedule!.WeekType = NormalizeWeekType(text);
 
         var entry = session.DraftSchedule!;
         session.Schedule.Add(entry);
         session.DraftSchedule = null;
         session.State         = UserState.Idle;
+        _sessions.Save();
 
-        var roomText = string.IsNullOrWhiteSpace(entry.Room) ? "" : $", ауд. {TelegramHtml.Escape(entry.Room)}";
+        var weekText = entry.WeekType switch
+        {
+            "even" => "чётная неделя",
+            "odd" => "нечётная неделя",
+            _ => "каждую неделю"
+        };
 
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
             text:      $"✅ <b>Занятие добавлено!</b>\n\n" +
                        $"🗓 <b>{TelegramHtml.Escape(entry.Day)}</b>, {TelegramHtml.Escape(entry.Time)}\n" +
-                       $"📚 {TelegramHtml.Escape(entry.Subject)}{roomText}\n\n" +
+                       $"📚 {TelegramHtml.Escape(entry.Subject)}\n" +
+                       $"🔁 {weekText}\n\n" +
                        $"Добавь ещё через /schedule.",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
+    }
+
+    private static string NormalizeWeekType(string text)
+    {
+        var normalized = text.Trim().ToLowerInvariant().Replace('ё', 'е');
+        return normalized switch
+        {
+            "четная" or "чётная" or "чет" or "even" => "even",
+            "нечетная" or "нечётная" or "нечет" or "odd" => "odd",
+            _ => "every"
+        };
     }
 }

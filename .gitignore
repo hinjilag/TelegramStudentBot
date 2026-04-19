@@ -26,6 +26,7 @@
 # Build output
 bin/
 obj/
+build-check/
 
 # NuGet packages
 *.nupkg
@@ -46,10 +47,14 @@ _ReSharper*/
 *.[Rr]e[Ss]harper
 
 # Secrets / config overrides
-appsettings.Development.json
 secrets.json
 .env
 *.env
+data/
+
+# Local dev logs
+ngrok-dev*.log
+bot-test*.log
 
 # Local tools downloaded for development
 tools/

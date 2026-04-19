@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using TelegramStudentBot.Handlers;
 using TelegramStudentBot.Services;
@@ -10,30 +11,50 @@ using TelegramStudentBot.Services;
 // ──────────────────────────────────────────────────────────────
 
 var host = Host.CreateDefaultBuilder(args)
+    .ConfigureLogging(logging =>
+    {
+        logging.ClearProviders();
+        logging.AddSimpleConsole(options =>
+        {
+            options.SingleLine = false;
+            options.TimestampFormat = "HH:mm:ss ";
+        });
+    })
     .ConfigureAppConfiguration((ctx, config) =>
     {
-        // Локальный файл с секретами: помогает, если IDE не передала DOTNET_ENVIRONMENT=Development.
-        config.AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: true);
+        var environmentSettingsFile = ctx.HostingEnvironment.IsEnvironment("Local")
+            ? null
+            : "appsettings.Production.json";
 
-        var localSettingsPath = FindFileUpwards("appsettings.Development.json");
+        // Локально используем базовый appsettings.json, в остальных режимах подключаем production overrides.
+        if (environmentSettingsFile is not null)
+        {
+            config.AddJsonFile(environmentSettingsFile, optional: true, reloadOnChange: true);
+        }
+
+        var localSettingsPath = environmentSettingsFile is null
+            ? null
+            : FindFileUpwards(environmentSettingsFile);
         if (localSettingsPath is not null)
         {
             config.AddJsonFile(localSettingsPath, optional: true, reloadOnChange: true);
             Console.WriteLine($"[DEBUG] Локальные настройки найдены: {localSettingsPath}");
         }
-        else
+        else if (environmentSettingsFile is not null)
         {
-            Console.WriteLine("[DEBUG] appsettings.Development.json не найден рядом с папкой запуска.");
+            Console.WriteLine($"[DEBUG] {environmentSettingsFile} не найден рядом с папкой запуска.");
         }
+
+        config.AddEnvironmentVariables();
     })
     .ConfigureServices((ctx, services) =>
     {
-        // Читаем токен из переменной окружения, appsettings.json или локального appsettings.Development.json.
+        // Читаем токен из переменной окружения, appsettings.json или appsettings.{DOTNET_ENVIRONMENT}.json.
         var rawToken = ctx.Configuration["BotToken"];
         if (string.IsNullOrWhiteSpace(rawToken))
         {
             throw new InvalidOperationException(
-                "Токен бота не найден. Укажи BotToken в переменной окружения BotToken или в локальном appsettings.Development.json. Пример есть в appsettings.Development.example.json.");
+                "Токен бота не найден. Укажи BotToken в переменной окружения BotToken, appsettings.json или appsettings.{DOTNET_ENVIRONMENT}.json.");
         }
 
         // Убираем пробелы и невидимые символы (могут попасть при копировании из Telegram)
@@ -41,7 +62,7 @@ var host = Host.CreateDefaultBuilder(args)
         if (string.IsNullOrWhiteSpace(token))
         {
             throw new InvalidOperationException(
-                "Токен бота пустой. Укажи BotToken в переменной окружения BotToken или в локальном appsettings.Development.json. Пример есть в appsettings.Development.example.json.");
+                "Токен бота пустой. Укажи BotToken в переменной окружения BotToken, appsettings.json или appsettings.{DOTNET_ENVIRONMENT}.json.");
         }
 
         // Диагностика без вывода содержимого токена.
@@ -56,17 +77,20 @@ var host = Host.CreateDefaultBuilder(args)
         // Сервис управления таймерами
         services.AddSingleton<TimerService>();
 
+        // Синхронизация изменений Mini App с Telegram-чатом
+        services.AddSingleton<ChatSyncService>();
+
         // Обработчики обновлений
         services.AddSingleton<CommandHandler>();
         services.AddSingleton<TextHandler>();
         services.AddSingleton<CallbackHandler>();
         services.AddSingleton<UpdateRouter>();
 
-        // Фоновый сервис бота (запускается автоматически при старте хоста)
-        services.AddHostedService<BotService>();
-
         // HTTP-сервер для Mini App (timer.html)
         services.AddHostedService<WebAppService>();
+
+        // Фоновый сервис бота (запускается автоматически при старте хоста)
+        services.AddHostedService<BotService>();
     })
     .Build();
 
