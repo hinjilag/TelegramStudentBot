@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace TelegramStudentBot.Models;
 
 /// <summary>Учебная задача пользователя</summary>
@@ -22,5 +24,6 @@ public class StudyTask
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 
     /// <summary>Короткий идентификатор (8 символов) для использования в callback-данных</summary>
+    [JsonIgnore]
     public string ShortId => Id.ToString("N")[..8];
 }

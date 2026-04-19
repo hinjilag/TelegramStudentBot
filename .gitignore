@@ -44,6 +44,10 @@ Desktop.ini
 # Runtime user data
 Data/user-schedule-selections.json
 Data/user-schedule-selections.json.tmp
+Data/user-tasks.json
+Data/user-tasks.json.tmp
+Data/user-reminders.json
+Data/user-reminders.json.tmp
 
 # JetBrains Rider
 .idea/

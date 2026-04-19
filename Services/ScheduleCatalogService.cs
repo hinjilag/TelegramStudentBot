@@ -95,9 +95,151 @@ public class ScheduleCatalogService
             .ToList();
     }
 
+    public List<ScheduleEntry> GetAllEntriesForSelection(
+        ScheduleGroup group,
+        int? subGroup)
+    {
+        return group.Entries
+            .Where(e => !subGroup.HasValue || e.SubGroup is null || e.SubGroup == subGroup)
+            .Select(e => new ScheduleEntry
+            {
+                DayOfWeek = e.DayOfWeek,
+                LessonNumber = e.LessonNumber,
+                Time = e.Time,
+                Subject = e.Subject,
+                SubGroup = null,
+                WeekType = e.WeekType
+            })
+            .DistinctBy(e => new
+            {
+                e.DayOfWeek,
+                e.LessonNumber,
+                e.Time,
+                e.Subject,
+                e.WeekType
+            })
+            .OrderBy(e => e.DayOfWeek)
+            .ThenBy(e => e.LessonNumber)
+            .ThenBy(e => e.Subject)
+            .ToList();
+    }
+
+    public DateTime? FindNextLessonDate(
+        IEnumerable<ScheduleEntry> entries,
+        string subject,
+        DateTime? now = null)
+    {
+        var current = now ?? DateTime.Now;
+        DateTime? best = null;
+
+        foreach (var date in Enumerable.Range(0, 120).Select(offset => current.Date.AddDays(offset)))
+        {
+            var dayNumber = GetDayNumber(date);
+            var weekType = GetCurrentWeekType(date);
+
+            foreach (var entry in entries)
+            {
+                if (entry.DayOfWeek != dayNumber ||
+                    !string.Equals(entry.Subject, subject, StringComparison.OrdinalIgnoreCase) ||
+                    (entry.WeekType.HasValue && entry.WeekType.Value != weekType))
+                {
+                    continue;
+                }
+
+                var occurrence = date.Add(ParseLessonStart(entry.Time));
+                if (occurrence <= current)
+                    continue;
+
+                if (best is null || occurrence < best.Value)
+                    best = occurrence;
+            }
+        }
+
+        return best?.Date;
+    }
+
+    public static string GetHomeworkSubjectTitle(string subject)
+    {
+        var (title, _) = SplitHomeworkSubject(subject);
+        return title;
+    }
+
+    public static string GetHomeworkLessonTypeLabel(string subject)
+    {
+        var (_, lessonType) = SplitHomeworkSubject(subject);
+        return lessonType;
+    }
+
+    public static int GetHomeworkSubjectSortGroup(string subject)
+        => IsPriorityHomeworkSubject(subject) ? 0 : 1;
+
     public static int GetDayNumber(DateTime date)
     {
         return date.DayOfWeek == DayOfWeek.Sunday ? 7 : (int)date.DayOfWeek;
+    }
+
+    private static bool IsPriorityHomeworkSubject(string subject)
+    {
+        var normalized = NormalizeForPriorityMatch(subject);
+
+        if (NonPrioritySubjectKeywords.Any(normalized.Contains))
+            return false;
+
+        return PrioritySubjectKeywords.Any(normalized.Contains);
+    }
+
+    private static (string Title, string LessonType) SplitHomeworkSubject(string subject)
+    {
+        var trimmed = subject.Trim();
+        var close = trimmed.LastIndexOf(')');
+        var open = trimmed.LastIndexOf('(');
+
+        if (open >= 0 && close == trimmed.Length - 1 && open < close)
+        {
+            var rawType = trimmed[(open + 1)..close].Trim(' ', '.');
+            var lessonType = NormalizeLessonType(rawType);
+
+            if (!string.IsNullOrWhiteSpace(lessonType))
+            {
+                var title = trimmed[..open].Trim();
+                return (string.IsNullOrWhiteSpace(title) ? trimmed : title, lessonType);
+            }
+        }
+
+        return (trimmed, "Занятие");
+    }
+
+    private static string NormalizeLessonType(string rawType)
+    {
+        var normalized = rawType.ToLowerInvariant().Replace('ё', 'е');
+
+        if (normalized.Contains("лекц"))
+            return "Лекция";
+
+        if (normalized.Contains("практ"))
+            return "Практика";
+
+        if (normalized.Contains("лаб"))
+            return "Лабораторная";
+
+        if (normalized.Contains("сем"))
+            return "Семинар";
+
+        return string.Empty;
+    }
+
+    private static string NormalizeForPriorityMatch(string subject)
+        => subject.ToLowerInvariant().Replace('ё', 'е');
+
+    private static TimeSpan ParseLessonStart(string? time)
+    {
+        if (string.IsNullOrWhiteSpace(time))
+            return TimeSpan.Zero;
+
+        var startText = time.Split('-', 2)[0].Trim();
+        return TimeSpan.TryParse(startText, out var start)
+            ? start
+            : TimeSpan.Zero;
     }
 
     private static ScheduleCatalog LoadCatalog()
@@ -133,6 +275,65 @@ public class ScheduleCatalogService
         "09.03.01" => 2,
         "44.03.05" => 3,
         _ => 100
+    };
+
+    private static readonly string[] PrioritySubjectKeywords =
+    {
+        "1с",
+        "алгеб",
+        "алгоритм",
+        "анализ",
+        "базы данных",
+        "веб",
+        "вероятност",
+        "вычисл",
+        "геометр",
+        "данн",
+        "дифференц",
+        "дискрет",
+        "информат",
+        "искусствен",
+        "квант",
+        "комплекс",
+        "компьютер",
+        "конструирование по",
+        "криптограф",
+        "логик",
+        "математ",
+        "моделирован",
+        "олимпиад",
+        "оптимизац",
+        "программ",
+        "роботот",
+        "сети",
+        "систем",
+        "статист",
+        "схемотех",
+        "технолог",
+        "уравнен",
+        "электроник",
+        "электротех"
+    };
+
+    private static readonly string[] NonPrioritySubjectKeywords =
+    {
+        "безопасность жизнедеятельности",
+        "вожат",
+        "иностран",
+        "история религ",
+        "история росс",
+        "обучение служением",
+        "педагогика",
+        "предпринимател",
+        "правов",
+        "психология",
+        "религи",
+        "речев",
+        "русский",
+        "физическ",
+        "философ",
+        "экология",
+        "электив"
     };
 
     private static readonly JsonSerializerOptions JsonOptions = new()

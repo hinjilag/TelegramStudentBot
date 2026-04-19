@@ -141,6 +141,18 @@ public class UpdateRouter
                 await _commands.HandlePlanAsync(msg, ct);
                 break;
 
+            case "/add_homework":
+                await _commands.HandleAddHomeworkAsync(msg, ct);
+                break;
+
+            case "/homework":
+                await _commands.HandleHomeworkAsync(msg, ct);
+                break;
+
+            case "/reminders":
+                await _commands.HandleRemindersAsync(msg, ct);
+                break;
+
             case "/schedule":
                 await _commands.HandleScheduleAsync(msg, ct);
                 break;
