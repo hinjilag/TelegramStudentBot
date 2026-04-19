@@ -22,21 +22,30 @@ var host = Host.CreateDefaultBuilder(args)
     })
     .ConfigureAppConfiguration((ctx, config) =>
     {
-        var environmentSettingsFile = $"appsettings.{ctx.HostingEnvironment.EnvironmentName}.json";
+        var environmentSettingsFile = ctx.HostingEnvironment.IsEnvironment("Local")
+            ? null
+            : "appsettings.Production.json";
 
-        // Локальный файл с секретами: помогает, если IDE не передала DOTNET_ENVIRONMENT=Development.
-        config.AddJsonFile(environmentSettingsFile, optional: true, reloadOnChange: true);
+        // Локально используем базовый appsettings.json, в остальных режимах подключаем production overrides.
+        if (environmentSettingsFile is not null)
+        {
+            config.AddJsonFile(environmentSettingsFile, optional: true, reloadOnChange: true);
+        }
 
-        var localSettingsPath = FindFileUpwards(environmentSettingsFile);
+        var localSettingsPath = environmentSettingsFile is null
+            ? null
+            : FindFileUpwards(environmentSettingsFile);
         if (localSettingsPath is not null)
         {
             config.AddJsonFile(localSettingsPath, optional: true, reloadOnChange: true);
             Console.WriteLine($"[DEBUG] Локальные настройки найдены: {localSettingsPath}");
         }
-        else
+        else if (environmentSettingsFile is not null)
         {
             Console.WriteLine($"[DEBUG] {environmentSettingsFile} не найден рядом с папкой запуска.");
         }
+
+        config.AddEnvironmentVariables();
     })
     .ConfigureServices((ctx, services) =>
     {

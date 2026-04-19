@@ -1,26 +1,17 @@
-t=2026-04-18T15:42:21+0300 lvl=info msg="no configuration paths supplied"
-t=2026-04-18T15:42:22+0300 lvl=info msg="using configuration at default config path" path=C:\\Users\\User\\AppData\\Local\\ngrok\\ngrok.yml
-t=2026-04-18T15:42:22+0300 lvl=info msg="open config file" path=C:\\Users\\User\\AppData\\Local\\ngrok\\ngrok.yml err=nil
-t=2026-04-18T15:42:22+0300 lvl=info msg="FIPS 140 mode" enabled=false
-t=2026-04-18T15:42:22+0300 lvl=info msg="starting web service" obj=web addr=127.0.0.1:4040 allow_hosts=[]
-t=2026-04-18T15:42:22+0300 lvl=info msg=start pg=/api/tunnels id=01d05067508cccd5
-t=2026-04-18T15:42:22+0300 lvl=info msg=end pg=/api/tunnels id=01d05067508cccd5 status=200 dur=3.4845ms
-t=2026-04-18T15:42:23+0300 lvl=info msg=start pg=/api/tunnels id=ba7f40bf54ff291c
-t=2026-04-18T15:42:23+0300 lvl=info msg=end pg=/api/tunnels id=ba7f40bf54ff291c status=200 dur=606.5µs
-t=2026-04-18T15:42:23+0300 lvl=info msg="client session established" obj=tunnels.session
-t=2026-04-18T15:42:23+0300 lvl=info msg="tunnel session started" obj=tunnels.session
-t=2026-04-18T15:42:23+0300 lvl=info msg=start pg=/api/tunnels id=75a3dd26fe5739b0
-t=2026-04-18T15:42:23+0300 lvl=info msg=end pg=/api/tunnels id=75a3dd26fe5739b0 status=200 dur=1.706ms
-t=2026-04-18T15:42:24+0300 lvl=info msg="started tunnel" obj=tunnels name=command_line addr=http://127.0.0.1:8080 url=https://shorts-marine-donator.ngrok-free.dev
-t=2026-04-18T15:42:24+0300 lvl=info msg=start pg=/api/tunnels id=e23f8df81bd800be
-t=2026-04-18T15:42:24+0300 lvl=info msg=end pg=/api/tunnels id=e23f8df81bd800be status=200 dur=515.5µs
-t=2026-04-18T15:42:56+0300 lvl=info msg="join connections" obj=join id=557b5ac2cb00 l=127.0.0.1:8080 r=94.140.115.93:56008
-t=2026-04-18T15:43:19+0300 lvl=info msg="join connections" obj=join id=25e3d7c03864 l=127.0.0.1:8080 r=94.140.115.93:56008
-t=2026-04-18T15:43:19+0300 lvl=info msg="join connections" obj=join id=21dbb9c472ed l=127.0.0.1:8080 r=94.140.115.93:56008
-t=2026-04-18T15:43:37+0300 lvl=info msg="join connections" obj=join id=d61683b73a02 l=127.0.0.1:8080 r=94.140.115.93:48936
-t=2026-04-18T15:52:04+0300 lvl=info msg="join connections" obj=join id=4d6dd3835c66 l=127.0.0.1:8080 r=198.244.228.209:18452
-t=2026-04-18T15:52:25+0300 lvl=info msg="join connections" obj=join id=18ce04fa08d7 l=127.0.0.1:8080 r=198.244.228.209:18452
-t=2026-04-18T15:52:28+0300 lvl=info msg="join connections" obj=join id=bffe48ad7a93 l=127.0.0.1:8080 r=198.244.228.209:57462
-t=2026-04-18T15:52:29+0300 lvl=info msg="join connections" obj=join id=4a099976b4b9 l=127.0.0.1:8080 r=198.244.228.209:57462
-t=2026-04-18T15:56:22+0300 lvl=info msg="join connections" obj=join id=6fc90d7afc9b l=127.0.0.1:8080 r=198.244.228.209:26284
-t=2026-04-18T16:49:53+0300 lvl=info msg="join connections" obj=join id=42490ed52dfa l=127.0.0.1:8080 r=94.140.115.93:51024
+t=2026-04-19T16:00:42+0300 lvl=info msg="no configuration paths supplied"
+t=2026-04-19T16:00:42+0300 lvl=info msg="using configuration at default config path" path=C:\\Users\\User\\AppData\\Local\\ngrok\\ngrok.yml
+t=2026-04-19T16:00:42+0300 lvl=info msg="open config file" path=C:\\Users\\User\\AppData\\Local\\ngrok\\ngrok.yml err=nil
+t=2026-04-19T16:00:42+0300 lvl=info msg="FIPS 140 mode" enabled=false
+t=2026-04-19T16:00:42+0300 lvl=info msg="starting web service" obj=web addr=127.0.0.1:4040 allow_hosts=[]
+t=2026-04-19T16:00:43+0300 lvl=info msg=start pg=/api/tunnels id=ace768909b0e1ae2
+t=2026-04-19T16:00:43+0300 lvl=info msg=end pg=/api/tunnels id=ace768909b0e1ae2 status=200 dur=3.4011ms
+t=2026-04-19T16:00:43+0300 lvl=info msg=start pg=/api/tunnels id=a918761bd722a3ff
+t=2026-04-19T16:00:43+0300 lvl=info msg=end pg=/api/tunnels id=a918761bd722a3ff status=200 dur=560.9µs
+t=2026-04-19T16:00:44+0300 lvl=info msg="client session established" obj=tunnels.session
+t=2026-04-19T16:00:44+0300 lvl=info msg="tunnel session started" obj=tunnels.session
+t=2026-04-19T16:00:44+0300 lvl=info msg=start pg=/api/tunnels id=81dfe0baec83743e
+t=2026-04-19T16:00:44+0300 lvl=info msg=end pg=/api/tunnels id=81dfe0baec83743e status=200 dur=538.3µs
+t=2026-04-19T16:00:44+0300 lvl=info msg="started tunnel" obj=tunnels name=command_line addr=http://127.0.0.1:8080 url=https://shorts-marine-donator.ngrok-free.dev
+t=2026-04-19T16:00:44+0300 lvl=info msg=start pg=/api/tunnels id=d6a40c78226d2647
+t=2026-04-19T16:00:44+0300 lvl=info msg=end pg=/api/tunnels id=d6a40c78226d2647 status=200 dur=0s
+t=2026-04-19T16:01:11+0300 lvl=info msg="join connections" obj=join id=ea2587327441 l=127.0.0.1:8080 r=94.140.115.93:52686

@@ -47,7 +47,6 @@ _ReSharper*/
 *.[Rr]e[Ss]harper
 
 # Secrets / config overrides
-appsettings.Development.json
 secrets.json
 .env
 *.env

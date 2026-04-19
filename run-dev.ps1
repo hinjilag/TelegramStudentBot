@@ -144,7 +144,7 @@ function Update-Settings($settingsPath, $webAppUrl, $port) {
 }
 
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$settingsPath = Join-Path $repoRoot "appsettings.Development.json"
+$settingsPath = Join-Path $repoRoot "appsettings.json"
 $ngrokLogPath = Join-Path $repoRoot "ngrok-dev.log"
 $ngrokErrorPath = Join-Path $repoRoot "ngrok-dev.err.log"
 $ngrokPath = Find-Ngrok
@@ -205,7 +205,7 @@ try {
 
     Write-Host "Mini App URL: $publicUrl" -ForegroundColor Green
     Update-Settings -settingsPath $settingsPath -webAppUrl $publicUrl -port $Port
-    Write-Host "Обновил appsettings.Development.json" -ForegroundColor Green
+    Write-Host "Обновил appsettings.json" -ForegroundColor Green
     Write-Host "Запускаю бота..." -ForegroundColor Cyan
     Write-Host ""
 
