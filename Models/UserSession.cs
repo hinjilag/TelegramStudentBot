@@ -33,6 +33,12 @@ public class UserSession
     /// <summary>Черновик задачи при пошаговом добавлении</summary>
     public StudyTask? DraftTask { get; set; }
 
+    /// <summary>Временные варианты предметов для добавления домашнего задания</summary>
+    public Dictionary<string, string> HomeworkSubjectChoices { get; set; } = new();
+
+    /// <summary>Временные варианты типов занятия для выбранного предмета</summary>
+    public Dictionary<string, string> HomeworkLessonTypeChoices { get; set; } = new();
+
     /// <summary>Сохранённое расписание пар.</summary>
     public List<ScheduleEntry> Schedule { get; set; } = new();
 

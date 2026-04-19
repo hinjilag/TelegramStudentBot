@@ -1,4 +1,6 @@
 ﻿using System.Text.RegularExpressions;
+using System.Net;
+using System.Globalization;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
@@ -22,15 +24,18 @@ public class TextHandler
     private readonly ITelegramBotClient _bot;
     private readonly SessionService     _sessions;
     private readonly TimerService       _timers;
+    private readonly ReminderSettingsService _reminders;
 
     public TextHandler(
         ITelegramBotClient bot,
         SessionService     sessions,
-        TimerService       timers)
+        TimerService       timers,
+        ReminderSettingsService reminders)
     {
         _bot      = bot;
         _sessions = sessions;
         _timers   = timers;
+        _reminders = reminders;
     }
 
     // Текстовые сообщения.
@@ -54,8 +59,16 @@ public class TextHandler
                 await HandleTaskDeadlineAsync(msg, session, text, ct);
                 break;
 
+            case UserState.WaitingForHomeworkText:
+                await HandleHomeworkTextAsync(msg, session, text, ct);
+                break;
+
             case UserState.WaitingForTimerMinutes:
                 await HandleCustomTimerAsync(msg, session, text, ct);
+                break;
+
+            case UserState.WaitingForReminderTime:
+                await HandleReminderTimeAsync(msg, session, text, ct);
                 break;
 
             case UserState.WaitingForSchedulePhoto:
@@ -776,6 +789,7 @@ public class TextHandler
 
         var task = session.DraftTask!;
         session.Tasks.Add(task);
+        _sessions.SaveTasks(session);
         session.DraftTask = null;
         session.State     = UserState.Idle;
 
@@ -785,6 +799,57 @@ public class TextHandler
             text:      $"🎉 <b>Задача добавлена!</b>\n\n📌 <b>{task.Title}</b>\n📚 {task.Subject}\n📅 {dl}",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
+    }
+
+    private async Task HandleHomeworkTextAsync(
+        Message msg, UserSession session, string text, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            await _bot.SendMessage(
+                msg.Chat.Id,
+                "⚠️ Текст ДЗ не может быть пустым. Напиши, что задали:",
+                cancellationToken: ct);
+            return;
+        }
+
+        if (session.DraftTask is null || string.IsNullOrWhiteSpace(session.DraftTask.Subject))
+        {
+            session.State = UserState.Idle;
+            session.HomeworkSubjectChoices.Clear();
+            session.HomeworkLessonTypeChoices.Clear();
+
+            await _bot.SendMessage(
+                msg.Chat.Id,
+                "Выбор предмета устарел. Начни добавление заново через /add_homework.",
+                cancellationToken: ct);
+            return;
+        }
+
+        var task = session.DraftTask;
+        task.Title = text;
+        session.Tasks.Add(task);
+        _sessions.SaveTasks(session);
+
+        session.DraftTask = null;
+        session.HomeworkSubjectChoices.Clear();
+        session.HomeworkLessonTypeChoices.Clear();
+        session.State = UserState.Idle;
+
+        var deadlineText = task.Deadline.HasValue
+            ? task.Deadline.Value.ToString("dd.MM.yyyy")
+            : "не найден";
+
+        await _bot.SendMessage(
+            chatId: msg.Chat.Id,
+            text: $"🎉 <b>ДЗ добавлено!</b>\n\n" +
+                  $"📌 <b>{Escape(task.Title)}</b>\n" +
+                  $"📚 {Escape(task.Subject)}\n" +
+                  $"📅 {deadlineText}",
+            parseMode: ParseMode.Html,
+            cancellationToken: ct);
+
+        await TryPromptReminderSetupAsync(msg.Chat.Id, session, task, ct);
     }
 
     private async Task HandleCustomTimerAsync(
@@ -799,7 +864,70 @@ public class TextHandler
         await _timers.StartWorkTimerAsync(msg.Chat.Id, msg.From!.Id, minutes);
     }
 
+    private async Task HandleReminderTimeAsync(
+        Message msg, UserSession session, string text, CancellationToken ct)
+    {
+        if (!TimeSpan.TryParseExact(
+                text,
+                new[] { "h\\:mm", "hh\\:mm" },
+                CultureInfo.InvariantCulture,
+                out var time) ||
+            time < TimeSpan.Zero ||
+            time >= TimeSpan.FromDays(1))
+        {
+            await _bot.SendMessage(
+                msg.Chat.Id,
+                "⚠️ Не понял время. Напиши в формате <b>ЧЧ:ММ</b>, например <b>20:00</b>.",
+                parseMode: ParseMode.Html,
+                cancellationToken: ct);
+            return;
+        }
+
+        _reminders.Enable(session.UserId, msg.Chat.Id, time.Hours, time.Minutes);
+        session.State = UserState.Idle;
+
+        await _bot.SendMessage(
+            chatId: msg.Chat.Id,
+            text: $"⏰ Готово! Буду каждый день в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК присылать дедлайны на завтра.",
+            parseMode: ParseMode.Html,
+            cancellationToken: ct);
+    }
+
+    private async Task TryPromptReminderSetupAsync(
+        long chatId,
+        UserSession session,
+        StudyTask task,
+        CancellationToken ct)
+    {
+        if (!task.Deadline.HasValue)
+            return;
+
+        var settings = _reminders.Get(session.UserId);
+        if (settings.PromptAnswered)
+            return;
+
+        _reminders.MarkPromptAnswered(session.UserId, chatId);
+
+        var keyboard = new InlineKeyboardMarkup(new[]
+        {
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("Указать время", "rem_set"),
+                InlineKeyboardButton.WithCallbackData("Не сейчас", "rem_later")
+            }
+        });
+
+        await _bot.SendMessage(
+            chatId: chatId,
+            text: "Хочешь, я буду каждый день напоминать о дедлайнах на завтра?",
+            replyMarkup: keyboard,
+            cancellationToken: ct);
+    }
+
     // Утилиты.
+
+    private static string Escape(string text)
+        => WebUtility.HtmlEncode(text);
 
 }
 

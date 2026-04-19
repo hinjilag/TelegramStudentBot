@@ -31,6 +31,8 @@ var host = Host.CreateDefaultBuilder(args)
 
         services.AddSingleton<ITelegramBotClient>(_ => new TelegramBotClient(token));
 
+        services.AddSingleton<StudyTaskStorageService>();
+        services.AddSingleton<ReminderSettingsService>();
         services.AddSingleton<SessionService>();
         services.AddSingleton<TimerService>();
         services.AddSingleton<ScheduleCatalogService>();
@@ -41,6 +43,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<CallbackHandler>();
         services.AddSingleton<UpdateRouter>();
         services.AddHostedService<BotService>();
+        services.AddHostedService<DeadlineReminderService>();
     })
     .Build();
 

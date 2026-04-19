@@ -8,11 +8,18 @@ namespace TelegramStudentBot.Services;
 /// </summary>
 public class SessionService
 {
+    private readonly StudyTaskStorageService _taskStorage;
+
     // Словарь: Telegram UserId → сессия
     private readonly Dictionary<long, UserSession> _sessions = new();
 
     // Блокировка для потокобезопасности (несколько пользователей одновременно)
     private readonly Lock _lock = new();
+
+    public SessionService(StudyTaskStorageService taskStorage)
+    {
+        _taskStorage = taskStorage;
+    }
 
     /// <summary>
     /// Получить сессию пользователя. Если не существует — создать новую.
@@ -28,7 +35,8 @@ public class SessionService
                 session = new UserSession
                 {
                     UserId    = userId,
-                    FirstName = firstName
+                    FirstName = firstName,
+                    Tasks     = _taskStorage.Get(userId)
                 };
                 _sessions[userId] = session;
             }
@@ -45,6 +53,14 @@ public class SessionService
         {
             _sessions.TryGetValue(userId, out var session);
             return session;
+        }
+    }
+
+    public void SaveTasks(UserSession session)
+    {
+        lock (_lock)
+        {
+            _taskStorage.Save(session.UserId, session.Tasks);
         }
     }
 }

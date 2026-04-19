@@ -15,8 +15,14 @@ public enum UserState
     /// <summary>Ожидание дедлайна новой задачи (или "пропустить")</summary>
     WaitingForTaskDeadline,
 
+    /// <summary>Ожидание текста домашнего задания после выбора предмета</summary>
+    WaitingForHomeworkText,
+
     /// <summary>Ожидание произвольного времени таймера в минутах</summary>
     WaitingForTimerMinutes,
+
+    /// <summary>Ожидание времени ежедневного напоминания о дедлайнах</summary>
+    WaitingForReminderTime,
 
     /// <summary>Ожидание фотографии расписания (оставлено только для совместимости старых сессий)</summary>
     WaitingForSchedulePhoto,
