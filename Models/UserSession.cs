@@ -33,6 +33,33 @@ public class UserSession
     /// <summary>Черновик задачи при пошаговом добавлении</summary>
     public StudyTask? DraftTask { get; set; }
 
+    /// <summary>Временные варианты предметов для добавления домашнего задания</summary>
+    public Dictionary<string, string> HomeworkSubjectChoices { get; set; } = new();
+
+    /// <summary>Временные варианты типов занятия для выбранного предмета</summary>
+    public Dictionary<string, string> HomeworkLessonTypeChoices { get; set; } = new();
+
+    /// <summary>Сохранённое расписание пар.</summary>
+    public List<ScheduleEntry> Schedule { get; set; } = new();
+
+    /// <summary>
+    /// Временное хранилище расписания во время диалога выбора типа недели.
+    /// Очищается после подтверждения пользователем.
+    /// </summary>
+    public List<ScheduleEntry>? PendingSchedule { get; set; }
+
+    /// <summary>
+    /// Текущий тип недели: 1 = нечётная, 2 = чётная, null = не задан.
+    /// Используется для показа/напоминаний когда пара только на одной неделе.
+    /// </summary>
+    public int? CurrentWeekType { get; set; }
+
+    /// <summary>Выбранная пользователем подгруппа (например 3 или 4)</summary>
+    public int? CurrentSubGroup { get; set; }
+
+    /// <summary>Текущий индекс слота при пошаговой проверке расписания: 0..23</summary>
+    public int ReviewSlotIndex { get; set; }
+
     /// <summary>Человекочитаемое описание уровня усталости</summary>
     public string FatigueDescription => FatigueLevel switch
     {

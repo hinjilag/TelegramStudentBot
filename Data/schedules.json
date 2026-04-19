@@ -1,0 +1,3380 @@
+{
+  "semester": "2 семестр 2025-2026",
+  "faculty": "Математики и компьютерных наук",
+  "weekReferenceDate": "2026-04-13",
+  "weekReferenceType": 1,
+  "groups": [
+    {
+      "id": "pmi-1",
+      "directionCode": "01.03.02",
+      "directionName": "Прикладная математика и информатика",
+      "shortTitle": "ПМИ",
+      "title": "ПМИ, 1 курс",
+      "course": 1,
+      "subGroups": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "sourceSheets": [
+        "11",
+        "12"
+      ],
+      "entries": [
+        {
+          "day": 1,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": 1,
+          "subGroup": 1,
+          "subject": "Математический анализ (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": 1,
+          "subGroup": 2,
+          "subject": "Математический анализ (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": 1,
+          "subGroup": 3,
+          "subject": "Математический анализ (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": 1,
+          "subGroup": 4,
+          "subject": "Математический анализ (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": 2,
+          "subGroup": 1,
+          "subject": "Математический анализ (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": 2,
+          "subGroup": 2,
+          "subject": "Математический анализ (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 1,
+          "subGroup": 1,
+          "subject": "Алгоритмы и структуры данных (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 1,
+          "subGroup": 2,
+          "subject": "Алгоритмы и структуры данных (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 1,
+          "subGroup": 3,
+          "subject": "Алгоритмы и структуры данных (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 1,
+          "subGroup": 4,
+          "subject": "Алгоритмы и структуры данных (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 2,
+          "subGroup": 1,
+          "subject": "История религий России (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 2,
+          "subGroup": 2,
+          "subject": "История религий России (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 2,
+          "subGroup": 3,
+          "subject": "История религий России (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 2,
+          "subGroup": 4,
+          "subject": "История религий России (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Дискретная математика (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Дискретная математика (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Алгоритмы и структуры данных (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 4,
+          "subject": "Математический анализ (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Элективные дисциплины по физической культуре и спорту (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Элективные дисциплины по физической культуре и спорту (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Элективные дисциплины по физической культуре и спорту (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 4,
+          "subject": "Элективные дисциплины по физической культуре и спорту (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Линейная алгебра (лекция)"
+        },
+        {
+          "day": 2,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Линейная алгебра (лекция)"
+        },
+        {
+          "day": 2,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Линейная алгебра (лекция)"
+        },
+        {
+          "day": 2,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 4,
+          "subject": "Линейная алгебра (лекция)"
+        },
+        {
+          "day": 2,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Основы и методология программирования (лаб.)"
+        },
+        {
+          "day": 2,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Основы и методология программирования (лаб.)"
+        },
+        {
+          "day": 2,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Линейная алгебра (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 4,
+          "subject": "Алгоритмы и структуры данных (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "История России (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "История России (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Иностранный язык (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 4,
+          "subject": "Иностранный язык (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 1,
+          "subGroup": 1,
+          "subject": "Безопасность жизнедеятельности (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 1,
+          "subGroup": 2,
+          "subject": "Безопасность жизнедеятельности (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 1,
+          "subGroup": 3,
+          "subject": "История религий России (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 1,
+          "subGroup": 4,
+          "subject": "История религий России (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 2,
+          "subGroup": 1,
+          "subject": "История религий России (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 2,
+          "subGroup": 2,
+          "subject": "История религий России (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 2,
+          "subGroup": 3,
+          "subject": "Безопасность жизнедеятельности (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 2,
+          "subGroup": 4,
+          "subject": "Безопасность жизнедеятельности (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Математический анализ (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Математический анализ (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Дискретная математика (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 4,
+          "subject": "Дискретная математика (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Математический анализ (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Математический анализ (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Математический анализ (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 4,
+          "subject": "Математический анализ (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Дискретная математика (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Дискретная математика (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Дискретная математика (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 4,
+          "subject": "Дискретная математика (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 1,
+          "subGroup": 3,
+          "subject": "Математический анализ (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 2,
+          "subGroup": 4,
+          "subject": "Математический анализ (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Линейная алгебра (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Алгоритмы и структуры данных (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Основы и методология программирования (лаб.)"
+        },
+        {
+          "day": 4,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 4,
+          "subject": "Основы и методология программирования (лаб.)"
+        },
+        {
+          "day": 4,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Алгоритмы и структуры данных (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Линейная алгебра (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Русский язык и культура речи (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 4,
+          "subject": "Русский язык и культура речи (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Иностранный язык (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Иностранный язык (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Математический анализ (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 4,
+          "subject": "Линейная алгебра (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Основы и методология программирования (лаб.)"
+        },
+        {
+          "day": 5,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Основы и методология программирования (лаб.)"
+        },
+        {
+          "day": 5,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Основы и методология программирования (лаб.)"
+        },
+        {
+          "day": 5,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 4,
+          "subject": "Основы и методология программирования (лаб.)"
+        },
+        {
+          "day": 5,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "История России (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "История России (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "История России (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 4,
+          "subject": "История России (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Русский язык и культура речи (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Русский язык и культура речи (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "История России (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 4,
+          "subject": "История России (практ.)"
+        },
+        {
+          "day": 6,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Учебная (технологическая (проектно-технологическая)) практика (практ.)"
+        },
+        {
+          "day": 6,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Учебная (технологическая (проектно-технологическая)) практика (практ.)"
+        },
+        {
+          "day": 6,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Учебная (технологическая (проектно-технологическая)) практика (практ.)"
+        },
+        {
+          "day": 6,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 4,
+          "subject": "Учебная (технологическая (проектно-технологическая)) практика (практ.)"
+        },
+        {
+          "day": 6,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Безопасность жизнедеятельности (лекция)"
+        },
+        {
+          "day": 6,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Безопасность жизнедеятельности (лекция)"
+        },
+        {
+          "day": 6,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Безопасность жизнедеятельности (лекция)"
+        },
+        {
+          "day": 6,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 4,
+          "subject": "Безопасность жизнедеятельности (лекция)"
+        }
+      ]
+    },
+    {
+      "id": "pmi-2",
+      "directionCode": "01.03.02",
+      "directionName": "Прикладная математика и информатика",
+      "shortTitle": "ПМИ",
+      "title": "ПМИ, 2 курс",
+      "course": 2,
+      "subGroups": [
+        1,
+        2,
+        3
+      ],
+      "sourceSheets": [
+        "21",
+        "22"
+      ],
+      "entries": [
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Математический анализ (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Математический анализ (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Обучение служением (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Обучение служением (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Обучение служением (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Веб-разработка (лаб.)"
+        },
+        {
+          "day": 1,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 1,
+          "subGroup": 3,
+          "subject": "Обучение служением (лекция)"
+        },
+        {
+          "day": 2,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Основы и методология программирования (лаб.)"
+        },
+        {
+          "day": 2,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Основы и методология программирования (лаб.)"
+        },
+        {
+          "day": 2,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Дифференциальные уравнения (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Иностранный язык (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Иностранный язык (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Теория вероятностей и математическая статистика (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Дифференциальные уравнения (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Дифференциальные уравнения (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Дифференциальные уравнения (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Дифференциальные уравнения (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Математический компьютерный практикум (лаб.)"
+        },
+        {
+          "day": 3,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Математический анализ (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Веб-разработка (лаб.)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Дифференциальные уравнения (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Математический компьютерный практикум (лаб.)"
+        },
+        {
+          "day": 4,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Теория вероятностей и математическая статистика (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Учебная (технологическая (проектно-технологическая)) практика (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Математический компьютерный практикум (лаб.)"
+        },
+        {
+          "day": 4,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Теория вероятностей и математическая статистика (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Иностранный язык (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Теория вероятностей и математическая статистика (лекция)"
+        },
+        {
+          "day": 4,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Теория вероятностей и математическая статистика (лекция)"
+        },
+        {
+          "day": 4,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Теория вероятностей и математическая статистика (лекция)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 1,
+          "subGroup": 1,
+          "subject": "Элективные дисциплины по физической культуре и спорту (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 1,
+          "subGroup": 2,
+          "subject": "Элективные дисциплины по физической культуре и спорту (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 1,
+          "subGroup": 3,
+          "subject": "Элективные дисциплины по физической культуре и спорту (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Математический анализ (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Математический анализ (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Математический анализ (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Учебная (технологическая (проектно-технологическая)) практика (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Веб-разработка (лаб.)"
+        },
+        {
+          "day": 5,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Основы и методология программирования (лаб.)"
+        },
+        {
+          "day": 5,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Учебная (технологическая (проектно-технологическая)) практика (практ.)"
+        }
+      ]
+    },
+    {
+      "id": "pmi-3",
+      "directionCode": "01.03.02",
+      "directionName": "Прикладная математика и информатика",
+      "shortTitle": "ПМИ",
+      "title": "ПМИ, 3 курс",
+      "course": 3,
+      "subGroups": [
+        1,
+        2,
+        3
+      ],
+      "sourceSheets": [
+        "31",
+        "32"
+      ],
+      "entries": [
+        {
+          "day": 1,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Квантовые вычисления (лаб.)"
+        },
+        {
+          "day": 1,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Квантовые вычисления (лаб.)"
+        },
+        {
+          "day": 1,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Математическое моделирование (лаб.)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 1,
+          "subGroup": 1,
+          "subject": "Математическое моделирование (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 1,
+          "subGroup": 2,
+          "subject": "Математическое моделирование (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 1,
+          "subGroup": 3,
+          "subject": "Математическое моделирование (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 2,
+          "subGroup": 1,
+          "subject": "Базы данных (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 2,
+          "subGroup": 2,
+          "subject": "Базы данных (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 2,
+          "subGroup": 3,
+          "subject": "Базы данных (лекция)"
+        },
+        {
+          "day": 2,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Учебная практика (научно-исследовательская работа (получение первичных навыков научно-исследовательской работы)) (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Учебная практика (научно-исследовательская работа (получение первичных навыков научно-исследовательской работы)) (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Учебная практика (научно-исследовательская работа (получение первичных навыков научно-исследовательской работы)) (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Учебная практика (научно-исследовательская работа (получение первичных навыков научно-исследовательской работы)) (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Современные языки программирования (лаб.)"
+        },
+        {
+          "day": 3,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Математическое моделирование (лаб.)"
+        },
+        {
+          "day": 3,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Математическое моделирование (лаб.)"
+        },
+        {
+          "day": 3,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Современные языки программирования (лаб.)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": 1,
+          "subGroup": 1,
+          "subject": "Квантовые вычисления (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": 1,
+          "subGroup": 2,
+          "subject": "Квантовые вычисления (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": 1,
+          "subGroup": 3,
+          "subject": "Квантовые вычисления (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": 2,
+          "subGroup": 3,
+          "subject": "Конструирование ПО (лаб.)"
+        },
+        {
+          "day": 3,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Учебная практика (научно-исследовательская работа (получение первичных навыков научно-исследовательской работы)) (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Базы данных (лаб.)"
+        },
+        {
+          "day": 4,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Базы данных (лаб.)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 1,
+          "subGroup": 1,
+          "subject": "Конструирование ПО (лекция)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 1,
+          "subGroup": 2,
+          "subject": "Конструирование ПО (лекция)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 1,
+          "subGroup": 3,
+          "subject": "Конструирование ПО (лекция)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 2,
+          "subGroup": 1,
+          "subject": "Элективные дисциплины по физической культуре и спорту (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 2,
+          "subGroup": 2,
+          "subject": "Элективные дисциплины по физической культуре и спорту (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 2,
+          "subGroup": 3,
+          "subject": "Элективные дисциплины по физической культуре и спорту (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Современные языки программирования (лаб.)"
+        },
+        {
+          "day": 5,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Введение в анализ данных (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Введение в анализ данных (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Введение в анализ данных (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Введение в анализ данных (лаб.)"
+        },
+        {
+          "day": 5,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Введение в анализ данных (лаб.)"
+        },
+        {
+          "day": 5,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Учебная практика (научно-исследовательская работа (получение первичных навыков научно-исследовательской работы)) (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Квантовые вычисления (лаб.)"
+        },
+        {
+          "day": 5,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": 1,
+          "subGroup": 1,
+          "subject": "Конструирование ПО (лаб.)"
+        },
+        {
+          "day": 5,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": 2,
+          "subGroup": 2,
+          "subject": "Конструирование ПО (лаб.)"
+        },
+        {
+          "day": 6,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Базы данных (лаб.)"
+        },
+        {
+          "day": 6,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Введение в анализ данных (лаб.)"
+        }
+      ]
+    },
+    {
+      "id": "pmi-4",
+      "directionCode": "01.03.02",
+      "directionName": "Прикладная математика и информатика",
+      "shortTitle": "ПМИ",
+      "title": "ПМИ, 4 курс",
+      "course": 4,
+      "subGroups": [
+        1,
+        2,
+        3
+      ],
+      "sourceSheets": [
+        "41",
+        "42"
+      ],
+      "entries": [
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Компьютерное моделирование (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Компьютерное моделирование (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Компьютерное моделирование (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Квантовые вычисления (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Квантовые вычисления (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Квантовые вычисления (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Управление программным проектом (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Управление программным проектом (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Криптография и защита информации (лекция)"
+        },
+        {
+          "day": 2,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Криптография и защита информации (лекция)"
+        },
+        {
+          "day": 2,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Криптография и защита информации (лекция)"
+        },
+        {
+          "day": 2,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Компьютерное моделирование (лаб.)"
+        },
+        {
+          "day": 2,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Криптография и защита информации (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Методы и системы обработки больших данных (лаб.)"
+        },
+        {
+          "day": 2,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Криптография и защита информации (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Компьютерное моделирование (лаб.)"
+        },
+        {
+          "day": 3,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Компьютерное моделирование (лаб.)"
+        },
+        {
+          "day": 3,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Компьютерное моделирование (лаб.)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Квантовые вычисления (лекция)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Квантовые вычисления (лекция)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Квантовые вычисления (лекция)"
+        },
+        {
+          "day": 4,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Квантовые вычисления (лаб.)"
+        },
+        {
+          "day": 4,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Квантовые вычисления (лаб.)"
+        },
+        {
+          "day": 4,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Криптография и защита информации (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Компьютерное моделирование (лаб.)"
+        },
+        {
+          "day": 5,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Методы и системы обработки больших данных (лаб.)"
+        },
+        {
+          "day": 5,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Управление программным проектом (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Управление программным проектом (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Управление программным проектом (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Управление программным проектом (практ.)"
+        },
+        {
+          "day": 6,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Методы и системы обработки больших данных (лекция)"
+        },
+        {
+          "day": 6,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Методы и системы обработки больших данных (лекция)"
+        },
+        {
+          "day": 6,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Методы и системы обработки больших данных (лекция)"
+        },
+        {
+          "day": 6,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Методы и системы обработки больших данных (лаб.)"
+        },
+        {
+          "day": 6,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Компьютерное моделирование (лаб.)"
+        },
+        {
+          "day": 6,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 3,
+          "subject": "Квантовые вычисления (лаб.)"
+        }
+      ]
+    },
+    {
+      "id": "ivt-1",
+      "directionCode": "09.03.01",
+      "directionName": "Информатика и вычислительная техника",
+      "shortTitle": "ИВТ",
+      "title": "ИВТ, 1 курс",
+      "course": 1,
+      "subGroups": [
+        1,
+        2
+      ],
+      "sourceSheets": [
+        "13"
+      ],
+      "entries": [
+        {
+          "day": 1,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Алгоритмы и структуры данных (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Алгоритмы и структуры данных (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 1,
+          "subGroup": 1,
+          "subject": "История религий России (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 1,
+          "subGroup": 2,
+          "subject": "История религий России (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 2,
+          "subGroup": 1,
+          "subject": "Алгоритмы и структуры данных (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 2,
+          "subGroup": 2,
+          "subject": "Алгоритмы и структуры данных (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Учебная (ознакомительная) практика (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Учебная (ознакомительная) практика (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Элективные дисциплины по физической культуре и спорту (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Элективные дисциплины по физической культуре и спорту (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Математический анализ (лекция)"
+        },
+        {
+          "day": 2,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Математический анализ (лекция)"
+        },
+        {
+          "day": 2,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "История России (лекция)"
+        },
+        {
+          "day": 2,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "История России (лекция)"
+        },
+        {
+          "day": 2,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": 1,
+          "subGroup": 1,
+          "subject": "История религий России (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": 1,
+          "subGroup": 2,
+          "subject": "История религий России (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": 2,
+          "subGroup": 1,
+          "subject": "Безопасность жизнедеятельности (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": 2,
+          "subGroup": 2,
+          "subject": "Безопасность жизнедеятельности (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "История России (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "История России (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Линейная алгебра (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Линейная алгебра (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Математический анализ (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Линейная алгебра (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Линейная алгебра (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Математический анализ (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Иностранный язык (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Иностранный язык (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Основы и методология программирования (лаб.)"
+        },
+        {
+          "day": 4,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Основы и методология программирования (лаб.)"
+        },
+        {
+          "day": 4,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Русский язык и культура речи (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Русский язык и культура речи (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Дискретная математика (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Дискретная математика (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Дискретная математика (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Основы и методология программирования (лаб.)"
+        },
+        {
+          "day": 5,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Основы и методология программирования (лаб.)"
+        },
+        {
+          "day": 5,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Дискретная математика (практ.)"
+        },
+        {
+          "day": 6,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Безопасность жизнедеятельности (лекция)"
+        },
+        {
+          "day": 6,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Безопасность жизнедеятельности (лекция)"
+        }
+      ]
+    },
+    {
+      "id": "ivt-2",
+      "directionCode": "09.03.01",
+      "directionName": "Информатика и вычислительная техника",
+      "shortTitle": "ИВТ",
+      "title": "ИВТ, 2 курс",
+      "course": 2,
+      "subGroups": [
+        1,
+        2
+      ],
+      "sourceSheets": [
+        "23"
+      ],
+      "entries": [
+        {
+          "day": 1,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Основы и методология программирования (лаб.)"
+        },
+        {
+          "day": 1,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Вычислительные системы и компьютерные сети (лаб.)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Вычислительные системы и компьютерные сети (лаб.)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Математический компьютерный практикум (лаб.)"
+        },
+        {
+          "day": 1,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Математический компьютерный практикум (лаб.)"
+        },
+        {
+          "day": 1,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Электротехника, электроника и схемотехника (лаб.)"
+        },
+        {
+          "day": 1,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 2,
+          "subGroup": 1,
+          "subject": "Обучение служением (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 2,
+          "subGroup": 2,
+          "subject": "Обучение служением (лекция)"
+        },
+        {
+          "day": 2,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Дифференциальные уравнения (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Основы и методология программирования (лаб.)"
+        },
+        {
+          "day": 2,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Теория вероятностей и математическая статистика (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Дифференциальные уравнения (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Электротехника, электроника и схемотехника (лаб.)"
+        },
+        {
+          "day": 2,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Теория вероятностей и математическая статистика (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Веб-разработка (лаб.)"
+        },
+        {
+          "day": 3,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Учебная (технологическая (проектно-технологическая)) практика (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Учебная (технологическая (проектно-технологическая)) практика (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Веб-разработка (лаб.)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Обучение служением (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Обучение служением (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Электротехника, электроника и схемотехника (лекция)"
+        },
+        {
+          "day": 4,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Электротехника, электроника и схемотехника (лекция)"
+        },
+        {
+          "day": 4,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Иностранный язык (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Иностранный язык (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Теория вероятностей и математическая статистика (лекция)"
+        },
+        {
+          "day": 4,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Теория вероятностей и математическая статистика (лекция)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 1,
+          "subGroup": 1,
+          "subject": "Элективные дисциплины по физической культуре и спорту (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 1,
+          "subGroup": 2,
+          "subject": "Элективные дисциплины по физической культуре и спорту (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Дифференциальные уравнения (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Дифференциальные уравнения (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Вычислительные системы и компьютерные сети (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Вычислительные системы и компьютерные сети (лекция)"
+        }
+      ]
+    },
+    {
+      "id": "ivt-3",
+      "directionCode": "09.03.01",
+      "directionName": "Информатика и вычислительная техника",
+      "shortTitle": "ИВТ",
+      "title": "ИВТ, 3 курс",
+      "course": 3,
+      "subGroups": [
+        1,
+        2
+      ],
+      "sourceSheets": [
+        "33"
+      ],
+      "entries": [
+        {
+          "day": 1,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Методы искусственного интеллекта (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Методы искусственного интеллекта (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 1,
+          "subGroup": 1,
+          "subject": "Базы данных (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 1,
+          "subGroup": 2,
+          "subject": "Базы данных (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 2,
+          "subGroup": 1,
+          "subject": "Конструирование ПО (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 2,
+          "subGroup": 2,
+          "subject": "Конструирование ПО (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Базы данных (лаб.)"
+        },
+        {
+          "day": 1,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Производственная (технологическая (проектно-технологическая)) практика (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Производственная (технологическая (проектно-технологическая)) практика (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Базы данных (лаб.)"
+        },
+        {
+          "day": 2,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Производственная (технологическая (проектно-технологическая)) практика (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Методы искусственного интеллекта (лаб.)"
+        },
+        {
+          "day": 2,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Методы искусственного интеллекта (лаб.)"
+        },
+        {
+          "day": 2,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Производственная (технологическая (проектно-технологическая)) практика (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": 2,
+          "subGroup": 1,
+          "subject": "Квантовые вычисления (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": 2,
+          "subGroup": 2,
+          "subject": "Квантовые вычисления (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Современные языки программирования (лаб.)"
+        },
+        {
+          "day": 3,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Квантовые вычисления (лаб.)"
+        },
+        {
+          "day": 3,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Квантовые вычисления (лаб.)"
+        },
+        {
+          "day": 3,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Современные языки программирования (лаб.)"
+        },
+        {
+          "day": 4,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Конструирование ПО (лаб.)"
+        },
+        {
+          "day": 4,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Прикладное и системное программное обеспечение (лаб.)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 1,
+          "subGroup": 1,
+          "subject": "Прикладное и системное программное обеспечение (лекция)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 1,
+          "subGroup": 2,
+          "subject": "Прикладное и системное программное обеспечение (лекция)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 2,
+          "subGroup": 1,
+          "subject": "Элективные дисциплины по физической культуре и спорту (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 2,
+          "subGroup": 2,
+          "subject": "Элективные дисциплины по физической культуре и спорту (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Прикладное и системное программное обеспечение (лаб.)"
+        },
+        {
+          "day": 4,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Конструирование ПО (лаб.)"
+        },
+        {
+          "day": 6,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 1,
+          "subject": "Теория управления в робототехнических системах (практ.)"
+        },
+        {
+          "day": 6,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": 2,
+          "subject": "Теория управления в робототехнических системах (практ.)"
+        }
+      ]
+    },
+    {
+      "id": "ivt-4",
+      "directionCode": "09.03.01",
+      "directionName": "Информатика и вычислительная техника",
+      "shortTitle": "ИВТ",
+      "title": "ИВТ, 4 курс",
+      "course": 4,
+      "subGroups": [],
+      "sourceSheets": [
+        "43"
+      ],
+      "entries": [
+        {
+          "day": 1,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "1С: предприятие (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "1С: предприятие (лаб.)"
+        },
+        {
+          "day": 2,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Правовые основы предпринимательства (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Системный анализ и принятие решений (лекция)"
+        },
+        {
+          "day": 2,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Системный анализ и принятие решений (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Предпринимательские проекты: управление и реализация (лекция.)"
+        },
+        {
+          "day": 3,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Предпринимательские проекты: управление и реализация (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Предпринимательские проекты: управление и реализация (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Правовые основы предпринимательства (лекция)"
+        },
+        {
+          "day": 4,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Правовые основы предпринимательства (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Системный анализ и принятие решений (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "1С: предприятие (практ.)"
+        },
+        {
+          "day": 6,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "1С: предприятие (практ.)"
+        },
+        {
+          "day": 6,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "1С: предприятие (лаб.)"
+        }
+      ]
+    },
+    {
+      "id": "ped-1",
+      "directionCode": "44.03.05",
+      "directionName": "Педагогическое образование (с двумя профилями подготовки)",
+      "shortTitle": "Педагогическое образование",
+      "title": "Педагогическое образование, 1 курс",
+      "course": 1,
+      "subGroups": [],
+      "sourceSheets": [
+        "14"
+      ],
+      "entries": [
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 1,
+          "subGroup": null,
+          "subject": "Алгоритмы и структуры данных (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Алгебра и теория чисел (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Элективные дисциплины по физической культуре и спорту (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Алгебра и теория чисел (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "История России (лекция)"
+        },
+        {
+          "day": 2,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Элементарная математика (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Математический анализ (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Алгоритмы и структуры данных (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Математический анализ (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Основы и методология программирования (лаб.)"
+        },
+        {
+          "day": 4,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Технологическая (проектно-технологическая) учебная практика (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "История России (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Аналитическая геометрия (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Аналитическая геометрия (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Иностранный язык (практ.)"
+        }
+      ]
+    },
+    {
+      "id": "ped-2",
+      "directionCode": "44.03.05",
+      "directionName": "Педагогическое образование (с двумя профилями подготовки)",
+      "shortTitle": "Педагогическое образование",
+      "title": "Педагогическое образование, 2 курс",
+      "course": 2,
+      "subGroups": [],
+      "sourceSheets": [
+        "24"
+      ],
+      "entries": [
+        {
+          "day": 1,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": 1,
+          "subGroup": null,
+          "subject": "Речевые практики (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": 2,
+          "subGroup": null,
+          "subject": "Речевые практики (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 1,
+          "subGroup": null,
+          "subject": "Философия (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 2,
+          "subGroup": null,
+          "subject": "Философия (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Основы и методология программирования (лаб.)"
+        },
+        {
+          "day": 3,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Дискретная математика (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Дискретная математика (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 2,
+          "subGroup": null,
+          "subject": "Основы вожатской деятельности (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": 1,
+          "subGroup": null,
+          "subject": "Сети и коммуникации (лекция)"
+        },
+        {
+          "day": 4,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Математический анализ (лекция)"
+        },
+        {
+          "day": 4,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Математический анализ (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 1,
+          "subGroup": null,
+          "subject": "Элективные дисциплины по физической культуре и спорту (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 2,
+          "subGroup": null,
+          "subject": "Практика ознакомительная (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Сети и коммуникации (лаб.)"
+        },
+        {
+          "day": 5,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 1,
+          "subGroup": null,
+          "subject": "Психология (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": 2,
+          "subGroup": null,
+          "subject": "Психология (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": 1,
+          "subGroup": null,
+          "subject": "Основы вожатской деятельности (лекция)"
+        }
+      ]
+    },
+    {
+      "id": "ped-3",
+      "directionCode": "44.03.05",
+      "directionName": "Педагогическое образование (с двумя профилями подготовки)",
+      "shortTitle": "Педагогическое образование",
+      "title": "Педагогическое образование, 3 курс",
+      "course": 3,
+      "subGroups": [],
+      "sourceSheets": [
+        "34"
+      ],
+      "entries": [
+        {
+          "day": 1,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": 1,
+          "subGroup": null,
+          "subject": "Педагогика (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": 2,
+          "subGroup": null,
+          "subject": "Педагогика (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Веб-разработка (практ.)"
+        },
+        {
+          "day": 1,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Экология (лекция)"
+        },
+        {
+          "day": 2,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Теория функций комплексного переменного (лекция)"
+        },
+        {
+          "day": 2,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Теория вероятностей и математическая статистика (лекция)"
+        },
+        {
+          "day": 2,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Теория вероятностей и математическая статистика (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Технологическая (проектно-технологическая) производственная практика (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Теория функций комплексного переменного (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 1,
+          "subGroup": null,
+          "subject": "Технология и организация воспитательных практик (классное руководство) (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 2,
+          "subGroup": null,
+          "subject": "Элективные дисциплины по физической культуре и спорту (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Методы математической обработки данных (лаб.)"
+        },
+        {
+          "day": 5,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": 1,
+          "subGroup": null,
+          "subject": "Психология (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": 2,
+          "subGroup": null,
+          "subject": "Психология (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": 1,
+          "subGroup": null,
+          "subject": "Технология и организация воспитательных практик (классное руководство) (лекция)"
+        }
+      ]
+    },
+    {
+      "id": "ped-4",
+      "directionCode": "44.03.05",
+      "directionName": "Педагогическое образование (с двумя профилями подготовки)",
+      "shortTitle": "Педагогическое образование",
+      "title": "Педагогическое образование, 4 курс",
+      "course": 4,
+      "subGroups": [],
+      "sourceSheets": [
+        "44"
+      ],
+      "entries": [
+        {
+          "day": 1,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Методика обучения информатике (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Методика обучения информатике (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Правовые основы предпринимательства (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Правовые основы предпринимательства (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "История математики и информатики (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 3,
+          "time": "12:50-14:20",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "История математики и информатики (практ.)"
+        },
+        {
+          "day": 3,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Технологии дистанционного обучения (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Технологии дистанционного обучения (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Математическая логика (лекция)"
+        },
+        {
+          "day": 4,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Математическая логика (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Методика обучения математике (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Методика обучения математике (практ.)"
+        },
+        {
+          "day": 6,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Методы оптимизации (лекция)"
+        },
+        {
+          "day": 6,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Методы оптимизации (практ.)"
+        }
+      ]
+    },
+    {
+      "id": "ped-5",
+      "directionCode": "44.03.05",
+      "directionName": "Педагогическое образование (с двумя профилями подготовки)",
+      "shortTitle": "Педагогическое образование",
+      "title": "Педагогическое образование, 5 курс",
+      "course": 5,
+      "subGroups": [],
+      "sourceSheets": [
+        "54"
+      ],
+      "entries": [
+        {
+          "day": 1,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Решение олимпиадных задач по информатике (лекция)"
+        },
+        {
+          "day": 1,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Решение олимпиадных задач по информатике (практ.)"
+        },
+        {
+          "day": 2,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Компьютерная графика (лекция.)"
+        },
+        {
+          "day": 2,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Компьютерная графика (лаб.)"
+        },
+        {
+          "day": 3,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Основы проектной и исследовательской деятельности (лекция)"
+        },
+        {
+          "day": 3,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Основы проектной и исследовательской деятельности (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Практикум по решению задач школьной математики и информатики (практ.)"
+        },
+        {
+          "day": 4,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Практикум по решению задач школьной математики и информатики (практ.)"
+        },
+        {
+          "day": 5,
+          "lesson": 4,
+          "time": "14:30-16:00",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Решение олимпиадных задач по математике (лекция)"
+        },
+        {
+          "day": 5,
+          "lesson": 5,
+          "time": "16:10-17:40",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Решение олимпиадных задач по математике (практ.)"
+        },
+        {
+          "day": 6,
+          "lesson": 1,
+          "time": "09:00-10:30",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Решение олимпиадных задач по информатике (практ.)"
+        },
+        {
+          "day": 6,
+          "lesson": 2,
+          "time": "10:40-12:10",
+          "weekType": null,
+          "subGroup": null,
+          "subject": "Компьютерная графика (лаб.)"
+        }
+      ]
+    }
+  ]
+}
