@@ -857,11 +857,11 @@
     }
 
     function localAuthPayload() {
-      return initData ? {} : { userId: Number(userId) };
+      return userId ? { userId: Number(userId) } : {};
     }
 
     function localChatPayload() {
-      return initData ? {} : { chatId: Number(chatId) };
+      return chatId ? { chatId: Number(chatId) } : {};
     }
 
     function sendBot(payload) {
@@ -980,7 +980,9 @@
       }
 
       try {
-        const statePath = initData ? "/api/state" : "/api/state?userId=" + encodeURIComponent(userId);
+        const statePath = userId
+          ? "/api/state?userId=" + encodeURIComponent(userId)
+          : "/api/state";
         state = await api(statePath);
         rows = (state.schedule || []).map((row) => ({ ...row }));
         photo = state.schedulePhotoDataUrl || null;
