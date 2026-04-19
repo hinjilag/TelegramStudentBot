@@ -738,6 +738,7 @@
 
     const params = new URLSearchParams(location.search);
     const tgUser = tg?.initDataUnsafe?.user;
+    const initData = tg?.initData || "";
     const userId = params.get("userId") || (tgUser?.id ? String(tgUser.id) : "");
     const chatId = params.get("chatId") || userId;
     const apiBase = (params.get("apiBase") || location.origin).replace(/\/$/, "");
@@ -786,16 +787,22 @@
 
     async function api(path, options = {}) {
       if (!staticMode) {
-        try {
-          const response = await fetch(apiBase + path, {
-            ...options,
-            headers: options.body ? { "Content-Type": "application/json" } : {}
-          });
-          const data = await response.json().catch(() => null);
-          if (response.ok && data?.ok) return data;
-        } catch {
-          // Static fallback below.
+        const headers = { ...(options.headers || {}) };
+        if (options.body) {
+          headers["Content-Type"] = "application/json";
         }
+        if (initData) {
+          headers["X-Telegram-Init-Data"] = initData;
+        }
+
+        const response = await fetch(apiBase + path, {
+          ...options,
+          headers
+        });
+        const data = await response.json().catch(() => null);
+        if (response.ok && data?.ok) return data;
+
+        throw new Error(data?.message || "request_failed");
       }
 
       return localApi(path, options);
@@ -847,6 +854,14 @@
       } catch {
         return {};
       }
+    }
+
+    function localAuthPayload() {
+      return initData ? {} : { userId: Number(userId) };
+    }
+
+    function localChatPayload() {
+      return initData ? {} : { chatId: Number(chatId) };
     }
 
     function sendBot(payload) {
@@ -965,7 +980,8 @@
       }
 
       try {
-        state = await api("/api/state?userId=" + encodeURIComponent(userId));
+        const statePath = initData ? "/api/state" : "/api/state?userId=" + encodeURIComponent(userId);
+        state = await api(statePath);
         rows = (state.schedule || []).map((row) => ({ ...row }));
         photo = state.schedulePhotoDataUrl || null;
         render();
@@ -1118,8 +1134,8 @@
         state = await api("/api/timer/start", {
           method: "POST",
           body: JSON.stringify({
-            userId: Number(userId),
-            chatId: Number(chatId),
+            ...localAuthPayload(),
+            ...localChatPayload(),
             type,
             minutes: value
           })
@@ -1137,8 +1153,8 @@
         state = await api("/api/timer/stop", {
           method: "POST",
           body: JSON.stringify({
-            userId: Number(userId),
-            chatId: Number(chatId),
+            ...localAuthPayload(),
+            ...localChatPayload(),
             timerId: state.timer?.id
           })
         });
@@ -1216,7 +1232,7 @@
       try {
         state = await api("/api/tasks/add", {
           method: "POST",
-          body: JSON.stringify({ userId: Number(userId), chatId: Number(chatId), title, subject, deadline })
+          body: JSON.stringify({ ...localAuthPayload(), ...localChatPayload(), title, subject, deadline })
         });
         $("taskTitle").value = "";
         $("taskSubject").value = "";
@@ -1236,8 +1252,8 @@
         state = await api("/api/tasks/toggle", {
           method: "POST",
           body: JSON.stringify({
-            userId: Number(userId),
-            chatId: Number(chatId),
+            ...localAuthPayload(),
+            ...localChatPayload(),
             taskId,
             isCompleted: !task.isCompleted
           })
@@ -1252,7 +1268,7 @@
       try {
         state = await api("/api/tasks/delete", {
           method: "POST",
-          body: JSON.stringify({ userId: Number(userId), chatId: Number(chatId), taskId })
+          body: JSON.stringify({ ...localAuthPayload(), ...localChatPayload(), taskId })
         });
         render();
         showNotice("Задача удалена.");
@@ -1284,8 +1300,8 @@
         state = await api("/api/schedule/save", {
           method: "POST",
           body: JSON.stringify({
-            userId: Number(userId),
-            chatId: Number(chatId),
+            ...localAuthPayload(),
+            ...localChatPayload(),
             photoDataUrl: photo,
             entries: rows
           })
@@ -1303,7 +1319,7 @@
       try {
         state = await api("/api/schedule/clear", {
           method: "POST",
-          body: JSON.stringify({ userId: Number(userId), chatId: Number(chatId) })
+          body: JSON.stringify({ ...localAuthPayload(), ...localChatPayload() })
         });
         rows = [];
         photo = null;

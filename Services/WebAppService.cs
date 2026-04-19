@@ -29,6 +29,9 @@ public class WebAppService : BackgroundService
     private readonly string _wwwrootPath;
     private readonly string _htmlPath;
     private readonly int _port;
+    private readonly string _botToken;
+    private readonly bool _skipInitDataValidation;
+    private readonly TimeSpan _initDataMaxAge;
     private readonly SessionService _sessions;
     private readonly TimerService _timers;
     private readonly ChatSyncService _chatSync;
@@ -36,16 +39,20 @@ public class WebAppService : BackgroundService
 
     public WebAppService(
         IConfiguration config,
+        IHostEnvironment hostEnvironment,
         SessionService sessions,
         TimerService timers,
         ChatSyncService chatSync,
         ILogger<WebAppService> logger)
     {
-        _port     = config.GetValue("WebAppPort", 8080);
+        _port = config.GetValue("WebAppPort", 8080);
+        _botToken = config["BotToken"] ?? "";
+        _skipInitDataValidation = hostEnvironment.IsEnvironment("Local");
+        _initDataMaxAge = TimeSpan.FromSeconds(config.GetValue("MiniAppInitDataMaxAgeSeconds", 86400));
         _sessions = sessions;
-        _timers   = timers;
+        _timers = timers;
         _chatSync = chatSync;
-        _logger   = logger;
+        _logger = logger;
         _wwwrootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot");
         _htmlPath = Path.Combine(_wwwrootPath, "timer.html");
     }
@@ -190,70 +197,83 @@ public class WebAppService : BackgroundService
 
     private async Task HandleStateAsync(HttpContext ctx, CancellationToken ct)
     {
-        if (!TryGetUserId(ctx, out var userId))
-        {
-            await WriteJsonAsync(ctx, 400, new { ok = false, message = "bad_user_id" }, ct);
-            return;
-        }
+        TryGetUserId(ctx, out var requestedUserId);
 
-        var session = _sessions.GetOrCreate(userId);
+        var userId = await TryResolveAuthorizedUserIdAsync(ctx, requestedUserId, ct);
+        if (userId is null)
+            return;
+
+        var session = _sessions.GetOrCreate(userId.Value);
         await WriteStateAsync(ctx, session, ct);
     }
 
     private async Task HandleStartTimerFromApiAsync(HttpContext ctx, CancellationToken ct)
     {
         var request = await ReadJsonAsync<StartTimerRequest>(ctx, ct);
-        if (request is null || request.UserId <= 0 || request.Minutes is < 1 or > 300)
+        if (request is null || request.Minutes is < 1 or > 300)
         {
             await WriteJsonAsync(ctx, 400, new { ok = false, message = "bad_request" }, ct);
             return;
         }
 
-        var chatId = request.ChatId != 0 ? request.ChatId : request.UserId;
+        var userId = await TryResolveAuthorizedUserIdAsync(ctx, request.UserId, ct);
+        if (userId is null)
+            return;
+
+        var session = _sessions.GetOrCreate(userId.Value);
+        var chatId = ResolveTrustedChatId(session, request.ChatId);
         if (string.Equals(request.Type, "rest", StringComparison.OrdinalIgnoreCase))
         {
-            await _timers.StartRestTimerAsync(chatId, request.UserId, request.Minutes);
+            await _timers.StartRestTimerAsync(chatId, userId.Value, request.Minutes);
         }
         else
         {
-            await _timers.StartWorkTimerAsync(chatId, request.UserId, request.Minutes);
+            await _timers.StartWorkTimerAsync(chatId, userId.Value, request.Minutes);
         }
 
-        await WriteStateAsync(ctx, _sessions.GetOrCreate(request.UserId), ct);
+        await WriteStateAsync(ctx, session, ct);
     }
 
     private async Task HandleStopTimerFromApiAsync(HttpContext ctx, CancellationToken ct)
     {
         var request = await ReadJsonAsync<StopTimerRequest>(ctx, ct);
-        if (request is null || request.UserId <= 0)
+        if (request is null)
         {
             await WriteJsonAsync(ctx, 400, new { ok = false, message = "bad_request" }, ct);
             return;
         }
 
+        var userId = await TryResolveAuthorizedUserIdAsync(ctx, request.UserId, ct);
+        if (userId is null)
+            return;
+
         var stopped = Guid.TryParse(request.TimerId, out var timerId)
-            ? _timers.StopTimer(request.UserId, timerId)
-            : _timers.StopTimer(request.UserId);
+            ? _timers.StopTimer(userId.Value, timerId)
+            : _timers.StopTimer(userId.Value);
 
         if (stopped)
         {
-            await _chatSync.TrySendTimerStoppedAsync(ResolveChatId(request.ChatId, request.UserId), ct);
+            var session = _sessions.GetOrCreate(userId.Value);
+            await _chatSync.TrySendTimerStoppedAsync(ResolveTrustedChatId(session, request.ChatId), ct);
         }
 
-        await WriteStateAsync(ctx, _sessions.GetOrCreate(request.UserId), ct, new { stopped });
+        await WriteStateAsync(ctx, _sessions.GetOrCreate(userId.Value), ct, new { stopped });
     }
 
     private async Task HandleAddTaskAsync(HttpContext ctx, CancellationToken ct)
     {
         var request = await ReadJsonAsync<TaskRequest>(ctx, ct);
         if (request is null ||
-            request.UserId <= 0 ||
             string.IsNullOrWhiteSpace(request.Title) ||
             string.IsNullOrWhiteSpace(request.Subject))
         {
             await WriteJsonAsync(ctx, 400, new { ok = false, message = "bad_request" }, ct);
             return;
         }
+
+        var userId = await TryResolveAuthorizedUserIdAsync(ctx, request.UserId, ct);
+        if (userId is null)
+            return;
 
         if (request.Deadline.HasValue && TaskDeadlineRules.IsInPast(request.Deadline.Value))
         {
@@ -266,7 +286,7 @@ public class WebAppService : BackgroundService
             return;
         }
 
-        var session = _sessions.GetOrCreate(request.UserId);
+        var session = _sessions.GetOrCreate(userId.Value);
         var task = new StudyTask
         {
             Title = request.Title.Trim(),
@@ -276,7 +296,7 @@ public class WebAppService : BackgroundService
         session.Tasks.Add(task);
         _sessions.Save();
 
-        await _chatSync.TrySendTaskAddedAsync(ResolveChatId(request.ChatId, request.UserId), task, ct);
+        await _chatSync.TrySendTaskAddedAsync(ResolveTrustedChatId(session, request.ChatId), task, ct);
 
         await WriteStateAsync(ctx, session, ct);
     }
@@ -284,13 +304,17 @@ public class WebAppService : BackgroundService
     private async Task HandleToggleTaskAsync(HttpContext ctx, CancellationToken ct)
     {
         var request = await ReadJsonAsync<TaskToggleRequest>(ctx, ct);
-        if (request is null || request.UserId <= 0)
+        if (request is null)
         {
             await WriteJsonAsync(ctx, 400, new { ok = false, message = "bad_request" }, ct);
             return;
         }
 
-        var session = _sessions.GetOrCreate(request.UserId);
+        var userId = await TryResolveAuthorizedUserIdAsync(ctx, request.UserId, ct);
+        if (userId is null)
+            return;
+
+        var session = _sessions.GetOrCreate(userId.Value);
         var task = FindTask(session, request.TaskId);
         if (task is null)
         {
@@ -300,7 +324,7 @@ public class WebAppService : BackgroundService
 
         task.IsCompleted = request.IsCompleted;
         _sessions.Save();
-        await _chatSync.TrySendTaskStatusChangedAsync(ResolveChatId(request.ChatId, request.UserId), task, ct);
+        await _chatSync.TrySendTaskStatusChangedAsync(ResolveTrustedChatId(session, request.ChatId), task, ct);
 
         await WriteStateAsync(ctx, session, ct);
     }
@@ -308,19 +332,23 @@ public class WebAppService : BackgroundService
     private async Task HandleDeleteTaskAsync(HttpContext ctx, CancellationToken ct)
     {
         var request = await ReadJsonAsync<TaskDeleteRequest>(ctx, ct);
-        if (request is null || request.UserId <= 0)
+        if (request is null)
         {
             await WriteJsonAsync(ctx, 400, new { ok = false, message = "bad_request" }, ct);
             return;
         }
 
-        var session = _sessions.GetOrCreate(request.UserId);
+        var userId = await TryResolveAuthorizedUserIdAsync(ctx, request.UserId, ct);
+        if (userId is null)
+            return;
+
+        var session = _sessions.GetOrCreate(userId.Value);
         var task = FindTask(session, request.TaskId);
         if (task is not null)
         {
             session.Tasks.Remove(task);
             _sessions.Save();
-            await _chatSync.TrySendTaskDeletedAsync(ResolveChatId(request.ChatId, request.UserId), task, ct);
+            await _chatSync.TrySendTaskDeletedAsync(ResolveTrustedChatId(session, request.ChatId), task, ct);
         }
 
         await WriteStateAsync(ctx, session, ct);
@@ -329,13 +357,17 @@ public class WebAppService : BackgroundService
     private async Task HandleSaveScheduleAsync(HttpContext ctx, CancellationToken ct)
     {
         var request = await ReadJsonAsync<ScheduleSaveRequest>(ctx, ct);
-        if (request is null || request.UserId <= 0)
+        if (request is null)
         {
             await WriteJsonAsync(ctx, 400, new { ok = false, message = "bad_request" }, ct);
             return;
         }
 
-        var session = _sessions.GetOrCreate(request.UserId);
+        var userId = await TryResolveAuthorizedUserIdAsync(ctx, request.UserId, ct);
+        if (userId is null)
+            return;
+
+        var session = _sessions.GetOrCreate(userId.Value);
         session.Schedule.Clear();
 
         foreach (var row in (request.Entries ?? []).Where(IsValidScheduleRow))
@@ -357,7 +389,7 @@ public class WebAppService : BackgroundService
         _sessions.Save();
 
         await _chatSync.TrySendScheduleSavedAsync(
-            ResolveChatId(request.ChatId, request.UserId),
+            ResolveTrustedChatId(session, request.ChatId),
             session.Schedule,
             session.SchedulePhotoDataUrl is not null,
             ct);
@@ -368,17 +400,21 @@ public class WebAppService : BackgroundService
     private async Task HandleClearScheduleAsync(HttpContext ctx, CancellationToken ct)
     {
         var request = await ReadJsonAsync<UserRequest>(ctx, ct);
-        if (request is null || request.UserId <= 0)
+        if (request is null)
         {
             await WriteJsonAsync(ctx, 400, new { ok = false, message = "bad_request" }, ct);
             return;
         }
 
-        var session = _sessions.GetOrCreate(request.UserId);
+        var userId = await TryResolveAuthorizedUserIdAsync(ctx, request.UserId, ct);
+        if (userId is null)
+            return;
+
+        var session = _sessions.GetOrCreate(userId.Value);
         session.Schedule.Clear();
         session.SchedulePhotoDataUrl = null;
         _sessions.Save();
-        await _chatSync.TrySendScheduleClearedAsync(ResolveChatId(request.ChatId, request.UserId), ct);
+        await _chatSync.TrySendScheduleClearedAsync(ResolveTrustedChatId(session, request.ChatId), ct);
         await WriteStateAsync(ctx, session, ct);
     }
 
@@ -399,7 +435,8 @@ public class WebAppService : BackgroundService
 
         if (stopped)
         {
-            await _chatSync.TrySendTimerStoppedAsync(chatId, ct);
+            var session = _sessions.GetOrCreate(userId);
+            await _chatSync.TrySendTimerStoppedAsync(ResolveTrustedChatId(session, chatId), ct);
         }
 
         await WriteJsonAsync(ctx, 200, stopped
@@ -515,7 +552,40 @@ public class WebAppService : BackgroundService
     private static bool TryGetUserId(HttpContext ctx, out long userId) =>
         long.TryParse(ctx.Request.Query["userId"].ToString(), out userId) && userId > 0;
 
-    private static long ResolveChatId(long chatId, long userId) => chatId != 0 ? chatId : userId;
+    private long ResolveTrustedChatId(UserSession session, long requestedChatId)
+    {
+        if (session.LastChatId != 0)
+            return session.LastChatId;
+
+        if (_skipInitDataValidation && requestedChatId != 0)
+            return requestedChatId;
+
+        return session.UserId;
+    }
+
+    private async Task<long?> TryResolveAuthorizedUserIdAsync(HttpContext ctx, long requestedUserId, CancellationToken ct)
+    {
+        if (_skipInitDataValidation)
+        {
+            if (requestedUserId > 0)
+            {
+                return requestedUserId;
+            }
+
+            await WriteJsonAsync(ctx, 400, new { ok = false, message = "bad_user_id" }, ct);
+            return null;
+        }
+
+        var initData = ctx.Request.Headers["X-Telegram-Init-Data"].ToString();
+        if (!TelegramMiniAppInitDataValidator.TryValidate(initData, _botToken, _initDataMaxAge, out var authData, out var errorCode))
+        {
+            _logger.LogWarning("Mini App init data validation failed: {ErrorCode}", errorCode);
+            await WriteJsonAsync(ctx, 401, new { ok = false, message = errorCode }, ct);
+            return null;
+        }
+
+        return authData.UserId;
+    }
 
     private static StudyTask? FindTask(UserSession session, string? taskId)
     {
@@ -590,7 +660,7 @@ public class WebAppService : BackgroundService
     {
         ctx.Response.Headers["Access-Control-Allow-Origin"] = "*";
         ctx.Response.Headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS";
-        ctx.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type";
+        ctx.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, X-Telegram-Init-Data";
     }
 
     private static async Task WriteJsonAsync(

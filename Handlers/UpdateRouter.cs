@@ -9,17 +9,10 @@ using TelegramStudentBot.Services;
 
 namespace TelegramStudentBot.Handlers;
 
-/// <summary>
-/// Маршрутизатор обновлений от Telegram.
-/// Получает сырой Update и отправляет его в нужный обработчик:
-///   - Команды (/start, /help и т.д.) → CommandHandler
-///   - Обычный текст в состоянии диалога → TextHandler
-///   - Нажатие инлайн-кнопки → CallbackHandler
-/// </summary>
 public class UpdateRouter
 {
     private readonly CommandHandler _commands;
-    private readonly TextHandler    _text;
+    private readonly TextHandler _text;
     private readonly CallbackHandler _callbacks;
     private readonly TimerService _timers;
     private readonly SessionService _sessions;
@@ -28,31 +21,26 @@ public class UpdateRouter
 
     public UpdateRouter(
         CommandHandler commands,
-        TextHandler    text,
+        TextHandler text,
         CallbackHandler callbacks,
         TimerService timers,
         SessionService sessions,
         ChatSyncService chatSync,
         ILogger<UpdateRouter> logger)
     {
-        _commands  = commands;
-        _text      = text;
+        _commands = commands;
+        _text = text;
         _callbacks = callbacks;
-        _timers    = timers;
-        _sessions  = sessions;
-        _chatSync  = chatSync;
-        _logger    = logger;
+        _timers = timers;
+        _sessions = sessions;
+        _chatSync = chatSync;
+        _logger = logger;
     }
 
-    /// <summary>
-    /// Точка входа для всех обновлений от Telegram.
-    /// Вызывается из BotService при каждом входящем сообщении.
-    /// </summary>
     public async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken ct)
     {
         try
         {
-            // Нажатие инлайн-кнопки
             if (update.Type == UpdateType.CallbackQuery && update.CallbackQuery is not null)
             {
                 await _callbacks.HandleAsync(update.CallbackQuery, ct);
@@ -70,10 +58,6 @@ public class UpdateRouter
         }
     }
 
-    /// <summary>
-    /// Обработать входящее сообщение.
-    /// Маршрутизирует по типу содержимого: текст.
-    /// </summary>
     private async Task HandleMessageAsync(ITelegramBotClient bot, Message msg, CancellationToken ct)
     {
         if (msg.From is null)
@@ -82,18 +66,22 @@ public class UpdateRouter
             return;
         }
 
+        var session = _sessions.GetOrCreate(msg.From.Id, msg.From.FirstName);
+        if (session.LastChatId != msg.Chat.Id)
+        {
+            session.LastChatId = msg.Chat.Id;
+            _sessions.Save();
+        }
+
         if (msg.WebAppData is not null)
         {
             await HandleWebAppDataAsync(bot, msg, ct);
             return;
         }
 
-        // ── Текстовое сообщение ───────────────────────────────
         if (msg.Text is not null)
         {
             var text = msg.Text.Trim();
-
-            // Ищем часть, начинающуюся с '/' — поддерживает кнопки вида "📋 /plan"
             var commandPart = text
                 .Split(' ')
                 .Select(p => p.Split('@')[0].ToLowerInvariant())
@@ -110,7 +98,6 @@ public class UpdateRouter
         }
     }
 
-    /// <summary>Обработать данные, отправленные из Telegram Mini App.</summary>
     private async Task HandleWebAppDataAsync(ITelegramBotClient bot, Message msg, CancellationToken ct)
     {
         var data = msg.WebAppData?.Data;
@@ -161,12 +148,14 @@ public class UpdateRouter
                 break;
 
             case "clear_schedule":
+            {
                 var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
                 session.Schedule.Clear();
                 session.SchedulePhotoDataUrl = null;
                 _sessions.Save();
                 await _chatSync.TrySendScheduleClearedAsync(msg.Chat.Id, ct);
                 break;
+            }
         }
     }
 
@@ -345,7 +334,6 @@ public class UpdateRouter
             _ => "every"
         };
 
-    /// <summary>Маршрутизация команд по имени</summary>
     private async Task RouteCommandAsync(Message msg, string command, CancellationToken ct)
     {
         _logger.LogDebug("Команда {Command} от пользователя {UserId}", command, msg.From?.Id);

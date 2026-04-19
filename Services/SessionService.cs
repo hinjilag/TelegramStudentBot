@@ -5,10 +5,6 @@ using TelegramStudentBot.Models;
 
 namespace TelegramStudentBot.Services;
 
-/// <summary>
-/// Хранилище сессий пользователей в памяти.
-/// Синглтон — живёт всё время работы бота.
-/// </summary>
 public class SessionService
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -18,10 +14,7 @@ public class SessionService
         PropertyNameCaseInsensitive = true
     };
 
-    // Словарь: Telegram UserId → сессия
     private readonly Dictionary<long, UserSession> _sessions = new();
-
-    // Блокировка для потокобезопасности (несколько пользователей одновременно)
     private readonly Lock _lock = new();
     private readonly string _storagePath;
     private readonly ILogger<SessionService> _logger;
@@ -35,11 +28,6 @@ public class SessionService
         Load();
     }
 
-    /// <summary>
-    /// Получить сессию пользователя. Если не существует — создать новую.
-    /// </summary>
-    /// <param name="userId">Telegram ID пользователя</param>
-    /// <param name="firstName">Имя (используется только при создании)</param>
     public UserSession GetOrCreate(long userId, string firstName = "Студент")
     {
         lock (_lock)
@@ -48,7 +36,7 @@ public class SessionService
             {
                 session = new UserSession
                 {
-                    UserId    = userId,
+                    UserId = userId,
                     FirstName = firstName
                 };
                 _sessions[userId] = session;
@@ -61,13 +49,11 @@ public class SessionService
                 session.FirstName = firstName;
                 SaveLocked();
             }
+
             return session;
         }
     }
 
-    /// <summary>
-    /// Получить сессию пользователя. Возвращает null, если не существует.
-    /// </summary>
     public UserSession? Get(long userId)
     {
         lock (_lock)
@@ -77,7 +63,6 @@ public class SessionService
         }
     }
 
-    /// <summary>Сохранить постоянные данные всех сессий на диск.</summary>
     public void Save()
     {
         lock (_lock)
@@ -107,6 +92,7 @@ public class SessionService
                     {
                         UserId = stored.UserId,
                         FirstName = string.IsNullOrWhiteSpace(stored.FirstName) ? "Студент" : stored.FirstName,
+                        LastChatId = stored.LastChatId,
                         FatigueLevel = Math.Clamp(stored.FatigueLevel, 0, 100),
                         WorkSessionsWithoutRest = Math.Max(0, stored.WorkSessionsWithoutRest),
                         Tasks = stored.Tasks ?? new List<StudyTask>(),
@@ -146,6 +132,7 @@ public class SessionService
                     {
                         UserId = s.UserId,
                         FirstName = s.FirstName,
+                        LastChatId = s.LastChatId,
                         FatigueLevel = s.FatigueLevel,
                         WorkSessionsWithoutRest = s.WorkSessionsWithoutRest,
                         Tasks = s.Tasks,
@@ -176,6 +163,7 @@ public class SessionService
     {
         public long UserId { get; set; }
         public string FirstName { get; set; } = "Студент";
+        public long LastChatId { get; set; }
         public int FatigueLevel { get; set; }
         public int WorkSessionsWithoutRest { get; set; }
         public List<StudyTask> Tasks { get; set; } = new();
