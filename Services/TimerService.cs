@@ -9,7 +9,7 @@ namespace TelegramStudentBot.Services;
 /// <summary>
 /// Сервис управления таймерами учёбы и отдыха.
 /// Запускает фоновые задачи, которые по истечении времени
-/// отправляют пользователю уведомление и обновляют усталость.
+/// отправляют пользователю уведомление.
 /// </summary>
 public class TimerService
 {
@@ -132,7 +132,7 @@ public class TimerService
 
     /// <summary>
     /// Фоновое ожидание окончания таймера.
-    /// После завершения — обновляет усталость и уведомляет пользователя.
+    /// После завершения уведомляет пользователя.
     /// </summary>
     private async Task RunTimerAsync(long chatId, long userId, ActiveTimer timer)
     {
@@ -172,64 +172,27 @@ public class TimerService
     /// <summary>Обработка завершения рабочего таймера</summary>
     private async Task OnWorkTimerFinishedAsync(long chatId, UserSession session, int minutes)
     {
-        // Увеличиваем усталость за рабочую сессию (+20, максимум 100)
-        session.FatigueLevel           = Math.Min(100, session.FatigueLevel + 20);
-        session.WorkSessionsWithoutRest++;
-
-        // Формируем предупреждение об усталости
-        string fatigueNote;
-        if (session.FatigueLevel >= 86)
-        {
-            fatigueNote = $"\n\n🚨 <b>Критическая усталость {session.FatigueLevel}%!</b>\n" +
-                          $"Ты работаешь уже {session.WorkSessionsWithoutRest} сессий подряд.\n" +
-                          $"<b>Обязательно сделай перерыв!</b> → /rest";
-        }
-        else if (session.NeedsRest)
-        {
-            fatigueNote = $"\n\n⚠️ Рекомендую отдохнуть!\n" +
-                          $"Усталость: {session.FatigueLevel}% ({session.FatigueDescription})\n" +
-                          $"Используй /rest для перерыва.";
-        }
-        else
-        {
-            fatigueNote = $"\n\nУсталость: {session.FatigueLevel}% ({session.FatigueDescription})";
-        }
-
         await _bot.SendMessage(
             chatId:           chatId,
             text:             $"✅ <b>Рабочая сессия завершена!</b>\n" +
-                              $"Ты работал <b>{minutes} мин</b>. Отличная работа!{fatigueNote}",
+                              $"Ты работал <b>{minutes} мин</b>. Отличная работа!",
             parseMode:        ParseMode.Html,
             cancellationToken: CancellationToken.None);
 
-        _logger.LogInformation("Рабочий таймер завершён. Пользователь {UserId}, усталость {Fatigue}%",
-            session.UserId, session.FatigueLevel);
+        _logger.LogInformation("Рабочий таймер завершён. Пользователь {UserId}", session.UserId);
     }
 
     /// <summary>Обработка завершения таймера отдыха</summary>
     private async Task OnRestTimerFinishedAsync(long chatId, UserSession session, int minutes)
     {
-        // Снижаем усталость в зависимости от длины перерыва
-        int reduction = minutes switch
-        {
-            <= 5  => 15,   // Короткий перерыв
-            <= 15 => 25,   // Средний перерыв
-            _     => 35    // Длинный перерыв
-        };
-
-        session.FatigueLevel           = Math.Max(0, session.FatigueLevel - reduction);
-        session.WorkSessionsWithoutRest = 0; // Сбрасываем счётчик сессий без отдыха
-
         await _bot.SendMessage(
             chatId:           chatId,
             text:             $"⏰ <b>Перерыв завершён!</b>\n" +
                               $"Ты отдохнул <b>{minutes} мин</b>. Отлично!\n\n" +
-                              $"Усталость: {session.FatigueLevel}% ({session.FatigueDescription})\n\n" +
                               $"Готов к новой сессии? Запускай таймер → /timer 💪",
             parseMode:        ParseMode.Html,
             cancellationToken: CancellationToken.None);
 
-        _logger.LogInformation("Таймер отдыха завершён. Пользователь {UserId}, усталость {Fatigue}%",
-            session.UserId, session.FatigueLevel);
+        _logger.LogInformation("Таймер отдыха завершён. Пользователь {UserId}", session.UserId);
     }
 }

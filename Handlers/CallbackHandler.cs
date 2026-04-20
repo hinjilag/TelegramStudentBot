@@ -198,7 +198,8 @@ public class CallbackHandler
                 await _bot.EditMessageText(
                     chatId: chatId,
                     messageId: message.MessageId,
-                    text: "Хорошо, не буду напоминать. Настроить можно в любой момент через /reminders.",
+                    text: "Хорошо, не буду напоминать. Настроить можно в любой момент через /reminders.\n\n" +
+                          BuildBasicCommandsText(),
                     cancellationToken: ct);
                 break;
 
@@ -502,7 +503,7 @@ public class CallbackHandler
 
         await _bot.SendMessage(
             chatId: chatId,
-            text: "Выбери направление:",
+            text: "Шаг 1/3. Выбери направление:",
             replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
             cancellationToken: ct);
     }
@@ -544,7 +545,7 @@ public class CallbackHandler
 
         await _bot.SendMessage(
             chatId: chatId,
-            text: $"Направление: <b>{Escape(directionName)}</b>\nВыбери курс:",
+            text: $"Шаг 2/3. Направление: <b>{Escape(directionName)}</b>\nВыбери курс:",
             parseMode: ParseMode.Html,
             replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
             cancellationToken: ct);
@@ -577,7 +578,7 @@ public class CallbackHandler
 
         await _bot.SendMessage(
             chatId: chatId,
-            text: $"Курс: <b>{Escape(group.Title)}</b>\nВыбери подгруппу:",
+            text: $"Шаг 3/3. Курс: <b>{Escape(group.Title)}</b>\nВыбери подгруппу:",
             parseMode: ParseMode.Html,
             replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
             cancellationToken: ct);
@@ -608,7 +609,13 @@ public class CallbackHandler
 
         await _bot.SendMessage(
             chatId: chatId,
-            text: $"Расписание сохранено: <b>{Escape(FormatGroupTitle(group, subGroup))}</b>.",
+            text: $"✅ <b>Готово! Расписание закреплено за тобой.</b>\n\n" +
+                  $"{Escape(FormatGroupTitle(group, subGroup))}\n\n" +
+                  "Теперь ты можешь:\n" +
+                  "• смотреть пары на сегодня и неделю через /schedule\n" +
+                  "• добавлять домашку через /add_homework\n" +
+                  "• смотреть список ДЗ через /homework\n\n" +
+                  "Советую начать с /add_homework: выбери предмет, напиши задание, а дедлайн я поставлю по следующей паре.",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
 
@@ -720,6 +727,15 @@ public class CallbackHandler
 
     private static string Escape(string text)
         => WebUtility.HtmlEncode(text);
+
+    private static string BuildBasicCommandsText()
+        => "Базовая настройка готова.\n\n" +
+           "Основные команды:\n" +
+           "/schedule — расписание\n" +
+           "/add_homework — добавить ДЗ\n" +
+           "/homework — список заданий\n" +
+           "/timer — таймер для учёбы\n" +
+           "/help — все команды";
 
     private async Task StartScheduleReviewAsync(long chatId, UserSession session, CancellationToken ct)
     {

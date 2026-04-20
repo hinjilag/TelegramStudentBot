@@ -9,7 +9,7 @@ using System.Net;
 namespace TelegramStudentBot.Handlers;
 
 /// <summary>
-/// Обработчик команд (/start, /help, /timer, /rest, /plan, /fatigue, /status, /stop, /schedule).
+/// Обработчик команд (/start, /help, /timer, /rest, /plan, /stop, /schedule).
 /// Каждый метод соответствует одной команде.
 /// </summary>
 public class CommandHandler
@@ -44,13 +44,40 @@ public class CommandHandler
     /// <summary>Приветствие при первом запуске или перезапуске</summary>
     public async Task HandleStartAsync(Message msg, CancellationToken ct)
     {
-        var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
+        var userId = msg.From!.Id;
+        var session = _sessions.GetOrCreate(userId, msg.From.FirstName);
         session.State = UserState.Idle;
+
+        var selection = _scheduleSelections.Get(userId);
+        if (selection is not null)
+        {
+            var group = _scheduleCatalog.GetGroup(selection.ScheduleId);
+            if (group is not null)
+            {
+                ApplySelectionToSession(session, group, selection.SubGroup);
+
+                await _bot.SendMessage(
+                    chatId: msg.Chat.Id,
+                    text: "👋 <b>С возвращением!</b>\n\n" +
+                          $"Расписание уже настроено: <b>{Escape(FormatGroupTitle(group, selection.SubGroup))}</b>.\n\n" +
+                          "Можешь посмотреть пары через /schedule, добавить ДЗ через /add_homework или открыть список заданий через /homework.\n" +
+                          "Если нужно сфокусироваться на учёбе, запускай таймер через /timer.",
+                    parseMode: ParseMode.Html,
+                    cancellationToken: ct);
+                return;
+            }
+
+            _scheduleSelections.Delete(userId);
+        }
 
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
-            text:      "👋 Привет! Я твой помощник-студент.\n" +
-                       "Ознакомься с командами в меню слева от клавиатуры.",
+            text:      "👋 <b>Привет! Я помогу тебе следить за расписанием, домашками и дедлайнами.</b>\n\n" +
+                       "Давай сначала настроим расписание:\n" +
+                       "1. Нажми /schedule\n" +
+                       "2. Выбери направление, курс и подгруппу\n" +
+                       "3. После этого я закреплю расписание за тобой\n\n" +
+                       "Когда расписание будет выбрано, ты сможешь добавлять ДЗ по предметам из своего расписания.",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
     }
@@ -78,10 +105,6 @@ public class CommandHandler
                        "/plan — управление задачами\n\n" +
                        "📅 <b>Расписание:</b>\n" +
                        "/schedule — моё расписание занятий\n\n" +
-                       "😴 <b>Усталость:</b>\n" +
-                       "/fatigue — показать уровень усталости\n\n" +
-                       "📊 <b>Статус:</b>\n" +
-                       "/status — общий дашборд (таймер + усталость + задачи)\n\n" +
                        "❓ /help — эта справка",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
@@ -151,85 +174,6 @@ public class CommandHandler
     }
 
     // ══════════════════════════════════════════════════════════
-    //  /fatigue
-    // ══════════════════════════════════════════════════════════
-
-    /// <summary>Показать уровень усталости и советы</summary>
-    public async Task HandleFatigueAsync(Message msg, CancellationToken ct)
-    {
-        var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
-
-        // Визуальная шкала усталости (10 делений)
-        var filled  = session.FatigueLevel / 10;
-        var empty   = 10 - filled;
-        var bar     = new string('█', filled) + new string('░', empty);
-
-        var advice = session.FatigueLevel switch
-        {
-            <= 30 => "💡 Ты в отличной форме! Самое время учиться.",
-            <= 60 => "💡 Умеренная усталость. Продолжай, но не забывай про перерывы.",
-            <= 85 => "💡 Высокая усталость! Рекомендую сделать перерыв → /rest",
-            _      => "💡 Истощение! Нужен длительный отдых (30+ мин) → /rest"
-        };
-
-        await _bot.SendMessage(
-            chatId:    msg.Chat.Id,
-            text:      $"😴 <b>Уровень усталости:</b>\n\n" +
-                       $"[{bar}] {session.FatigueLevel}%\n" +
-                       $"Статус: {session.FatigueDescription}\n" +
-                       $"Сессий без отдыха: {session.WorkSessionsWithoutRest}\n\n" +
-                       $"{advice}",
-            parseMode: ParseMode.Html,
-            cancellationToken: ct);
-    }
-
-    // ══════════════════════════════════════════════════════════
-    //  /status
-    // ══════════════════════════════════════════════════════════
-
-    /// <summary>Общий дашборд: таймер + усталость + задачи</summary>
-    public async Task HandleStatusAsync(Message msg, CancellationToken ct)
-    {
-        var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
-
-        // Блок таймера
-        string timerBlock;
-        if (session.ActiveTimer is not null)
-        {
-            var t         = session.ActiveTimer;
-            var remaining = t.Remaining;
-            var typeLabel = t.Type == TimerType.Work ? "⏱ Работа" : "☕ Отдых";
-            timerBlock = $"{typeLabel}: осталось <b>{(int)remaining.TotalMinutes} мин {remaining.Seconds} сек</b>\n" +
-                         $"Завершится в {t.EndsAt:HH:mm}";
-        }
-        else
-        {
-            timerBlock = "⏹ Таймер не запущен";
-        }
-
-        // Блок усталости
-        var filled   = session.FatigueLevel / 10;
-        var bar      = new string('█', filled) + new string('░', 10 - filled);
-        var fatBlock = $"[{bar}] {session.FatigueLevel}% — {session.FatigueDescription}";
-
-        // Блок задач
-        var pending   = session.Tasks.Count(t => !t.IsCompleted);
-        var completed = session.Tasks.Count(t => t.IsCompleted);
-        var taskBlock = session.Tasks.Count == 0
-            ? "Список задач пуст"
-            : $"Выполнено: {completed}, Осталось: {pending}";
-
-        await _bot.SendMessage(
-            chatId:    msg.Chat.Id,
-            text:      $"📊 <b>Твой статус, {session.FirstName}</b>\n\n" +
-                       $"🕐 <b>Таймер:</b>\n{timerBlock}\n\n" +
-                       $"😴 <b>Усталость:</b>\n{fatBlock}\n\n" +
-                       $"📋 <b>Задачи:</b>\n{taskBlock}",
-            parseMode: ParseMode.Html,
-            cancellationToken: ct);
-    }
-
-    // ══════════════════════════════════════════════════════════
     //  /plan
     // ══════════════════════════════════════════════════════════
 
@@ -269,7 +213,7 @@ public class CommandHandler
 
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,
-                text: "Сначала выбери своё расписание через /schedule, потом я смогу показать предметы для ДЗ.",
+                text: "Сначала выбери своё расписание через /schedule: укажи направление, курс и подгруппу. После этого я покажу предметы и смогу добавлять ДЗ с дедлайнами.",
                 cancellationToken: ct);
             return;
         }
@@ -394,7 +338,7 @@ public class CommandHandler
 
         await _bot.SendMessage(
             chatId: chatId,
-            text: "Выбери направление:",
+            text: "Шаг 1/3. Выбери направление:",
             replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
             cancellationToken: ct);
     }
@@ -527,13 +471,12 @@ public class CommandHandler
         int? subGroup,
         CancellationToken ct)
     {
-        var subGroupText = subGroup.HasValue ? $", подгруппа {subGroup.Value}" : string.Empty;
         var weekLabel = _scheduleCatalog.GetCurrentWeekLabel();
 
         await _bot.SendMessage(
             chatId: chatId,
             text: $"📅 <b>Твоё расписание</b>\n" +
-                  $"{Escape(group.Title)}{subGroupText}\n" +
+                  $"{Escape(FormatGroupTitle(group, subGroup))}\n" +
                   $"Текущая неделя: <b>{weekLabel}</b>\n\n" +
                   "Что показать?",
             parseMode: ParseMode.Html,
@@ -553,6 +496,9 @@ public class CommandHandler
 
     private static string Escape(string text)
         => WebUtility.HtmlEncode(text);
+
+    private static string FormatGroupTitle(ScheduleGroup group, int? subGroup)
+        => subGroup.HasValue ? $"{group.Title}, подгруппа {subGroup.Value}" : group.Title;
 
     // ══════════════════════════════════════════════════════════
     //  Построители клавиатур (приватные)
