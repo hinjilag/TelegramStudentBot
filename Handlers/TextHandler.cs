@@ -845,7 +845,8 @@ public class TextHandler
             text: $"🎉 <b>ДЗ добавлено!</b>\n\n" +
                   $"📌 <b>{Escape(task.Title)}</b>\n" +
                   $"📚 {Escape(task.Subject)}\n" +
-                  $"📅 {deadlineText}",
+                  $"📅 {deadlineText}\n\n" +
+                  "Посмотреть все задания можно через /homework.",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
 
@@ -888,7 +889,8 @@ public class TextHandler
 
         await _bot.SendMessage(
             chatId: msg.Chat.Id,
-            text: $"⏰ Готово! Буду каждый день в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК присылать дедлайны на завтра.",
+            text: $"⏰ Готово! Буду каждый день в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК присылать дедлайны на завтра.\n\n" +
+                  BuildBasicCommandsText(),
             parseMode: ParseMode.Html,
             cancellationToken: ct);
     }
@@ -919,7 +921,8 @@ public class TextHandler
 
         await _bot.SendMessage(
             chatId: chatId,
-            text: "Хочешь, я буду каждый день напоминать о дедлайнах на завтра?",
+            text: "Следующий шаг: можно включить напоминания о дедлайнах.\n\n" +
+                  "Хочешь, я буду каждый день присылать задания, которые нужно сдать завтра?",
             replyMarkup: keyboard,
             cancellationToken: ct);
     }
@@ -928,6 +931,15 @@ public class TextHandler
 
     private static string Escape(string text)
         => WebUtility.HtmlEncode(text);
+
+    private static string BuildBasicCommandsText()
+        => "Базовая настройка готова.\n\n" +
+           "Основные команды:\n" +
+           "/schedule — расписание\n" +
+           "/add_homework — добавить ДЗ\n" +
+           "/homework — список заданий\n" +
+           "/timer — таймер для учёбы\n" +
+           "/help — все команды";
 
 }
 

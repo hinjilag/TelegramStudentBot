@@ -86,8 +86,6 @@ public class BotService : IHostedService
             new BotCommand { Command = "schedule",     Description = "Моё расписание занятий" },
             new BotCommand { Command = "timer",        Description = "Запустить таймер учёбы" },
             new BotCommand { Command = "rest",         Description = "Запустить таймер отдыха" },
-            new BotCommand { Command = "status",       Description = "Мой статус (таймер + усталость)" },
-            new BotCommand { Command = "fatigue",      Description = "Уровень усталости" },
             new BotCommand { Command = "stop",         Description = "Остановить таймер" },
             new BotCommand { Command = "help",         Description = "Список команд" },
         };

@@ -129,14 +129,6 @@ public class UpdateRouter
                 await _commands.HandleStopAsync(msg, ct);
                 break;
 
-            case "/fatigue":
-                await _commands.HandleFatigueAsync(msg, ct);
-                break;
-
-            case "/status":
-                await _commands.HandleStatusAsync(msg, ct);
-                break;
-
             case "/plan":
                 await _commands.HandlePlanAsync(msg, ct);
                 break;
