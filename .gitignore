@@ -66,6 +66,9 @@ _temp_build*/
 # Local assistant/tool settings
 .claude/settings.local.json
 
+# Local tools downloaded for development
+tools/
+
 # Optional: recommended for EF Core migrations
 Migrations/*.Designer.cs
 Migrations/*.resx
