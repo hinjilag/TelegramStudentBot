@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace TelegramStudentBot.Models;
 
 public class ScheduleCatalog
@@ -31,7 +33,7 @@ public class ScheduleGroup
 
     public List<string> SourceSheets { get; set; } = new();
 
-    public List<ScheduleEntry> Entries { get; set; } = new();
+    public List<ScheduleCatalogEntry> Entries { get; set; } = new();
 }
 
 public class UserScheduleSelection
@@ -47,3 +49,24 @@ public record ScheduleDirectionOption(
     string DirectionCode,
     string DirectionName,
     string ShortTitle);
+
+public class ScheduleCatalogEntry
+{
+    [JsonPropertyName("day")]
+    public int DayOfWeek { get; set; }
+
+    [JsonPropertyName("lesson")]
+    public int LessonNumber { get; set; }
+
+    [JsonPropertyName("time")]
+    public string Time { get; set; } = string.Empty;
+
+    [JsonPropertyName("weekType")]
+    public int? WeekType { get; set; }
+
+    [JsonPropertyName("subGroup")]
+    public int? SubGroup { get; set; }
+
+    [JsonPropertyName("subject")]
+    public string Subject { get; set; } = string.Empty;
+}

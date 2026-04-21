@@ -73,15 +73,7 @@ public class ScheduleCatalogService
         return group.Entries
             .Where(e => !subGroup.HasValue || e.SubGroup is null || e.SubGroup == subGroup)
             .Where(e => e.WeekType is null || e.WeekType == weekType)
-            .Select(e => new ScheduleEntry
-            {
-                DayOfWeek = e.DayOfWeek,
-                LessonNumber = e.LessonNumber,
-                Time = e.Time,
-                Subject = e.Subject,
-                SubGroup = null,
-                WeekType = null
-            })
+            .Select(ToScheduleEntry)
             .DistinctBy(e => new
             {
                 e.DayOfWeek,
@@ -101,22 +93,14 @@ public class ScheduleCatalogService
     {
         return group.Entries
             .Where(e => !subGroup.HasValue || e.SubGroup is null || e.SubGroup == subGroup)
-            .Select(e => new ScheduleEntry
-            {
-                DayOfWeek = e.DayOfWeek,
-                LessonNumber = e.LessonNumber,
-                Time = e.Time,
-                Subject = e.Subject,
-                SubGroup = null,
-                WeekType = e.WeekType
-            })
+            .Select(ToScheduleEntry)
             .DistinctBy(e => new
             {
                 e.DayOfWeek,
                 e.LessonNumber,
                 e.Time,
                 e.Subject,
-                e.WeekType
+                e.WeekTypeCode
             })
             .OrderBy(e => e.DayOfWeek)
             .ThenBy(e => e.LessonNumber)
@@ -141,7 +125,7 @@ public class ScheduleCatalogService
             {
                 if (entry.DayOfWeek != dayNumber ||
                     !string.Equals(entry.Subject, subject, StringComparison.OrdinalIgnoreCase) ||
-                    (entry.WeekType.HasValue && entry.WeekType.Value != weekType))
+                    (entry.WeekTypeCode.HasValue && entry.WeekTypeCode.Value != weekType))
                 {
                     continue;
                 }
@@ -241,6 +225,27 @@ public class ScheduleCatalogService
             ? start
             : TimeSpan.Zero;
     }
+
+    private static ScheduleEntry ToScheduleEntry(ScheduleCatalogEntry entry)
+    {
+        return new ScheduleEntry
+        {
+            Day = ScheduleService.GetDayName(entry.DayOfWeek),
+            DayOfWeek = entry.DayOfWeek,
+            LessonNumber = entry.LessonNumber,
+            Time = entry.Time,
+            Subject = entry.Subject,
+            SubGroup = entry.SubGroup,
+            WeekType = MapWeekType(entry.WeekType)
+        };
+    }
+
+    private static string MapWeekType(int? weekType) => weekType switch
+    {
+        1 => "odd",
+        2 => "even",
+        _ => "every"
+    };
 
     private static ScheduleCatalog LoadCatalog()
     {

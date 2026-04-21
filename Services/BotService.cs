@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Hosting;
+﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
@@ -10,8 +10,8 @@ namespace TelegramStudentBot.Services;
 
 /// <summary>
 /// Фоновый сервис бота (IHostedService).
-/// Запускается при старте приложения, регистрирует команды меню,
-/// подключается к Telegram через Long Polling и начинает принимать обновления.
+/// Запускается при старте приложения, подключается к Telegram через Long Polling
+/// и начинает принимать обновления.
 /// </summary>
 public class BotService : IHostedService
 {
@@ -19,7 +19,9 @@ public class BotService : IHostedService
     private readonly UpdateRouter _router;
     private readonly ILogger<BotService> _logger;
 
+    // Токен для остановки polling при завершении работы
     private CancellationTokenSource? _cts;
+    private Task? _startupTask;
 
     public BotService(ITelegramBotClient bot, UpdateRouter router, ILogger<BotService> logger)
     {
@@ -28,17 +30,67 @@ public class BotService : IHostedService
         _logger = logger;
     }
 
-    /// <summary>Запуск бота — регистрируем команды меню и запускаем polling</summary>
-    public async Task StartAsync(CancellationToken cancellationToken)
+    /// <summary>Запуск бота — начинаем получать обновления от Telegram</summary>
+    public Task StartAsync(CancellationToken cancellationToken)
     {
-        var me = await _bot.GetMe(cancellationToken);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _startupTask = StartBotWithRetryAsync(_cts.Token);
+        return Task.CompletedTask;
+    }
+
+    private async Task StartBotWithRetryAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                await StartPollingAsync(ct);
+                return;
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Не удалось подключиться к Telegram. Повтор через 30 секунд.");
+
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(30), ct);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    return;
+                }
+            }
+        }
+    }
+
+    private async Task StartPollingAsync(CancellationToken ct)
+    {
+        // Проверяем токен, получаем информацию о боте
+        var me = await _bot.GetMe(ct);
         _logger.LogInformation("Бот запущен: @{Username} (ID: {Id})", me.Username, me.Id);
 
-        // Регистрируем команды меню (кнопка «≡» слева от поля ввода)
-        await RegisterCommandsAsync(cancellationToken);
+        // Регистрируем команды — они появятся в меню "/" у каждого пользователя
+        await _bot.SetMyCommands(
+            new[]
+            {
+                new Telegram.Bot.Types.BotCommand { Command = "app",      Description = "📱 Открыть Mini App" },
+                new Telegram.Bot.Types.BotCommand { Command = "plan",     Description = "📋 Задачи и план учёбы" },
+                new Telegram.Bot.Types.BotCommand { Command = "schedule", Description = "🗓 Расписание занятий" },
+                new Telegram.Bot.Types.BotCommand { Command = "timer",    Description = "⏱ Таймер учёбы (Помодоро)" },
+                new Telegram.Bot.Types.BotCommand { Command = "rest",     Description = "☕ Таймер отдыха" },
+                new Telegram.Bot.Types.BotCommand { Command = "stop",     Description = "⏹ Остановить таймер" },
+                new Telegram.Bot.Types.BotCommand { Command = "fatigue",  Description = "😴 Уровень усталости" },
+                new Telegram.Bot.Types.BotCommand { Command = "status",   Description = "📊 Общий статус" },
+                new Telegram.Bot.Types.BotCommand { Command = "help",     Description = "❓ Справка" },
+            },
+            cancellationToken: ct);
+        _logger.LogInformation("Команды бота зарегистрированы.");
 
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
+        // Настройки polling: принимаем только сообщения и callback query
         var receiverOptions = new ReceiverOptions
         {
             AllowedUpdates = new[]
@@ -46,68 +98,34 @@ public class BotService : IHostedService
                 UpdateType.Message,
                 UpdateType.CallbackQuery
             },
-            DropPendingUpdates = true
+            // Пропускаем обновления, накопившиеся пока бот был выключен
+            DropPendingUpdates = false
         };
 
+        // Запускаем polling в фоне (не блокируем StartAsync)
         _bot.StartReceiving(
-            updateHandler:   _router.HandleUpdateAsync,
-            errorHandler:    HandleErrorAsync,
+            updateHandler: _router.HandleUpdateAsync,
+            errorHandler:  HandleErrorAsync,
             receiverOptions: receiverOptions,
-            cancellationToken: _cts.Token);
+            cancellationToken: ct);
 
         _logger.LogInformation("Long polling запущен. Ожидаю сообщений...");
     }
 
-    /// <summary>Остановка бота</summary>
+    /// <summary>Остановка бота — отменяем polling</summary>
     public Task StopAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Остановка бота...");
         _cts?.Cancel();
         _cts?.Dispose();
+        _startupTask = null;
         return Task.CompletedTask;
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Регистрация команд меню Telegram
-    // ──────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Устанавливает список команд бота через SetMyCommands.
-    /// Эти команды отображаются в меню слева от поля ввода сообщений.
-    /// </summary>
-    private async Task RegisterCommandsAsync(CancellationToken ct)
+    /// <summary>Обработчик ошибок polling (разрыв сети, ошибки Telegram API и т.д.)</summary>
+    private Task HandleErrorAsync(ITelegramBotClient bot, Exception ex, HandleErrorSource source, CancellationToken ct)
     {
-        var commands = new[]
-        {
-            new BotCommand { Command = "add_homework", Description = "Добавить ДЗ" },
-            new BotCommand { Command = "homework",     Description = "Домашние задания" },
-            new BotCommand { Command = "reminders",    Description = "Напоминания" },
-            new BotCommand { Command = "plan",         Description = "Управление задачами" },
-            new BotCommand { Command = "schedule",     Description = "Моё расписание занятий" },
-            new BotCommand { Command = "timer",        Description = "Запустить таймер учёбы" },
-            new BotCommand { Command = "rest",         Description = "Запустить таймер отдыха" },
-            new BotCommand { Command = "stop",         Description = "Остановить таймер" },
-            new BotCommand { Command = "help",         Description = "Список команд" },
-        };
-
-        try
-        {
-            await _bot.SetMyCommands(commands, cancellationToken: ct);
-            _logger.LogInformation("Команды меню зарегистрированы ({Count} шт.)", commands.Length);
-        }
-        catch (Exception ex)
-        {
-            // Не критично — бот продолжит работу без меню команд
-            _logger.LogWarning(ex, "Не удалось зарегистрировать команды меню");
-        }
-    }
-
-    // ──────────────────────────────────────────────────────────
-
-    private Task HandleErrorAsync(
-        ITelegramBotClient bot, Exception ex,
-        HandleErrorSource source, CancellationToken ct)
-    {
+        // Логируем ошибку, но не падаем — polling автоматически переподключится
         _logger.LogError(ex, "Ошибка polling. Источник: {Source}", source);
         return Task.CompletedTask;
     }

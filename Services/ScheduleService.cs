@@ -14,7 +14,7 @@ public static class ScheduleService
         var sb = new StringBuilder();
 
         var byDay = entries
-            .GroupBy(e => e.DayOfWeek)
+            .GroupBy(GetDayNumber)
             .OrderBy(g => g.Key);
 
         foreach (var day in byDay)
@@ -22,13 +22,13 @@ public static class ScheduleService
             sb.AppendLine($"\n<b>{GetDayName(day.Key)}:</b>");
 
             var byLesson = day
-                .GroupBy(e => e.LessonNumber)
+                .GroupBy(GetLessonNumber)
                 .OrderBy(g => g.Key);
 
             foreach (var lesson in byLesson)
             {
                 var lessonEntries = lesson
-                    .OrderBy(e => e.WeekType ?? 0)
+                    .OrderBy(e => e.WeekTypeCode ?? 0)
                     .ThenBy(e => e.SubGroup ?? 0)
                     .ThenBy(e => e.Subject)
                     .ToList();
@@ -37,11 +37,11 @@ public static class ScheduleService
                     lesson.Key,
                     lessonEntries.FirstOrDefault()?.Time);
 
-                var hasWeekSplit = lessonEntries.Any(e => e.WeekType.HasValue);
+                var hasWeekSplit = lessonEntries.Any(e => e.WeekTypeCode.HasValue);
                 if (hasWeekSplit)
                 {
-                    var firstWeek = lessonEntries.Where(e => e.WeekType == 1).ToList();
-                    var secondWeek = lessonEntries.Where(e => e.WeekType == 2).ToList();
+                    var firstWeek = lessonEntries.Where(e => e.WeekTypeCode == 1).ToList();
+                    var secondWeek = lessonEntries.Where(e => e.WeekTypeCode == 2).ToList();
 
                     sb.AppendLine($"  {lessonLabel}: первая неделя: {FormatWeekLesson(firstWeek, currentWeekType == 1)}");
                     sb.AppendLine($"     вторая неделя: {FormatWeekLesson(secondWeek, currentWeekType == 2)}");
@@ -91,4 +91,30 @@ public static class ScheduleService
 
     private static string Escape(string text)
         => WebUtility.HtmlEncode(text);
+
+    private static int GetDayNumber(ScheduleEntry entry)
+    {
+        if (entry.DayOfWeek is >= 1 and <= 7)
+            return entry.DayOfWeek;
+
+        return entry.Day switch
+        {
+            "Понедельник" => 1,
+            "Вторник" => 2,
+            "Среда" => 3,
+            "Четверг" => 4,
+            "Пятница" => 5,
+            "Суббота" => 6,
+            "Воскресенье" => 7,
+            _ => 0
+        };
+    }
+
+    private static int GetLessonNumber(ScheduleEntry entry)
+    {
+        if (entry.LessonNumber > 0)
+            return entry.LessonNumber;
+
+        return 0;
+    }
 }

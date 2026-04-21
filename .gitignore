@@ -1,71 +1,60 @@
-﻿# Visual Studio
-.vs/
+﻿# Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode
+# Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode
+
+### VisualStudioCode ###
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# Local History for Visual Studio Code
+.history/
+
+# Built Visual Studio Code Extensions
+*.vsix
+
+### VisualStudioCode Patch ###
+# Ignore all local history of files
+.history
+.ionide
+
+# End of https://www.toptal.com/developers/gitignore/api/visualstudiocode
+
+### .NET / C# ###
+# Build output
+bin/
+obj/
+build-check/
+
+# NuGet packages
+*.nupkg
+*.snupkg
+packages/
+!**/packages/repositories.config
+
+# User-specific files
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
 
-# Build results
-[Dd]ebug*/
-[Rr]elease*/
-x64/
-x86/
-build/
-[Bb]in/
-[Oo]bj/
-
-# Rider
+# Rider / ReSharper
 .idea/
 *.sln.iml
+_ReSharper*/
+*.[Rr]e[Ss]harper
 
-# ASP.NET (local secrets and environment config)
-appsettings*.json
-!appsettings.example.json
+# Secrets / config overrides
+secrets.json
+.env
+*.env
+data/
 
-# Local bot/runtime data
-.claude/settings.local.json
-Data/user-*.json
+# Local dev logs
+ngrok-dev*.log
+bot-test*.log
 
-# User-specific files
-*.swp
-*~
-*.tmp
-*.temp
-
-# NuGet
-*.nupkg
-*.snupkg
-packages/
-.nuget/
-
-# OS files
-Thumbs.db
-Desktop.ini
-
-# Logs
-*.log
-
-# Runtime user data
-Data/user-schedule-selections.json
-Data/user-schedule-selections.json.tmp
-Data/user-tasks.json
-Data/user-tasks.json.tmp
-Data/user-reminders.json
-Data/user-reminders.json.tmp
-
-# JetBrains Rider
-.idea/
-
-# Dotnet tool
-.dotnet/
-
-# Generated files
-*.generated.cs
-_temp_build*/
-
-# Local assistant/tool settings
-.claude/settings.local.json
-
-# Optional: recommended for EF Core migrations
-Migrations/*.Designer.cs
-Migrations/*.resx
+# Local tools downloaded for development
+tools/
