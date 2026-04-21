@@ -76,11 +76,7 @@ public class UserScheduleSelectionService
 
     private static string ResolveSelectionPath()
     {
-        var contentRootData = Path.Combine(Directory.GetCurrentDirectory(), "Data");
-        if (Directory.Exists(contentRootData))
-            return Path.Combine(contentRootData, "user-schedule-selections.json");
-
-        return Path.Combine(AppContext.BaseDirectory, "Data", "user-schedule-selections.json");
+        return UserDataPath.ResolveFile("user-schedule-selections.json");
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
