@@ -1,48 +1,43 @@
-using System.Text.Json.Serialization;
-
 namespace TelegramStudentBot.Models;
 
+/// <summary>Одно занятие в расписании студента</summary>
 public class ScheduleEntry
 {
-    [JsonPropertyName("day")]
+    /// <summary>Уникальный идентификатор строки расписания</summary>
+    public Guid Id { get; set; } = Guid.NewGuid();
+
+    /// <summary>День недели (Понедельник, Вторник, ...)</summary>
+    public string Day { get; set; } = "";
+
+    /// <summary>Название предмета</summary>
+    public string Subject { get; set; } = "";
+
+    /// <summary>Время проведения, например "09:00-10:30"</summary>
+    public string Time { get; set; } = "";
+
+    /// <summary>Тип недели: every, even, odd</summary>
+    public string WeekType { get; set; } = "every";
+
+    /// <summary>Приоритетный ли предмет</summary>
+    public bool IsPriority { get; set; }
+
+    /// <summary>Числовой день недели для каталога расписаний (1-7)</summary>
     public int DayOfWeek { get; set; }
 
-    [JsonPropertyName("lesson")]
+    /// <summary>Номер пары для каталога расписаний</summary>
     public int LessonNumber { get; set; }
 
-    [JsonPropertyName("time")]
-    public string? Time { get; set; }
-
-    [JsonPropertyName("subject")]
-    public string Subject { get; set; } = string.Empty;
-
-    [JsonPropertyName("subGroup")]
+    /// <summary>Номер подгруппы, если занятие относится к конкретной подгруппе</summary>
     public int? SubGroup { get; set; }
 
-    [JsonPropertyName("weekType")]
-    public int? WeekType { get; set; }
-
-    [JsonIgnore]
-    public string DayName => DayOfWeek switch
+    /// <summary>Совместимость со старой моделью расписания: 1 = нечетная, 2 = четная.</summary>
+    public int? WeekTypeCode => WeekType switch
     {
-        1 => "Понедельник",
-        2 => "Вторник",
-        3 => "Среда",
-        4 => "Четверг",
-        5 => "Пятница",
-        6 => "Суббота",
-        7 => "Воскресенье",
-        _ => $"День {DayOfWeek}"
+        "odd" => 1,
+        "even" => 2,
+        _ => null
     };
 
-    [JsonIgnore]
-    public string SubGroupLabel => SubGroup.HasValue ? $" (подгр. {SubGroup.Value})" : string.Empty;
-
-    [JsonIgnore]
-    public string WeekTypeLabel => WeekType switch
-    {
-        1 => " (нечётная)",
-        2 => " (чётная)",
-        _ => string.Empty
-    };
+    /// <summary>Короткий идентификатор для интерфейса</summary>
+    public string ShortId => Id.ToString("N")[..8];
 }

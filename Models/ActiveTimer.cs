@@ -1,4 +1,4 @@
-namespace TelegramStudentBot.Models;
+﻿namespace TelegramStudentBot.Models;
 
 /// <summary>Тип активного таймера</summary>
 public enum TimerType
@@ -13,6 +13,9 @@ public enum TimerType
 /// <summary>Информация о запущенном таймере</summary>
 public class ActiveTimer
 {
+    /// <summary>Идентификатор конкретного запуска таймера</summary>
+    public Guid Id { get; set; } = Guid.NewGuid();
+
     /// <summary>Тип таймера: работа или отдых</summary>
     public TimerType Type { get; set; }
 
