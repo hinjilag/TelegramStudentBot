@@ -1,48 +1,26 @@
-using System.Text.Json.Serialization;
-
 namespace TelegramStudentBot.Models;
 
+/// <summary>Одно занятие в расписании студента</summary>
 public class ScheduleEntry
 {
-    [JsonPropertyName("day")]
-    public int DayOfWeek { get; set; }
+    /// <summary>Уникальный идентификатор строки расписания</summary>
+    public Guid Id { get; set; } = Guid.NewGuid();
 
-    [JsonPropertyName("lesson")]
-    public int LessonNumber { get; set; }
+    /// <summary>День недели (Понедельник, Вторник, ...)</summary>
+    public string Day { get; set; } = "";
 
-    [JsonPropertyName("time")]
-    public string? Time { get; set; }
+    /// <summary>Название предмета</summary>
+    public string Subject { get; set; } = "";
 
-    [JsonPropertyName("subject")]
-    public string Subject { get; set; } = string.Empty;
+    /// <summary>Время проведения, например "09:00–10:30"</summary>
+    public string Time { get; set; } = "";
 
-    [JsonPropertyName("subGroup")]
-    public int? SubGroup { get; set; }
+    /// <summary>Тип недели: every, even, odd</summary>
+    public string WeekType { get; set; } = "every";
 
-    [JsonPropertyName("weekType")]
-    public int? WeekType { get; set; }
+    /// <summary>Приоритетный ли предмет</summary>
+    public bool IsPriority { get; set; }
 
-    [JsonIgnore]
-    public string DayName => DayOfWeek switch
-    {
-        1 => "Понедельник",
-        2 => "Вторник",
-        3 => "Среда",
-        4 => "Четверг",
-        5 => "Пятница",
-        6 => "Суббота",
-        7 => "Воскресенье",
-        _ => $"День {DayOfWeek}"
-    };
-
-    [JsonIgnore]
-    public string SubGroupLabel => SubGroup.HasValue ? $" (подгр. {SubGroup.Value})" : string.Empty;
-
-    [JsonIgnore]
-    public string WeekTypeLabel => WeekType switch
-    {
-        1 => " (нечётная)",
-        2 => " (чётная)",
-        _ => string.Empty
-    };
+    /// <summary>Короткий идентификатор для интерфейса</summary>
+    public string ShortId => Id.ToString("N")[..8];
 }

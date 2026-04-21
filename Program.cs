@@ -1,12 +1,14 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using TelegramStudentBot.Handlers;
 using TelegramStudentBot.Services;
 
-ClearBrokenProxyEnvironment();
+// ──────────────────────────────────────────────────────────────
+//  Точка входа — настройка DI и запуск хоста
+// ──────────────────────────────────────────────────────────────
 
 var host = Host.CreateDefaultBuilder(args)
     .ConfigureLogging(logging =>
@@ -14,60 +16,101 @@ var host = Host.CreateDefaultBuilder(args)
         logging.ClearProviders();
         logging.AddSimpleConsole(options =>
         {
-            options.SingleLine = true;
+            options.SingleLine = false;
             options.TimestampFormat = "HH:mm:ss ";
         });
-        logging.AddDebug();
+    })
+    .ConfigureAppConfiguration((ctx, config) =>
+    {
+        var environmentSettingsFile = ctx.HostingEnvironment.IsEnvironment("Local")
+            ? null
+            : "appsettings.Production.json";
+
+        // Локально используем базовый appsettings.json, в остальных режимах подключаем production overrides.
+        if (environmentSettingsFile is not null)
+        {
+            config.AddJsonFile(environmentSettingsFile, optional: true, reloadOnChange: true);
+        }
+
+        var localSettingsPath = environmentSettingsFile is null
+            ? null
+            : FindFileUpwards(environmentSettingsFile);
+        if (localSettingsPath is not null)
+        {
+            config.AddJsonFile(localSettingsPath, optional: true, reloadOnChange: true);
+            Console.WriteLine($"[DEBUG] Локальные настройки найдены: {localSettingsPath}");
+        }
+        else if (environmentSettingsFile is not null)
+        {
+            Console.WriteLine($"[DEBUG] {environmentSettingsFile} не найден рядом с папкой запуска.");
+        }
+
+        config.AddEnvironmentVariables();
     })
     .ConfigureServices((ctx, services) =>
     {
-        var rawToken = ctx.Configuration["BotToken"]
-            ?? throw new InvalidOperationException(
-                "Токен бота не найден. Укажи BotToken в appsettings.json");
+        // Читаем токен из переменной окружения, appsettings.json или appsettings.{DOTNET_ENVIRONMENT}.json.
+        var rawToken = ctx.Configuration["BotToken"];
+        if (string.IsNullOrWhiteSpace(rawToken))
+        {
+            throw new InvalidOperationException(
+                "Токен бота не найден. Укажи BotToken в переменной окружения BotToken, appsettings.json или appsettings.{DOTNET_ENVIRONMENT}.json.");
+        }
 
+        // Убираем пробелы и невидимые символы (могут попасть при копировании из Telegram)
         var token = string.Concat(rawToken.Where(c => !char.IsControl(c) && !char.IsWhiteSpace(c)));
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            throw new InvalidOperationException(
+                "Токен бота пустой. Укажи BotToken в переменной окружения BotToken, appsettings.json или appsettings.{DOTNET_ENVIRONMENT}.json.");
+        }
 
-        Console.WriteLine($"[DEBUG] Токен считан. Длина: {token.Length} символов. Начало: {token[..Math.Min(10, token.Length)]}...");
+        // Диагностика без вывода содержимого токена.
+        Console.WriteLine($"[DEBUG] Токен считан. Длина: {token.Length} символов.");
 
+        // Telegram Bot Client — синглтон, переиспользуется во всём приложении
         services.AddSingleton<ITelegramBotClient>(_ => new TelegramBotClient(token));
 
-        services.AddSingleton<StudyTaskStorageService>();
-        services.AddSingleton<ReminderSettingsService>();
+        // Хранилище сессий пользователей (в памяти)
         services.AddSingleton<SessionService>();
-        services.AddSingleton<TimerService>();
-        services.AddSingleton<ScheduleCatalogService>();
-        services.AddSingleton<UserScheduleSelectionService>();
 
+        // Сервис управления таймерами
+        services.AddSingleton<TimerService>();
+
+        // Синхронизация изменений Mini App с Telegram-чатом
+        services.AddSingleton<ChatSyncService>();
+
+        // Обработчики обновлений
         services.AddSingleton<CommandHandler>();
         services.AddSingleton<TextHandler>();
         services.AddSingleton<CallbackHandler>();
         services.AddSingleton<UpdateRouter>();
+
+        // HTTP-сервер для Mini App (timer.html)
+        services.AddHostedService<WebAppService>();
+
+        // Фоновый сервис бота (запускается автоматически при старте хоста)
         services.AddHostedService<BotService>();
-        services.AddHostedService<DeadlineReminderService>();
     })
     .Build();
 
-try
-{
-    await host.RunAsync();
-}
-catch (Exception ex)
-{
-    Console.Error.WriteLine();
-    Console.Error.WriteLine("Ошибка запуска бота:");
-    Console.Error.WriteLine(ex);
-    Environment.ExitCode = 1;
-}
+await host.RunAsync();
 
-static void ClearBrokenProxyEnvironment()
+static string? FindFileUpwards(string fileName)
 {
-    foreach (var name in new[]
-             {
-                 "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY",
-                 "http_proxy", "https_proxy", "all_proxy",
-                 "GIT_HTTP_PROXY", "GIT_HTTPS_PROXY"
-             })
+    foreach (var startPath in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
     {
-        Environment.SetEnvironmentVariable(name, null);
+        var directory = new DirectoryInfo(startPath);
+
+        while (directory is not null)
+        {
+            var candidate = Path.Combine(directory.FullName, fileName);
+            if (File.Exists(candidate))
+                return candidate;
+
+            directory = directory.Parent;
+        }
     }
+
+    return null;
 }
