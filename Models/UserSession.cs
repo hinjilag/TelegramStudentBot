@@ -24,8 +24,6 @@ public class UserSession
 
     public string? SchedulePhotoDataUrl { get; set; }
 
-    public ScheduleEntry? DraftSchedule { get; set; }
-
     public string FatigueDescription => FatigueLevel switch
     {
         <= 30 => "😊 Свежий",

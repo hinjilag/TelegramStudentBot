@@ -1,14 +1,10 @@
-﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using TelegramStudentBot.Handlers;
 using TelegramStudentBot.Services;
-
-// ──────────────────────────────────────────────────────────────
-//  Точка входа — настройка DI и запуск хоста
-// ──────────────────────────────────────────────────────────────
 
 var host = Host.CreateDefaultBuilder(args)
     .ConfigureLogging(logging =>
@@ -26,7 +22,6 @@ var host = Host.CreateDefaultBuilder(args)
             ? null
             : "appsettings.Production.json";
 
-        // Локально используем базовый appsettings.json, в остальных режимах подключаем production overrides.
         if (environmentSettingsFile is not null)
         {
             config.AddJsonFile(environmentSettingsFile, optional: true, reloadOnChange: true);
@@ -49,7 +44,6 @@ var host = Host.CreateDefaultBuilder(args)
     })
     .ConfigureServices((ctx, services) =>
     {
-        // Читаем токен из переменной окружения, appsettings.json или appsettings.{DOTNET_ENVIRONMENT}.json.
         var rawToken = ctx.Configuration["BotToken"];
         if (string.IsNullOrWhiteSpace(rawToken))
         {
@@ -57,7 +51,6 @@ var host = Host.CreateDefaultBuilder(args)
                 "Токен бота не найден. Укажи BotToken в переменной окружения BotToken, appsettings.json или appsettings.{DOTNET_ENVIRONMENT}.json.");
         }
 
-        // Убираем пробелы и невидимые символы (могут попасть при копировании из Telegram)
         var token = string.Concat(rawToken.Where(c => !char.IsControl(c) && !char.IsWhiteSpace(c)));
         if (string.IsNullOrWhiteSpace(token))
         {
@@ -65,31 +58,23 @@ var host = Host.CreateDefaultBuilder(args)
                 "Токен бота пустой. Укажи BotToken в переменной окружения BotToken, appsettings.json или appsettings.{DOTNET_ENVIRONMENT}.json.");
         }
 
-        // Диагностика без вывода содержимого токена.
         Console.WriteLine($"[DEBUG] Токен считан. Длина: {token.Length} символов.");
 
-        // Telegram Bot Client — синглтон, переиспользуется во всём приложении
         services.AddSingleton<ITelegramBotClient>(_ => new TelegramBotClient(token));
-
-        // Хранилище сессий пользователей (в памяти)
         services.AddSingleton<SessionService>();
-
-        // Сервис управления таймерами
+        services.AddSingleton<ReminderSettingsService>();
+        services.AddSingleton<ScheduleCatalogService>();
+        services.AddSingleton<UserScheduleSelectionService>();
         services.AddSingleton<TimerService>();
-
-        // Синхронизация изменений Mini App с Telegram-чатом
         services.AddSingleton<ChatSyncService>();
 
-        // Обработчики обновлений
         services.AddSingleton<CommandHandler>();
         services.AddSingleton<TextHandler>();
         services.AddSingleton<CallbackHandler>();
         services.AddSingleton<UpdateRouter>();
 
-        // HTTP-сервер для Mini App (timer.html)
         services.AddHostedService<WebAppService>();
-
-        // Фоновый сервис бота (запускается автоматически при старте хоста)
+        services.AddHostedService<DeadlineReminderService>();
         services.AddHostedService<BotService>();
     })
     .Build();

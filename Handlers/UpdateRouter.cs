@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using Telegram.Bot.Types;
@@ -17,6 +17,7 @@ public class UpdateRouter
     private readonly TimerService _timers;
     private readonly SessionService _sessions;
     private readonly ChatSyncService _chatSync;
+    private readonly ReminderSettingsService _reminders;
     private readonly ILogger<UpdateRouter> _logger;
 
     public UpdateRouter(
@@ -26,6 +27,7 @@ public class UpdateRouter
         TimerService timers,
         SessionService sessions,
         ChatSyncService chatSync,
+        ReminderSettingsService reminders,
         ILogger<UpdateRouter> logger)
     {
         _commands = commands;
@@ -34,6 +36,7 @@ public class UpdateRouter
         _timers = timers;
         _sessions = sessions;
         _chatSync = chatSync;
+        _reminders = reminders;
         _logger = logger;
     }
 
@@ -79,22 +82,22 @@ public class UpdateRouter
             return;
         }
 
-        if (msg.Text is not null)
-        {
-            var text = msg.Text.Trim();
-            var commandPart = text
-                .Split(' ')
-                .Select(p => p.Split('@')[0].ToLowerInvariant())
-                .FirstOrDefault(p => p.StartsWith('/'));
+        if (msg.Text is null)
+            return;
 
-            if (commandPart is not null)
-            {
-                await RouteCommandAsync(msg, commandPart, ct);
-            }
-            else
-            {
-                await _text.HandleAsync(msg, ct);
-            }
+        var text = msg.Text.Trim();
+        var commandPart = text
+            .Split(' ')
+            .Select(p => p.Split('@')[0].ToLowerInvariant())
+            .FirstOrDefault(p => p.StartsWith('/'));
+
+        if (commandPart is not null)
+        {
+            await RouteCommandAsync(msg, commandPart, ct);
+        }
+        else
+        {
+            await _text.HandleAsync(msg, ct);
         }
     }
 
@@ -148,24 +151,19 @@ public class UpdateRouter
                 break;
 
             case "clear_schedule":
-            {
-                var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
-                session.Schedule.Clear();
-                session.SchedulePhotoDataUrl = null;
-                _sessions.Save();
-                await _chatSync.TrySendScheduleClearedAsync(msg.Chat.Id, ct);
+                await HandleMiniAppClearScheduleAsync(msg, ct);
                 break;
-            }
+
+            case "save_reminders":
+                await HandleMiniAppSaveRemindersAsync(bot, msg, root, ct);
+                break;
         }
     }
 
     private async Task HandleMiniAppStopTimerAsync(ITelegramBotClient bot, Message msg, CancellationToken ct)
     {
         var stopped = _timers.StopTimer(msg.From!.Id);
-        var text = stopped
-            ? "⏹ Таймер остановлен из Mini App."
-            : "ℹ️ Нет активного таймера.";
-
+        var text = stopped ? "⏹ Таймер остановлен из Mini App." : "ℹ️ Нет активного таймера.";
         await bot.SendMessage(msg.Chat.Id, text, parseMode: ParseMode.Html, cancellationToken: ct);
     }
 
@@ -218,9 +216,9 @@ public class UpdateRouter
             Subject = subject,
             Deadline = deadline
         };
+
         session.Tasks.Add(task);
         _sessions.Save();
-
         await _chatSync.TrySendTaskAddedAsync(msg.Chat.Id, task, ct);
     }
 
@@ -260,11 +258,8 @@ public class UpdateRouter
 
     private async Task HandleMiniAppSaveScheduleAsync(Message msg, JsonElement root, CancellationToken ct)
     {
-        if (!root.TryGetProperty("entries", out var entriesElement) ||
-            entriesElement.ValueKind != JsonValueKind.Array)
-        {
+        if (!root.TryGetProperty("entries", out var entriesElement) || entriesElement.ValueKind != JsonValueKind.Array)
             return;
-        }
 
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
         session.Schedule.Clear();
@@ -295,13 +290,41 @@ public class UpdateRouter
                 IsPriority = isPriority
             });
         }
-        _sessions.Save();
 
-        await _chatSync.TrySendScheduleSavedAsync(
-            msg.Chat.Id,
-            session.Schedule,
-            session.SchedulePhotoDataUrl is not null,
-            ct);
+        _sessions.Save();
+        await _chatSync.TrySendScheduleSavedAsync(msg.Chat.Id, session.Schedule, session.SchedulePhotoDataUrl is not null, ct);
+    }
+
+    private async Task HandleMiniAppClearScheduleAsync(Message msg, CancellationToken ct)
+    {
+        var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
+        session.Schedule.Clear();
+        session.SchedulePhotoDataUrl = null;
+        _sessions.Save();
+        await _chatSync.TrySendScheduleClearedAsync(msg.Chat.Id, ct);
+    }
+
+    private async Task HandleMiniAppSaveRemindersAsync(ITelegramBotClient bot, Message msg, JsonElement root, CancellationToken ct)
+    {
+        var isEnabled = root.TryGetProperty("isEnabled", out var enabledElement) &&
+                        enabledElement.ValueKind == JsonValueKind.True;
+        var timeText = root.TryGetProperty("time", out var timeElement) ? timeElement.GetString() : null;
+
+        if (!isEnabled)
+        {
+            _reminders.Disable(msg.From!.Id, msg.Chat.Id);
+            await bot.SendMessage(msg.Chat.Id, "⛔ Напоминания выключены из Mini App.", cancellationToken: ct);
+            return;
+        }
+
+        if (!TryParseReminderTime(timeText, out var hour, out var minute))
+        {
+            await bot.SendMessage(msg.Chat.Id, "⚠️ Не удалось сохранить напоминания: нужен формат HH:mm.", cancellationToken: ct);
+            return;
+        }
+
+        _reminders.Enable(msg.From!.Id, msg.Chat.Id, hour, minute);
+        await bot.SendMessage(msg.Chat.Id, $"⏰ Напоминания включены на <b>{hour:00}:{minute:00}</b> из Mini App.", parseMode: ParseMode.Html, cancellationToken: ct);
     }
 
     private static StudyTask? FindTask(UserSession session, string? taskId, string? title, string? subject)
@@ -333,6 +356,25 @@ public class UpdateRouter
             "odd" => "odd",
             _ => "every"
         };
+
+    private static bool TryParseReminderTime(string? value, out int hour, out int minute)
+    {
+        hour = 0;
+        minute = 0;
+
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        if (!TimeOnly.TryParseExact(value, "HH:mm", out var time) &&
+            !TimeOnly.TryParseExact(value, "H:mm", out time))
+        {
+            return false;
+        }
+
+        hour = time.Hour;
+        minute = time.Minute;
+        return true;
+    }
 
     private async Task RouteCommandAsync(Message msg, string command, CancellationToken ct)
     {
@@ -378,6 +420,10 @@ public class UpdateRouter
 
             case "/schedule":
                 await _commands.HandleScheduleAsync(msg, ct);
+                break;
+
+            case "/reminders":
+                await _commands.HandleRemindersAsync(msg, ct);
                 break;
 
             default:

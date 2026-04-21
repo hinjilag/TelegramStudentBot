@@ -100,8 +100,7 @@ public class SessionService
                         SchedulePhotoDataUrl = stored.SchedulePhotoDataUrl,
                         State = UserState.Idle,
                         ActiveTimer = null,
-                        DraftTask = null,
-                        DraftSchedule = null
+                        DraftTask = null
                     };
                 }
 

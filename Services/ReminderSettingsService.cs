@@ -69,11 +69,18 @@ public class ReminderSettingsService
                 ? existing
                 : new UserReminderSettings();
 
+            var shouldResetNotificationDate =
+                !settings.IsEnabled ||
+                settings.Hour != hour ||
+                settings.Minute != minute;
+
             settings.ChatId = chatId;
             settings.IsEnabled = true;
             settings.PromptAnswered = true;
             settings.Hour = hour;
             settings.Minute = minute;
+            if (shouldResetNotificationDate)
+                settings.LastNotificationDate = null;
             settings.UpdatedAt = DateTime.Now;
             _settingsByUser[userId] = settings;
             SaveAll();

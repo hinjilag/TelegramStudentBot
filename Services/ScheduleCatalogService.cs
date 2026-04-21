@@ -22,10 +22,7 @@ public class ScheduleCatalogService
             .Select(g =>
             {
                 var first = g.OrderBy(x => x.Course).First();
-                return new ScheduleDirectionOption(
-                    first.DirectionCode,
-                    first.DirectionName,
-                    first.ShortTitle);
+                return new ScheduleDirectionOption(first.DirectionCode, first.DirectionName, first.ShortTitle);
             })
             .ToList();
     }
@@ -39,9 +36,7 @@ public class ScheduleCatalogService
     }
 
     public ScheduleGroup? GetGroup(string scheduleId)
-    {
-        return _catalog.Groups.FirstOrDefault(g => g.Id == scheduleId);
-    }
+        => _catalog.Groups.FirstOrDefault(g => g.Id == scheduleId);
 
     public ScheduleGroup? GetGroup(string directionCode, int course)
     {
@@ -65,53 +60,32 @@ public class ScheduleCatalogService
     public string GetCurrentWeekLabel(DateTime? date = null)
         => GetCurrentWeekType(date) == 1 ? "нечётная" : "чётная";
 
-    public List<ScheduleEntry> GetEntriesForSelection(
-        ScheduleGroup group,
-        int? subGroup,
-        int weekType)
+    public List<ScheduleEntry> GetEntriesForSelection(ScheduleGroup group, int? subGroup, int weekType)
     {
         return group.Entries
             .Where(e => !subGroup.HasValue || e.SubGroup is null || e.SubGroup == subGroup)
             .Where(e => e.WeekType is null || e.WeekType == weekType)
             .Select(ToScheduleEntry)
-            .DistinctBy(e => new
-            {
-                e.DayOfWeek,
-                e.LessonNumber,
-                e.Time,
-                e.Subject
-            })
+            .DistinctBy(e => new { e.DayOfWeek, e.LessonNumber, e.Time, e.Subject })
             .OrderBy(e => e.DayOfWeek)
             .ThenBy(e => e.LessonNumber)
             .ThenBy(e => e.Subject)
             .ToList();
     }
 
-    public List<ScheduleEntry> GetAllEntriesForSelection(
-        ScheduleGroup group,
-        int? subGroup)
+    public List<ScheduleEntry> GetAllEntriesForSelection(ScheduleGroup group, int? subGroup)
     {
         return group.Entries
             .Where(e => !subGroup.HasValue || e.SubGroup is null || e.SubGroup == subGroup)
             .Select(ToScheduleEntry)
-            .DistinctBy(e => new
-            {
-                e.DayOfWeek,
-                e.LessonNumber,
-                e.Time,
-                e.Subject,
-                e.WeekTypeCode
-            })
+            .DistinctBy(e => new { e.DayOfWeek, e.LessonNumber, e.Time, e.Subject, e.WeekTypeCode })
             .OrderBy(e => e.DayOfWeek)
             .ThenBy(e => e.LessonNumber)
             .ThenBy(e => e.Subject)
             .ToList();
     }
 
-    public DateTime? FindNextLessonDate(
-        IEnumerable<ScheduleEntry> entries,
-        string subject,
-        DateTime? now = null)
+    public DateTime? FindNextLessonDate(IEnumerable<ScheduleEntry> entries, string subject, DateTime? now = null)
     {
         var current = now ?? DateTime.Now;
         DateTime? best = null;
@@ -158,9 +132,7 @@ public class ScheduleCatalogService
         => IsPriorityHomeworkSubject(subject) ? 0 : 1;
 
     public static int GetDayNumber(DateTime date)
-    {
-        return date.DayOfWeek == DayOfWeek.Sunday ? 7 : (int)date.DayOfWeek;
-    }
+        => date.DayOfWeek == DayOfWeek.Sunday ? 7 : (int)date.DayOfWeek;
 
     private static bool IsPriorityHomeworkSubject(string subject)
     {
@@ -199,13 +171,10 @@ public class ScheduleCatalogService
 
         if (normalized.Contains("лекц"))
             return "Лекция";
-
         if (normalized.Contains("практ"))
             return "Практика";
-
         if (normalized.Contains("лаб"))
             return "Лабораторная";
-
         if (normalized.Contains("сем"))
             return "Семинар";
 
@@ -221,9 +190,7 @@ public class ScheduleCatalogService
             return TimeSpan.Zero;
 
         var startText = time.Split('-', 2)[0].Trim();
-        return TimeSpan.TryParse(startText, out var start)
-            ? start
-            : TimeSpan.Zero;
+        return TimeSpan.TryParse(startText, out var start) ? start : TimeSpan.Zero;
     }
 
     private static ScheduleEntry ToScheduleEntry(ScheduleCatalogEntry entry)
@@ -284,61 +251,19 @@ public class ScheduleCatalogService
 
     private static readonly string[] PrioritySubjectKeywords =
     {
-        "1с",
-        "алгеб",
-        "алгоритм",
-        "анализ",
-        "базы данных",
-        "веб",
-        "вероятност",
-        "вычисл",
-        "геометр",
-        "данн",
-        "дифференц",
-        "дискрет",
-        "информат",
-        "искусствен",
-        "квант",
-        "комплекс",
-        "компьютер",
-        "конструирование по",
-        "криптограф",
-        "логик",
-        "математ",
-        "моделирован",
-        "олимпиад",
-        "оптимизац",
-        "программ",
-        "роботот",
-        "сети",
-        "систем",
-        "статист",
-        "схемотех",
-        "технолог",
-        "уравнен",
-        "электроник",
+        "1с", "алгеб", "алгоритм", "анализ", "базы данных", "веб", "вероятност",
+        "вычисл", "геометр", "данн", "дифференц", "дискрет", "информат", "искусствен",
+        "квант", "комплекс", "компьютер", "конструирование по", "криптограф", "логик",
+        "математ", "моделирован", "олимпиад", "оптимизац", "программ", "роботот",
+        "сети", "систем", "статист", "схемотех", "технолог", "уравнен", "электроник",
         "электротех"
     };
 
     private static readonly string[] NonPrioritySubjectKeywords =
     {
-        "безопасность жизнедеятельности",
-        "вожат",
-        "иностран",
-        "история религ",
-        "история росс",
-        "обучение служением",
-        "педагогика",
-        "предпринимател",
-        "правов",
-        "психология",
-        "религи",
-        "речев",
-        "русский",
-        "физическ",
-        "философ",
-        "экология",
-        "электив"
+        "безопасность жизнедеятельности", "вожат", "иностран", "история религ", "история росс",
+        "обучение служением", "педагогика", "предпринимател", "правов", "психология", "религи",
+        "речев", "русский", "физическ", "философ", "экология", "электив"
     };
 
     private static readonly JsonSerializerOptions JsonOptions = new()

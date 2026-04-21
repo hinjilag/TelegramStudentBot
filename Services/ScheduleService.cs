@@ -9,51 +9,57 @@ public static class ScheduleService
     public static string FormatSchedule(List<ScheduleEntry> entries, int? currentWeekType = null)
     {
         if (entries.Count == 0)
-            return "Расписание пустое.";
+            return "Расписание пока пустое.";
 
         var sb = new StringBuilder();
 
         var byDay = entries
             .GroupBy(GetDayNumber)
-            .OrderBy(g => g.Key);
+            .OrderBy(group => group.Key);
 
         foreach (var day in byDay)
         {
-            sb.AppendLine($"\n<b>{GetDayName(day.Key)}:</b>");
+            if (day.Key <= 0)
+                continue;
+
+            sb.AppendLine($"<b>{GetDayName(day.Key)}</b>");
 
             var byLesson = day
                 .GroupBy(GetLessonNumber)
-                .OrderBy(g => g.Key);
+                .OrderBy(group => group.Key);
 
             foreach (var lesson in byLesson)
             {
                 var lessonEntries = lesson
-                    .OrderBy(e => e.WeekTypeCode ?? 0)
-                    .ThenBy(e => e.SubGroup ?? 0)
-                    .ThenBy(e => e.Subject)
+                    .OrderBy(entry => entry.WeekTypeCode ?? 0)
+                    .ThenBy(entry => entry.SubGroup ?? 0)
+                    .ThenBy(entry => entry.Subject)
                     .ToList();
 
-                var lessonLabel = FormatLessonLabel(
-                    lesson.Key,
-                    lessonEntries.FirstOrDefault()?.Time);
+                var time = lessonEntries.FirstOrDefault()?.Time;
+                var prefix = BuildLessonPrefix(lesson.Key, time);
+                var hasWeekSplit = lessonEntries.Any(entry => entry.WeekTypeCode.HasValue);
 
-                var hasWeekSplit = lessonEntries.Any(e => e.WeekTypeCode.HasValue);
-                if (hasWeekSplit)
+                if (!hasWeekSplit)
                 {
-                    var firstWeek = lessonEntries.Where(e => e.WeekTypeCode == 1).ToList();
-                    var secondWeek = lessonEntries.Where(e => e.WeekTypeCode == 2).ToList();
+                    foreach (var entry in lessonEntries)
+                        sb.AppendLine($"{prefix} {Escape(entry.Subject)}{FormatSubGroup(entry.SubGroup)}");
 
-                    sb.AppendLine($"  {lessonLabel}: первая неделя: {FormatWeekLesson(firstWeek, currentWeekType == 1)}");
-                    sb.AppendLine($"     вторая неделя: {FormatWeekLesson(secondWeek, currentWeekType == 2)}");
                     continue;
                 }
 
-                foreach (var entry in lessonEntries)
-                    sb.AppendLine($"  {lessonLabel}: {Escape(entry.Subject)}{FormatSubGroup(entry.SubGroup)}");
+                var oddWeek = lessonEntries.Where(entry => entry.WeekTypeCode == 1).ToList();
+                var evenWeek = lessonEntries.Where(entry => entry.WeekTypeCode == 2).ToList();
+
+                sb.AppendLine(prefix);
+                sb.AppendLine($"  Нечётная: {FormatWeekLesson(oddWeek, currentWeekType == 1)}");
+                sb.AppendLine($"  Чётная: {FormatWeekLesson(evenWeek, currentWeekType == 2)}");
             }
+
+            sb.AppendLine();
         }
 
-        return sb.ToString().TrimStart('\n');
+        return sb.ToString().TrimEnd();
     }
 
     public static string GetDayName(int day) => day switch
@@ -73,21 +79,24 @@ public static class ScheduleService
         if (entries.Count == 0)
             return "пар нет";
 
-        var joined = string.Join("; ", entries
-            .OrderBy(e => e.SubGroup ?? 0)
-            .ThenBy(e => e.Subject)
-            .Select(e => $"{Escape(e.Subject)}{FormatSubGroup(e.SubGroup)}"));
+        var text = string.Join("; ", entries
+            .OrderBy(entry => entry.SubGroup ?? 0)
+            .ThenBy(entry => entry.Subject)
+            .Select(entry => $"{Escape(entry.Subject)}{FormatSubGroup(entry.SubGroup)}"));
 
-        return isActiveWeek ? joined + " <" : joined;
+        return isActiveWeek ? $"{text} <- текущая" : text;
     }
 
     private static string FormatSubGroup(int? subGroup)
         => subGroup.HasValue ? $" (подгр. {subGroup.Value})" : string.Empty;
 
-    private static string FormatLessonLabel(int lesson, string? time)
-        => string.IsNullOrWhiteSpace(time)
-            ? $"{lesson} пара"
-            : $"{lesson} пара ({time})";
+    private static string BuildLessonPrefix(int lesson, string? time)
+    {
+        if (string.IsNullOrWhiteSpace(time))
+            return $"• {lesson} пара:";
+
+        return $"• {lesson} пара ({Escape(time)}):";
+    }
 
     private static string Escape(string text)
         => WebUtility.HtmlEncode(text);
@@ -111,10 +120,5 @@ public static class ScheduleService
     }
 
     private static int GetLessonNumber(ScheduleEntry entry)
-    {
-        if (entry.LessonNumber > 0)
-            return entry.LessonNumber;
-
-        return 0;
-    }
+        => entry.LessonNumber > 0 ? entry.LessonNumber : 0;
 }

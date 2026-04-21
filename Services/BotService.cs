@@ -80,6 +80,7 @@ public class BotService : IHostedService
                 new Telegram.Bot.Types.BotCommand { Command = "app",      Description = "📱 Открыть Mini App" },
                 new Telegram.Bot.Types.BotCommand { Command = "plan",     Description = "📋 Задачи и план учёбы" },
                 new Telegram.Bot.Types.BotCommand { Command = "schedule", Description = "🗓 Расписание занятий" },
+                new Telegram.Bot.Types.BotCommand { Command = "reminders", Description = "⏰ Напоминания о дедлайнах" },
                 new Telegram.Bot.Types.BotCommand { Command = "timer",    Description = "⏱ Таймер учёбы (Помодоро)" },
                 new Telegram.Bot.Types.BotCommand { Command = "rest",     Description = "☕ Таймер отдыха" },
                 new Telegram.Bot.Types.BotCommand { Command = "stop",     Description = "⏹ Остановить таймер" },

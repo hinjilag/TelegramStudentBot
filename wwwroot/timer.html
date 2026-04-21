@@ -12,12 +12,10 @@
       --paper: #f1ead2;
       --paper-soft: #fbf6e6;
       --surface: #f1ead2;
-      --surface-strong: #fffaf0;
       --ink: #11140f;
       --muted: #5f6257;
       --line: #11140f;
       --accent: #b7ff5a;
-      --accent-dark: #4b7f2d;
       --rose: #ff6b57;
       --sky: #63d6ff;
       --sun: #ffd84d;
@@ -25,46 +23,23 @@
       --soft-shadow: 5px 5px 0 #11140f;
     }
 
-    * {
-      box-sizing: border-box;
-    }
-
-    html {
-      min-height: 100%;
-    }
+    * { box-sizing: border-box; }
 
     body {
-      min-height: 100%;
       margin: 0;
+      min-height: 100vh;
       padding: 16px 16px 34px;
       color: var(--paper);
       background:
         radial-gradient(circle at 14% 10%, rgba(183, 255, 90, 0.20), transparent 23%),
         radial-gradient(circle at 88% 6%, rgba(99, 214, 255, 0.18), transparent 24%),
         linear-gradient(180deg, var(--bg), var(--bg-deep));
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      letter-spacing: 0;
+      font-family: Inter, system-ui, sans-serif;
       -webkit-tap-highlight-color: transparent;
     }
 
-    body::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      z-index: -1;
-      pointer-events: none;
-      background-image:
-        linear-gradient(rgba(241, 234, 210, 0.08) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(241, 234, 210, 0.08) 1px, transparent 1px);
-      background-size: 32px 32px;
-      mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.85), transparent 84%);
-    }
-
-    button,
-    input,
-    select {
+    button, input, select {
       font: inherit;
-      letter-spacing: 0;
     }
 
     button {
@@ -77,23 +52,15 @@
       font-weight: 800;
       cursor: pointer;
       box-shadow: 4px 4px 0 var(--line);
-      transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
-    }
-
-    button:active {
-      transform: translate(2px, 2px);
-      box-shadow: 2px 2px 0 var(--line);
     }
 
     button:disabled {
-      cursor: default;
       opacity: 0.5;
-      transform: none;
+      cursor: default;
       box-shadow: none;
     }
 
-    input,
-    select {
+    input, select {
       width: 100%;
       min-height: 42px;
       border: 1px solid var(--line);
@@ -101,13 +68,6 @@
       padding: 9px 11px;
       color: var(--ink);
       background: var(--paper-soft);
-      outline: none;
-    }
-
-    input:focus,
-    select:focus {
-      border-color: rgba(31, 143, 112, 0.58);
-      box-shadow: 0 0 0 3px rgba(183, 255, 90, 0.28);
     }
 
     label {
@@ -141,18 +101,16 @@
       margin: 0;
       font-size: 34px;
       line-height: 1.1;
-      letter-spacing: 0;
       text-transform: uppercase;
     }
 
     .muted {
       color: var(--muted);
-      line-height: 1.38;
+      line-height: 1.4;
     }
 
     .pill {
-      flex: 0 0 auto;
-      max-width: 260px;
+      max-width: 280px;
       border: 2px solid var(--line);
       border-radius: 8px;
       padding: 10px 12px;
@@ -168,7 +126,7 @@
       top: 0;
       z-index: 20;
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 8px;
       padding: 8px 0 14px;
       background: linear-gradient(180deg, rgba(16, 19, 15, 0.98), rgba(16, 19, 15, 0.82));
@@ -184,16 +142,10 @@
     .tab.active {
       color: var(--ink);
       background: var(--sun);
-      border-color: var(--paper);
     }
 
-    .screen {
-      display: none;
-    }
-
-    .screen.active {
-      display: block;
-    }
+    .screen { display: none; }
+    .screen.active { display: block; }
 
     .grid {
       display: grid;
@@ -205,11 +157,10 @@
     .c4 { grid-column: span 4; }
     .c5 { grid-column: span 5; }
     .c6 { grid-column: span 6; }
+    .c8 { grid-column: span 8; }
     .c12 { grid-column: span 12; }
 
-    .band,
-    .metric,
-    .task {
+    .band, .metric, .task {
       border: 1px solid var(--line);
       border-radius: 8px;
       background: var(--surface);
@@ -235,7 +186,6 @@
     .head h2 {
       margin: 0;
       font-size: 18px;
-      line-height: 1.2;
     }
 
     .body {
@@ -264,20 +214,20 @@
 
     .timer {
       display: grid;
-      grid-template-columns: 230px minmax(0, 1fr);
+      grid-template-columns: 220px minmax(0, 1fr);
       gap: 18px;
       align-items: center;
     }
 
     .ring {
-      width: 220px;
-      height: 220px;
+      width: 210px;
+      height: 210px;
       border-radius: 50%;
       display: grid;
       place-items: center;
-      position: relative;
       background: conic-gradient(var(--accent) var(--p, 0%), rgba(23, 33, 30, 0.10) 0);
       box-shadow: inset 0 0 0 2px var(--line), 8px 8px 0 var(--line);
+      position: relative;
     }
 
     .ring::after {
@@ -302,10 +252,7 @@
       line-height: 1;
     }
 
-    .row,
-    .music,
-    .toolbar,
-    .actions {
+    .row, .actions, .toolbar, .music {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
@@ -319,15 +266,17 @@
     }
 
     .secondary {
-      color: var(--ink);
       background: var(--paper-soft);
-      border: 2px solid var(--line);
       box-shadow: none;
     }
 
-    .danger { background: var(--rose); color: var(--ink); }
-    .blue { background: var(--sky); color: var(--ink); }
-    .yellow { color: #241b04; background: var(--sun); }
+    .danger {
+      background: var(--rose);
+    }
+
+    .blue {
+      background: var(--sky);
+    }
 
     .music {
       margin-top: 12px;
@@ -344,17 +293,13 @@
       background: var(--rose);
     }
 
-    .tasks {
-      display: grid;
-      gap: 10px;
-    }
-
     .task {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       gap: 10px;
       align-items: center;
       padding: 12px;
+      margin-bottom: 10px;
     }
 
     .task.done {
@@ -363,19 +308,8 @@
     }
 
     .task h3 {
-      margin: 0;
+      margin: 0 0 4px;
       font-size: 16px;
-      overflow-wrap: anywhere;
-    }
-
-    .actions {
-      justify-content: flex-end;
-    }
-
-    .actions button {
-      min-height: 36px;
-      padding: 8px 10px;
-      font-size: 13px;
     }
 
     .empty {
@@ -384,34 +318,6 @@
       padding: 15px;
       color: var(--muted);
       background: var(--paper-soft);
-    }
-
-    .photo-tools {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 10px;
-      align-items: end;
-    }
-
-    .photo {
-      margin-top: 12px;
-      border: 2px solid var(--line);
-      border-radius: 8px;
-      background: var(--paper-soft);
-      overflow: hidden;
-    }
-
-    .photo img {
-      display: block;
-      width: 100%;
-      max-height: 520px;
-      object-fit: contain;
-      background: rgba(17, 20, 15, 0.08);
-    }
-
-    .placeholder {
-      padding: 18px;
-      color: var(--muted);
     }
 
     .table-wrap {
@@ -424,16 +330,15 @@
 
     table {
       width: 100%;
-      min-width: 760px;
+      min-width: 640px;
       border-collapse: collapse;
     }
 
-    th,
-    td {
+    th, td {
       padding: 8px;
       border-bottom: 2px solid var(--line);
       text-align: left;
-      vertical-align: middle;
+      vertical-align: top;
     }
 
     th {
@@ -444,31 +349,6 @@
 
     tr:last-child td {
       border-bottom: 0;
-    }
-
-    td input,
-    td select {
-      min-height: 38px;
-      padding: 7px 9px;
-    }
-
-    .prio {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      font-weight: 800;
-    }
-
-    .prio input {
-      width: 18px;
-      min-height: 18px;
-      height: 18px;
-      accent-color: var(--rose);
-    }
-
-    .toolbar {
-      margin-top: 12px;
     }
 
     .notice {
@@ -488,61 +368,19 @@
       box-shadow: var(--shadow);
     }
 
-    .notice.show {
-      display: block;
-    }
-
-    .notice.error {
-      background: var(--rose);
-    }
+    .notice.show { display: block; }
+    .notice.error { background: var(--rose); }
 
     @media (max-width: 760px) {
-      body {
-        padding: 12px 12px 28px;
-      }
-
-      .top {
-        display: block;
-      }
-
-      .pill {
-        max-width: none;
-        margin-top: 10px;
-      }
-
-      .tabs {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .grid {
-        grid-template-columns: 1fr;
-      }
-
-      .c3,
-      .c4,
-      .c5,
-      .c6,
-      .c12 {
-        grid-column: span 1;
-      }
-
-      .timer {
-        grid-template-columns: 1fr;
-        justify-items: center;
-      }
-
-      .inline,
-      .photo-tools {
-        grid-template-columns: 1fr;
-      }
-
-      .task {
-        grid-template-columns: 1fr;
-      }
-
-      .actions {
-        justify-content: flex-start;
-      }
+      body { padding: 12px 12px 28px; }
+      .top { display: block; }
+      .pill { max-width: none; margin-top: 10px; }
+      .tabs { grid-template-columns: repeat(2, 1fr); }
+      .grid { grid-template-columns: 1fr; }
+      .c3, .c4, .c5, .c6, .c8, .c12 { grid-column: span 1; }
+      .timer { grid-template-columns: 1fr; justify-items: center; }
+      .inline, .task { grid-template-columns: 1fr; }
+      .actions { justify-content: flex-start; }
     }
   </style>
 </head>
@@ -551,7 +389,7 @@
     <header class="top">
       <div>
         <h1>Учёба под рукой</h1>
-        <div class="muted">Таймеры, домашка и расписание в одном Mini App.</div>
+        <div class="muted">Таймеры, домашка, расписание и напоминания в одном Mini App.</div>
       </div>
       <div class="pill" id="conn">Подключаюсь...</div>
     </header>
@@ -561,6 +399,7 @@
       <button class="tab" data-tab="timers" type="button">Таймеры</button>
       <button class="tab" data-tab="tasks" type="button">ДЗ</button>
       <button class="tab" data-tab="schedule" type="button">Расписание</button>
+      <button class="tab" data-tab="reminders" type="button">Напоминания</button>
     </nav>
 
     <section class="screen active" id="overview">
@@ -582,8 +421,13 @@
         </div>
         <div class="metric c3">
           <b>Расписание</b>
-          <strong id="ovSchedule">0</strong>
-          <span class="muted">строк в таблице</span>
+          <strong id="ovSchedule">Не выбрано</strong>
+          <span class="muted" id="ovScheduleMeta">Сначала выбери группу.</span>
+        </div>
+        <div class="metric c3">
+          <b>Напоминания</b>
+          <strong id="ovReminders">Выкл</strong>
+          <span class="muted" id="ovRemindersMeta">Можно включить в отдельной вкладке.</span>
         </div>
       </div>
     </section>
@@ -673,52 +517,80 @@
       <div class="band">
         <div class="head"><h2>Список ДЗ</h2></div>
         <div class="body">
-          <div class="tasks" id="taskList"></div>
+          <div id="taskList"></div>
         </div>
       </div>
     </section>
 
     <section class="screen" id="schedule">
       <div class="band">
-        <div class="head"><h2>Фото расписания</h2></div>
+        <div class="head"><h2>Выбор группы</h2></div>
         <div class="body">
-          <div class="photo-tools">
-            <div>
-              <label for="photoInput">Вставь фото расписания</label>
-              <input id="photoInput" type="file" accept="image/*">
+          <div class="grid">
+            <div class="c8">
+              <label for="scheduleGroup">Группа и курс</label>
+              <select id="scheduleGroup"></select>
             </div>
-            <button class="secondary" id="removePhoto" type="button">Убрать фото</button>
-          </div>
-          <div class="photo" id="photoBox">
-            <div class="placeholder">Фото появится здесь. Ниже можно сразу переписать пары в таблицу.</div>
+            <div class="c4">
+              <label for="scheduleSubGroup">Подгруппа</label>
+              <select id="scheduleSubGroup"></select>
+            </div>
+            <div class="c12">
+              <div class="muted" id="scheduleMeta">Выбери группу, и Mini App автоматически подтянет расписание.</div>
+            </div>
+            <div class="c12">
+              <div class="toolbar">
+                <button id="applySchedule" type="button">Подключить расписание</button>
+                <button class="danger" id="clearSchedule" type="button">Сбросить</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       <div class="band">
-        <div class="head">
-          <h2>Таблица расписания</h2>
-          <button id="addRow" type="button">Добавить строку</button>
-        </div>
+        <div class="head"><h2>Текущее расписание</h2></div>
         <div class="body">
+          <div class="muted" id="scheduleSelectionInfo">Группа пока не выбрана.</div>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>День</th>
-                  <th>Время пары</th>
-                  <th>Название предмета</th>
+                  <th>Время</th>
+                  <th>Предмет</th>
                   <th>Неделя</th>
-                  <th>Приоритетный</th>
-                  <th>Действие</th>
                 </tr>
               </thead>
-              <tbody id="scheduleBody"></tbody>
+              <tbody id="schedulePreview"></tbody>
             </table>
           </div>
-          <div class="toolbar">
-            <button id="saveSchedule" type="button">Сохранить расписание</button>
-            <button class="danger" id="clearSchedule" type="button">Очистить</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" id="reminders">
+      <div class="band">
+        <div class="head"><h2>Напоминания о дедлайнах</h2></div>
+        <div class="body">
+          <div class="grid">
+            <div class="c6">
+              <label for="reminderEnabled">Статус</label>
+              <select id="reminderEnabled">
+                <option value="on">Включены</option>
+                <option value="off">Выключены</option>
+              </select>
+            </div>
+            <div class="c6">
+              <label for="reminderTime">Время</label>
+              <input id="reminderTime" type="time" value="20:00">
+            </div>
+            <div class="c12">
+              <div class="muted" id="reminderMeta">Бот будет присылать дедлайны на сегодня и на завтра.</div>
+            </div>
+            <div class="c12">
+              <button id="saveReminders" type="button">Сохранить напоминания</button>
+            </div>
           </div>
         </div>
       </div>
@@ -732,8 +604,6 @@
     if (tg) {
       tg.expand();
       tg.ready();
-      tg.setHeaderColor("#edf5f0");
-      tg.setBackgroundColor("#edf5f0");
     }
 
     const params = new URLSearchParams(location.search);
@@ -742,18 +612,7 @@
     const userId = params.get("userId") || (tgUser?.id ? String(tgUser.id) : "");
     const chatId = params.get("chatId") || userId;
     const apiBase = (params.get("apiBase") || location.origin).replace(/\/$/, "");
-    const staticMode = location.hostname.includes("github.io") && !params.get("apiBase");
     const storeKey = "student-mini-app-state-" + (userId || "guest");
-
-    const days = [
-      "Понедельник",
-      "Вторник",
-      "Среда",
-      "Четверг",
-      "Пятница",
-      "Суббота",
-      "Воскресенье"
-    ];
 
     const tracks = [
       { name: "Tape", src: "./lofi.mp3" },
@@ -763,8 +622,6 @@
     ];
 
     let state = null;
-    let rows = [];
-    let photo = null;
     let tickTimer = null;
     let trackIndex = 0;
     let musicOn = false;
@@ -785,29 +642,6 @@
       }, 2600);
     }
 
-    async function api(path, options = {}) {
-      if (!staticMode) {
-        const headers = { ...(options.headers || {}) };
-        if (options.body) {
-          headers["Content-Type"] = "application/json";
-        }
-        if (initData) {
-          headers["X-Telegram-Init-Data"] = initData;
-        }
-
-        const response = await fetch(apiBase + path, {
-          ...options,
-          headers
-        });
-        const data = await response.json().catch(() => null);
-        if (response.ok && data?.ok) return data;
-
-        throw new Error(data?.message || "request_failed");
-      }
-
-      return localApi(path, options);
-    }
-
     function baseState() {
       return {
         ok: true,
@@ -821,39 +655,20 @@
         },
         timer: { active: false },
         tasks: [],
-        schedulePhotoDataUrl: null,
-        schedule: []
+        schedule: [],
+        scheduleSelection: {
+          scheduleId: null,
+          subGroup: null,
+          title: null,
+          semester: "",
+          currentWeekLabel: ""
+        },
+        scheduleCatalog: [],
+        reminders: {
+          isEnabled: false,
+          time: "20:00"
+        }
       };
-    }
-
-    function getLocalState() {
-      try {
-        return {
-          ...baseState(),
-          ...(JSON.parse(localStorage.getItem(storeKey) || "{}"))
-        };
-      } catch {
-        return baseState();
-      }
-    }
-
-    function saveLocalState(nextState) {
-      localStorage.setItem(storeKey, JSON.stringify({
-        profile: nextState.profile,
-        timer: nextState.timer,
-        tasks: nextState.tasks,
-        schedule: nextState.schedule,
-        schedulePhotoDataUrl: nextState.schedulePhotoDataUrl
-      }));
-      return nextState;
-    }
-
-    function requestBody(options) {
-      try {
-        return options.body ? JSON.parse(options.body) : {};
-      } catch {
-        return {};
-      }
     }
 
     function localAuthPayload() {
@@ -864,133 +679,38 @@
       return chatId ? { chatId: Number(chatId) } : {};
     }
 
-    function sendBot(payload) {
-      if (!tg) return;
+    async function api(path, options = {}) {
+      const headers = { ...(options.headers || {}) };
+      if (options.body) headers["Content-Type"] = "application/json";
+      if (initData) headers["X-Telegram-Init-Data"] = initData;
 
-      try {
-        tg.sendData(JSON.stringify(payload));
-      } catch {
-        // Telegram may reject sendData outside Mini App context.
-      }
-    }
+      const response = await fetch(apiBase + path, {
+        ...options,
+        headers
+      });
+      const data = await response.json().catch(() => null);
 
-    async function localApi(path, options = {}) {
-      const cleanPath = path.split("?")[0];
-      const body = requestBody(options);
-      const nextState = getLocalState();
+      if (response.ok && data?.ok)
+        return data;
 
-      if (cleanPath === "/api/state") {
-        return nextState;
-      }
-
-      if (cleanPath === "/api/timer/start") {
-        const now = Date.now();
-        const minutes = Number(body.minutes) || 25;
-        const type = body.type === "rest" ? "rest" : "work";
-
-        nextState.timer = {
-          active: true,
-          id: createId(),
-          type,
-          durationMinutes: minutes,
-          startedAtUnixMs: now,
-          startedAt: new Date(now).toISOString(),
-          endsAt: new Date(now + minutes * 60000).toISOString(),
-          remainingSeconds: minutes * 60
-        };
-
-        sendBot({ action: "start_timer", type, minutes });
-      } else if (cleanPath === "/api/timer/stop") {
-        nextState.timer = { active: false };
-        stopMusic();
-        sendBot({ action: "stop_timer" });
-      } else if (cleanPath === "/api/tasks/add") {
-        if (body.deadline && isPastDate(body.deadline)) {
-          throw new Error("deadline_in_past");
-        }
-
-        const id = createId();
-        const task = {
-          id,
-          shortId: id.slice(0, 8),
-          title: body.title || "",
-          subject: body.subject || "",
-          deadline: body.deadline || null,
-          isCompleted: false,
-          createdAt: new Date().toISOString()
-        };
-
-        nextState.tasks = [task, ...(nextState.tasks || [])];
-        sendBot({
-          action: "add_task",
-          id: task.id,
-          title: task.title,
-          subject: task.subject,
-          deadline: task.deadline
-        });
-      } else if (cleanPath === "/api/tasks/toggle") {
-        const task = (nextState.tasks || []).find((item) => item.id === body.taskId);
-        nextState.tasks = (nextState.tasks || []).map((task) =>
-          task.id === body.taskId ? { ...task, isCompleted: !!body.isCompleted } : task
-        );
-        sendBot({
-          action: "toggle_task",
-          taskId: body.taskId,
-          title: task?.title,
-          subject: task?.subject,
-          isCompleted: !!body.isCompleted
-        });
-      } else if (cleanPath === "/api/tasks/delete") {
-        const task = (nextState.tasks || []).find((item) => item.id === body.taskId);
-        nextState.tasks = (nextState.tasks || []).filter((task) => task.id !== body.taskId);
-        sendBot({
-          action: "delete_task",
-          taskId: body.taskId,
-          title: task?.title,
-          subject: task?.subject
-        });
-      } else if (cleanPath === "/api/schedule/save") {
-        nextState.schedule = body.entries || [];
-        nextState.schedulePhotoDataUrl = body.photoDataUrl || null;
-        sendBot({
-          action: "save_schedule",
-          entries: nextState.schedule.map((row) => ({
-            id: row.id,
-            day: row.day,
-            time: row.time,
-            subject: row.subject,
-            weekType: row.weekType || "every",
-            isPriority: !!row.isPriority
-          }))
-        });
-      } else if (cleanPath === "/api/schedule/clear") {
-        nextState.schedule = [];
-        nextState.schedulePhotoDataUrl = null;
-        sendBot({ action: "clear_schedule" });
-      }
-
-      return saveLocalState(nextState);
+      throw new Error(data?.message || "request_failed");
     }
 
     async function loadState() {
-      if (!userId) {
+      if (!userId && !initData) {
         $("conn").textContent = "Открой из Telegram";
         showNotice("Не вижу Telegram userId. Открой Mini App через кнопку бота.", true);
         return;
       }
 
       try {
-        const statePath = userId
-          ? "/api/state?userId=" + encodeURIComponent(userId)
-          : "/api/state";
+        const statePath = userId ? "/api/state?userId=" + encodeURIComponent(userId) : "/api/state";
         state = await api(statePath);
-        rows = (state.schedule || []).map((row) => ({ ...row }));
-        photo = state.schedulePhotoDataUrl || null;
         render();
         $("conn").textContent = "Готово: " + (state.profile.firstName || "студент");
-      } catch {
+      } catch (error) {
         $("conn").textContent = "Нет связи";
-        showNotice("Данные будут сохранены локально.", true);
+        showNotice("Не удалось загрузить данные.", true);
       }
     }
 
@@ -998,14 +718,17 @@
       renderOverview();
       renderTimer();
       renderTasks();
-      renderPhoto();
-      renderScheduleTable();
+      renderSchedule();
+      renderReminders();
+      updateMusic();
     }
 
     function renderOverview() {
       const pending = (state.tasks || []).filter((task) => !task.isCompleted).length;
-      $("ovTasks").textContent = pending;
-      $("ovSchedule").textContent = (state.schedule || []).length;
+      const selection = state.scheduleSelection || {};
+      const reminders = state.reminders || { isEnabled: false, time: "20:00" };
+
+      $("ovTasks").textContent = String(pending);
       $("ovFatigue").textContent = state.profile.fatigueLevel + "%";
       $("ovFatigueMeta").textContent = state.profile.fatigueDescription;
 
@@ -1016,6 +739,14 @@
         $("ovTimer").textContent = "Нет";
         $("ovTimerMeta").textContent = "Можно запускать фокус или отдых.";
       }
+
+      $("ovSchedule").textContent = selection.title || "Не выбрано";
+      $("ovScheduleMeta").textContent = selection.currentWeekLabel || "Сначала выбери группу.";
+
+      $("ovReminders").textContent = reminders.isEnabled ? "Вкл" : "Выкл";
+      $("ovRemindersMeta").textContent = reminders.isEnabled
+        ? "Каждый день в " + (reminders.time || "20:00")
+        : "Можно включить в отдельной вкладке.";
     }
 
     function renderTimer() {
@@ -1032,23 +763,26 @@
       }
 
       $("stop").disabled = false;
-      const totalSeconds = Math.max(1, timer.durationMinutes * 60);
-      const started = timer.startedAtUnixMs || Date.now();
+      const totalSeconds = Math.max(1, Number(timer.durationMinutes) * 60);
+      const baselineRemaining = Math.max(0, Number(timer.remainingSeconds) || totalSeconds);
+      const startedAt = Date.now();
       const label = timer.type === "rest" ? "отдых" : "фокус";
 
       const tick = () => {
-        const elapsed = Math.floor((Date.now() - started) / 1000);
-        const remaining = Math.max(0, totalSeconds - elapsed);
+        const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+        const remaining = Math.max(0, baselineRemaining - elapsed);
         const progress = Math.max(0, Math.min(100, (remaining / totalSeconds) * 100));
 
         $("time").textContent = formatSeconds(remaining);
         $("timerLabel").textContent = label;
+        $("ovTimerMeta").textContent = "Осталось " + formatSeconds(remaining);
         $("timerText").textContent = remaining > 0
           ? "Завершится примерно в " + formatTime(timer.endsAt)
           : "Таймер завершается, скоро придёт уведомление.";
         $("ring").style.setProperty("--p", progress + "%");
 
-        if (remaining <= 0) clearInterval(tickTimer);
+        if (remaining <= 0)
+          clearInterval(tickTimer);
       };
 
       tick();
@@ -1075,7 +809,7 @@
             <div class="muted">${escapeHtml(task.subject)}${deadline}</div>
           </div>
           <div class="actions">
-            <button class="${task.isCompleted ? "secondary" : "yellow"}" data-toggle="${task.id}" type="button">
+            <button class="${task.isCompleted ? "secondary" : ""}" data-toggle="${task.id}" type="button">
               ${task.isCompleted ? "Вернуть" : "Готово"}
             </button>
             <button class="danger" data-delete="${task.id}" type="button">Удалить</button>
@@ -1084,45 +818,86 @@
       });
     }
 
-    function renderPhoto() {
-      $("photoBox").innerHTML = photo
-        ? `<img src="${photo}" alt="Фото расписания">`
-        : '<div class="placeholder">Фото появится здесь. Ниже можно сразу переписать пары в таблицу.</div>';
+    function renderSchedule() {
+      renderScheduleSelectors();
+      renderSchedulePreview();
     }
 
-    function renderScheduleTable() {
-      const body = $("scheduleBody");
+    function renderScheduleSelectors() {
+      const catalog = state.scheduleCatalog || [];
+      const groupSelect = $("scheduleGroup");
+      const subGroupSelect = $("scheduleSubGroup");
+      const stateGroupValue = state.scheduleSelection?.scheduleId || "";
+      const selectedId = groupSelect.value || stateGroupValue;
+
+      groupSelect.innerHTML = [
+        '<option value="">Выбери группу</option>',
+        ...catalog.map((item) => `<option value="${escapeAttr(item.id)}" ${item.id === selectedId ? "selected" : ""}>${escapeHtml(item.title)}</option>`)
+      ].join("");
+
+      const selectedGroup = catalog.find((item) => item.id === groupSelect.value);
+      const subGroups = selectedGroup?.subGroups || [];
+      const stateSubGroupValue = state.scheduleSelection?.subGroup;
+      const selectedSubGroup = subGroupSelect.value || stateSubGroupValue;
+
+      subGroupSelect.innerHTML = [
+        '<option value="">Без подгруппы</option>',
+        ...subGroups.map((value) => `<option value="${value}" ${Number(selectedSubGroup) === Number(value) ? "selected" : ""}>Подгруппа ${value}</option>`)
+      ].join("");
+      subGroupSelect.disabled = subGroups.length === 0;
+
+      const semester = state.scheduleSelection?.semester || "";
+      const week = state.scheduleSelection?.currentWeekLabel || "";
+
+      if (!selectedGroup) {
+        $("scheduleMeta").textContent = "Выбери группу, и Mini App автоматически подтянет расписание.";
+      } else if (subGroups.length > 0 && !subGroupSelect.value) {
+        $("scheduleMeta").textContent = "Теперь выбери подгруппу.";
+      } else {
+        $("scheduleMeta").textContent = [semester, week].filter(Boolean).join(" • ");
+      }
+    }
+
+    function renderSchedulePreview() {
+      const body = $("schedulePreview");
+      const selection = state.scheduleSelection || {};
+      const selectedTitle = selection.title || "Группа пока не выбрана.";
+      const subgroupText = selection.subGroup ? ", подгруппа " + selection.subGroup : "";
+      $("scheduleSelectionInfo").textContent = selection.scheduleId
+        ? selectedTitle + subgroupText
+        : "Группа пока не выбрана.";
+
       body.innerHTML = "";
+      const entries = state.schedule || [];
+      if (!entries.length) {
+        body.innerHTML = '<tr><td colspan="4" class="muted">После выбора группы здесь появится расписание.</td></tr>';
+        return;
+      }
 
-      if (!rows.length) rows.push(createEmptyRow());
+      entries.forEach((row) => {
+        const weekLabel = normalizeWeekType(row.weekType) === "even"
+          ? "Чётная"
+          : normalizeWeekType(row.weekType) === "odd"
+            ? "Нечётная"
+            : "Каждая";
 
-      rows.forEach((row, index) => {
         const tr = document.createElement("tr");
-        tr.dataset.index = index;
         tr.innerHTML = `
-          <td>
-            <select data-field="day">
-              ${days.map((day) => `<option ${row.day === day ? "selected" : ""}>${day}</option>`).join("")}
-            </select>
-          </td>
-          <td><input data-field="time" value="${escapeAttr(row.time)}" placeholder="09:00-10:30"></td>
-          <td><input data-field="subject" value="${escapeAttr(row.subject)}" placeholder="Название пары"></td>
-          <td>
-            <select data-field="weekType">
-              <option value="every" ${normalizeWeekType(row.weekType) === "every" ? "selected" : ""}>Каждую неделю</option>
-              <option value="even" ${normalizeWeekType(row.weekType) === "even" ? "selected" : ""}>Только чётная</option>
-              <option value="odd" ${normalizeWeekType(row.weekType) === "odd" ? "selected" : ""}>Только нечётная</option>
-            </select>
-          </td>
-          <td>
-            <label class="prio">
-              <input data-field="isPriority" type="checkbox" ${row.isPriority ? "checked" : ""}>
-              Важно
-            </label>
-          </td>
-          <td><button class="danger" data-remove="${index}" type="button">Удалить</button></td>`;
+          <td>${escapeHtml(row.day)}</td>
+          <td>${escapeHtml(row.time)}</td>
+          <td>${escapeHtml(row.subject)}</td>
+          <td>${escapeHtml(weekLabel)}</td>`;
         body.appendChild(tr);
       });
+    }
+
+    function renderReminders() {
+      const reminders = state.reminders || { isEnabled: false, time: "20:00" };
+      $("reminderEnabled").value = reminders.isEnabled ? "on" : "off";
+      $("reminderTime").value = reminders.time || "20:00";
+      $("reminderMeta").textContent = reminders.isEnabled
+        ? "Напоминания включены на " + (reminders.time || "20:00") + "."
+        : "Бот будет присылать дедлайны на сегодня и на завтра.";
     }
 
     async function startTimer(type, minutes) {
@@ -1188,8 +963,15 @@
         .catch(() => {
           musicOn = false;
           updateMusic();
-          showNotice("Не удалось включить трек. Проверь, что mp3 загружен рядом с timer.html.", true);
+          showNotice("Не удалось включить трек. Проверь, что mp3 лежат рядом с timer.html.", true);
         });
+    }
+
+    function stopMusic() {
+      audio.pause();
+      audio.currentTime = 0;
+      musicOn = false;
+      updateMusic();
     }
 
     function toggleMusic() {
@@ -1201,19 +983,13 @@
       playMusic();
     }
 
-    function stopMusic() {
-      audio.pause();
-      audio.currentTime = 0;
-      musicOn = false;
-      updateMusic();
-    }
-
     function nextTrack() {
       trackIndex = (trackIndex + 1) % tracks.length;
       if (musicOn) {
         playMusic();
+      } else {
+        updateMusic();
       }
-      updateMusic();
     }
 
     async function addTask() {
@@ -1247,7 +1023,7 @@
     }
 
     async function toggleTask(taskId) {
-      const task = state.tasks.find((item) => item.id === taskId);
+      const task = (state.tasks || []).find((item) => item.id === taskId);
       if (!task) return;
 
       try {
@@ -1279,41 +1055,30 @@
       }
     }
 
-    function collectScheduleRows() {
-      rows = [...$("scheduleBody").querySelectorAll("tr")].map((tr) => {
-        const oldRow = rows[Number(tr.dataset.index)] || createEmptyRow();
-        const field = (name) => tr.querySelector(`[data-field="${name}"]`);
+    async function applyScheduleSelection() {
+      const scheduleId = $("scheduleGroup").value;
+      const subGroupText = $("scheduleSubGroup").value;
+      const subGroup = subGroupText ? Number(subGroupText) : null;
 
-        return {
-          ...oldRow,
-          day: field("day").value,
-          time: field("time").value.trim(),
-          subject: field("subject").value.trim(),
-          weekType: normalizeWeekType(field("weekType").value),
-          isPriority: field("isPriority").checked
-        };
-      });
-    }
-
-    async function saveSchedule() {
-      collectScheduleRows();
+      if (!scheduleId) {
+        showNotice("Сначала выбери группу.", true);
+        return;
+      }
 
       try {
-        state = await api("/api/schedule/save", {
+        state = await api("/api/schedule/select", {
           method: "POST",
           body: JSON.stringify({
             ...localAuthPayload(),
             ...localChatPayload(),
-            photoDataUrl: photo,
-            entries: rows
+            scheduleId,
+            subGroup
           })
         });
-        rows = (state.schedule || []).map((row) => ({ ...row }));
-        photo = state.schedulePhotoDataUrl || null;
         render();
-        showNotice("Расписание сохранено.");
+        showNotice("Расписание подключено.");
       } catch {
-        showNotice("Не удалось сохранить расписание.", true);
+        showNotice("Не удалось подключить расписание.", true);
       }
     }
 
@@ -1323,86 +1088,41 @@
           method: "POST",
           body: JSON.stringify({ ...localAuthPayload(), ...localChatPayload() })
         });
-        rows = [];
-        photo = null;
-        $("photoInput").value = "";
         render();
-        showNotice("Расписание очищено.");
+        showNotice("Выбор группы сброшен.");
       } catch {
         showNotice("Не удалось очистить расписание.", true);
       }
     }
 
-    function addRow() {
-      collectScheduleRows();
-      rows.push(createEmptyRow());
-      renderScheduleTable();
-    }
+    async function saveReminders() {
+      const isEnabled = $("reminderEnabled").value === "on";
+      const time = $("reminderTime").value || "20:00";
 
-    function removeRow(index) {
-      collectScheduleRows();
-      rows.splice(index, 1);
-      renderScheduleTable();
-    }
-
-    function createId() {
-      return crypto.randomUUID
-        ? crypto.randomUUID().replaceAll("-", "")
-        : String(Date.now() + Math.random());
-    }
-
-    function createEmptyRow() {
-      return {
-        id: createId(),
-        day: days[0],
-        time: "",
-        subject: "",
-        weekType: "every",
-        isPriority: false
-      };
-    }
-
-    function normalizeWeekType(value) {
-      if (value === "even" || value === "odd") return value;
-      return "every";
-    }
-
-    async function handlePhoto(file) {
-      if (!file) return;
-
-      if (!file.type.startsWith("image/")) {
-        showNotice("Выбери изображение.", true);
+      if (isEnabled && !/^\d{2}:\d{2}$/.test(time)) {
+        showNotice("Введи время в формате HH:mm.", true);
         return;
       }
 
       try {
-        photo = await resizeImage(file, 1400, 0.86);
-        renderPhoto();
-        showNotice("Фото добавлено. Нажми сохранить, чтобы закрепить его.");
+        state = await api("/api/reminders/save", {
+          method: "POST",
+          body: JSON.stringify({
+            ...localAuthPayload(),
+            ...localChatPayload(),
+            isEnabled,
+            time
+          })
+        });
+        render();
+        showNotice(isEnabled ? "Напоминания сохранены." : "Напоминания выключены.");
       } catch {
-        showNotice("Не удалось загрузить фото.", true);
+        showNotice("Не удалось сохранить напоминания.", true);
       }
     }
 
-    function resizeImage(file, maxWidth, quality) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = reject;
-        reader.onload = () => {
-          const image = new Image();
-          image.onerror = reject;
-          image.onload = () => {
-            const scale = Math.min(1, maxWidth / image.width);
-            const canvas = document.createElement("canvas");
-            canvas.width = Math.round(image.width * scale);
-            canvas.height = Math.round(image.height * scale);
-            canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
-            resolve(canvas.toDataURL("image/jpeg", quality));
-          };
-          image.src = reader.result;
-        };
-        reader.readAsDataURL(file);
-      });
+    function normalizeWeekType(value) {
+      return value === "even" || value === "odd" ? value : "every";
     }
 
     function setTab(name) {
@@ -1477,15 +1197,21 @@
     $("restCustom").addEventListener("click", () => startTimer("rest", $("restMin").value));
     $("taskDeadline").min = todayInputValue();
     $("addTask").addEventListener("click", addTask);
-    $("addRow").addEventListener("click", addRow);
-    $("saveSchedule").addEventListener("click", saveSchedule);
-    $("clearSchedule").addEventListener("click", clearSchedule);
-    $("removePhoto").addEventListener("click", () => {
-      photo = null;
-      $("photoInput").value = "";
-      renderPhoto();
+    $("applySchedule").addEventListener("click", applyScheduleSelection);
+    $("scheduleGroup").addEventListener("change", () => {
+      renderScheduleSelectors();
+      const selectedGroup = (state.scheduleCatalog || []).find((item) => item.id === $("scheduleGroup").value);
+      if (selectedGroup && (!selectedGroup.subGroups || selectedGroup.subGroups.length === 0)) {
+        applyScheduleSelection();
+      }
     });
-    $("photoInput").addEventListener("change", (event) => handlePhoto(event.target.files?.[0]));
+    $("scheduleSubGroup").addEventListener("change", () => {
+      if ($("scheduleGroup").value) {
+        applyScheduleSelection();
+      }
+    });
+    $("clearSchedule").addEventListener("click", clearSchedule);
+    $("saveReminders").addEventListener("click", saveReminders);
 
     $("taskList").addEventListener("click", (event) => {
       const toggleId = event.target.closest("[data-toggle]")?.dataset.toggle;
@@ -1494,17 +1220,9 @@
       if (deleteId) deleteTask(deleteId);
     });
 
-    $("scheduleBody").addEventListener("click", (event) => {
-      const index = event.target.closest("[data-remove]")?.dataset.remove;
-      if (index !== undefined) removeRow(Number(index));
-    });
-
-    const startTab = params.get("view") === "timer"
-      ? "timers"
-      : params.get("view");
-
+    const startTab = params.get("view") === "timer" ? "timers" : params.get("view");
+    setTab(["overview", "timers", "tasks", "schedule", "reminders"].includes(startTab) ? startTab : "overview");
     updateMusic();
-    setTab(["overview", "timers", "tasks", "schedule"].includes(startTab) ? startTab : "overview");
     loadState();
   </script>
 </body>

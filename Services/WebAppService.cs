@@ -10,14 +10,6 @@ using TelegramStudentBot.Models;
 
 namespace TelegramStudentBot.Services;
 
-/// <summary>
-/// Встроенный HTTP-сервер для Telegram Mini App.
-///
-/// Для Telegram Mini Apps URL должен быть HTTPS.
-/// Для разработки можно запустить внешний туннель:
-///   ngrok http 8080
-/// Полученный HTTPS URL укажи в WebAppUrl.
-/// </summary>
 public class WebAppService : BackgroundService
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -35,6 +27,9 @@ public class WebAppService : BackgroundService
     private readonly SessionService _sessions;
     private readonly TimerService _timers;
     private readonly ChatSyncService _chatSync;
+    private readonly ReminderSettingsService _reminders;
+    private readonly ScheduleCatalogService _scheduleCatalog;
+    private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly ILogger<WebAppService> _logger;
 
     public WebAppService(
@@ -43,6 +38,9 @@ public class WebAppService : BackgroundService
         SessionService sessions,
         TimerService timers,
         ChatSyncService chatSync,
+        ReminderSettingsService reminders,
+        ScheduleCatalogService scheduleCatalog,
+        UserScheduleSelectionService scheduleSelections,
         ILogger<WebAppService> logger)
     {
         _port = config.GetValue("WebAppPort", 8080);
@@ -52,6 +50,9 @@ public class WebAppService : BackgroundService
         _sessions = sessions;
         _timers = timers;
         _chatSync = chatSync;
+        _reminders = reminders;
+        _scheduleCatalog = scheduleCatalog;
+        _scheduleSelections = scheduleSelections;
         _logger = logger;
         _wwwrootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot");
         _htmlPath = Path.Combine(_wwwrootPath, "timer.html");
@@ -80,13 +81,10 @@ public class WebAppService : BackgroundService
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            // штатная остановка
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,
-                "Не удалось запустить HTTP сервер на порту {Port}. Проверь, что порт не занят другим процессом.",
-                _port);
+            _logger.LogError(ex, "Не удалось запустить HTTP сервер на порту {Port}.", _port);
         }
         finally
         {
@@ -137,15 +135,20 @@ public class WebAppService : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка при обработке HTTP запроса");
-            try { await WriteJsonAsync(ctx, 500, new { ok = false, message = "server_error" }, ct); }
-            catch { /* игнор */ }
+            try
+            {
+                await WriteJsonAsync(ctx, 500, new { ok = false, message = "server_error" }, ct);
+            }
+            catch
+            {
+            }
         }
     }
 
     private async Task ServeMiniAppAsync(HttpContext ctx, CancellationToken ct)
     {
         var html = await File.ReadAllBytesAsync(_htmlPath, ct);
-        ctx.Response.StatusCode  = 200;
+        ctx.Response.StatusCode = 200;
         ctx.Response.ContentType = "text/html; charset=utf-8";
         ctx.Response.Headers["X-Frame-Options"] = "ALLOWALL";
         SetNoCacheHeaders(ctx);
@@ -160,35 +163,33 @@ public class WebAppService : BackgroundService
             case "/api/state":
                 await HandleStateAsync(ctx, ct);
                 break;
-
             case "/api/timer/start":
                 await HandleStartTimerFromApiAsync(ctx, ct);
                 break;
-
             case "/api/timer/stop":
                 await HandleStopTimerFromApiAsync(ctx, ct);
                 break;
-
             case "/api/tasks/add":
                 await HandleAddTaskAsync(ctx, ct);
                 break;
-
             case "/api/tasks/toggle":
                 await HandleToggleTaskAsync(ctx, ct);
                 break;
-
             case "/api/tasks/delete":
                 await HandleDeleteTaskAsync(ctx, ct);
                 break;
-
             case "/api/schedule/save":
                 await HandleSaveScheduleAsync(ctx, ct);
                 break;
-
             case "/api/schedule/clear":
                 await HandleClearScheduleAsync(ctx, ct);
                 break;
-
+            case "/api/schedule/select":
+                await HandleSelectScheduleAsync(ctx, ct);
+                break;
+            case "/api/reminders/save":
+                await HandleSaveRemindersAsync(ctx, ct);
+                break;
             default:
                 await WriteJsonAsync(ctx, 404, new { ok = false, message = "not_found" }, ct);
                 break;
@@ -223,13 +224,9 @@ public class WebAppService : BackgroundService
         var session = _sessions.GetOrCreate(userId.Value);
         var chatId = ResolveTrustedChatId(session, request.ChatId);
         if (string.Equals(request.Type, "rest", StringComparison.OrdinalIgnoreCase))
-        {
             await _timers.StartRestTimerAsync(chatId, userId.Value, request.Minutes);
-        }
         else
-        {
             await _timers.StartWorkTimerAsync(chatId, userId.Value, request.Minutes);
-        }
 
         await WriteStateAsync(ctx, session, ct);
     }
@@ -263,9 +260,7 @@ public class WebAppService : BackgroundService
     private async Task HandleAddTaskAsync(HttpContext ctx, CancellationToken ct)
     {
         var request = await ReadJsonAsync<TaskRequest>(ctx, ct);
-        if (request is null ||
-            string.IsNullOrWhiteSpace(request.Title) ||
-            string.IsNullOrWhiteSpace(request.Subject))
+        if (request is null || string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Subject))
         {
             await WriteJsonAsync(ctx, 400, new { ok = false, message = "bad_request" }, ct);
             return;
@@ -293,11 +288,10 @@ public class WebAppService : BackgroundService
             Subject = request.Subject.Trim(),
             Deadline = request.Deadline?.Date
         };
+
         session.Tasks.Add(task);
         _sessions.Save();
-
         await _chatSync.TrySendTaskAddedAsync(ResolveTrustedChatId(session, request.ChatId), task, ct);
-
         await WriteStateAsync(ctx, session, ct);
     }
 
@@ -325,7 +319,6 @@ public class WebAppService : BackgroundService
         task.IsCompleted = request.IsCompleted;
         _sessions.Save();
         await _chatSync.TrySendTaskStatusChangedAsync(ResolveTrustedChatId(session, request.ChatId), task, ct);
-
         await WriteStateAsync(ctx, session, ct);
     }
 
@@ -383,9 +376,7 @@ public class WebAppService : BackgroundService
             });
         }
 
-        session.SchedulePhotoDataUrl = string.IsNullOrWhiteSpace(request.PhotoDataUrl)
-            ? null
-            : request.PhotoDataUrl;
+        session.SchedulePhotoDataUrl = string.IsNullOrWhiteSpace(request.PhotoDataUrl) ? null : request.PhotoDataUrl;
         _sessions.Save();
 
         await _chatSync.TrySendScheduleSavedAsync(
@@ -411,6 +402,7 @@ public class WebAppService : BackgroundService
             return;
 
         var session = _sessions.GetOrCreate(userId.Value);
+        _scheduleSelections.Delete(userId.Value);
         session.Schedule.Clear();
         session.SchedulePhotoDataUrl = null;
         _sessions.Save();
@@ -418,12 +410,88 @@ public class WebAppService : BackgroundService
         await WriteStateAsync(ctx, session, ct);
     }
 
+    private async Task HandleSelectScheduleAsync(HttpContext ctx, CancellationToken ct)
+    {
+        var request = await ReadJsonAsync<ScheduleSelectRequest>(ctx, ct);
+        if (request is null || string.IsNullOrWhiteSpace(request.ScheduleId))
+        {
+            await WriteJsonAsync(ctx, 400, new { ok = false, message = "bad_request" }, ct);
+            return;
+        }
+
+        var userId = await TryResolveAuthorizedUserIdAsync(ctx, request.UserId, ct);
+        if (userId is null)
+            return;
+
+        var group = _scheduleCatalog.GetGroup(request.ScheduleId);
+        if (group is null)
+        {
+            await WriteJsonAsync(ctx, 404, new { ok = false, message = "schedule_not_found" }, ct);
+            return;
+        }
+
+        if (request.SubGroup.HasValue && group.SubGroups.Count > 0 && !group.SubGroups.Contains(request.SubGroup.Value))
+        {
+            await WriteJsonAsync(ctx, 400, new { ok = false, message = "bad_subgroup" }, ct);
+            return;
+        }
+
+        var session = _sessions.GetOrCreate(userId.Value);
+        _scheduleSelections.Save(userId.Value, new UserScheduleSelection
+        {
+            ScheduleId = group.Id,
+            SubGroup = request.SubGroup
+        });
+        session.Schedule = _scheduleCatalog.GetAllEntriesForSelection(group, request.SubGroup);
+        session.SchedulePhotoDataUrl = null;
+        _sessions.Save();
+
+        await _chatSync.TrySendScheduleSavedAsync(
+            ResolveTrustedChatId(session, request.ChatId),
+            session.Schedule,
+            hasPhoto: false,
+            ct);
+
+        await WriteStateAsync(ctx, session, ct);
+    }
+
+    private async Task HandleSaveRemindersAsync(HttpContext ctx, CancellationToken ct)
+    {
+        var request = await ReadJsonAsync<ReminderSaveRequest>(ctx, ct);
+        if (request is null)
+        {
+            await WriteJsonAsync(ctx, 400, new { ok = false, message = "bad_request" }, ct);
+            return;
+        }
+
+        var userId = await TryResolveAuthorizedUserIdAsync(ctx, request.UserId, ct);
+        if (userId is null)
+            return;
+
+        var session = _sessions.GetOrCreate(userId.Value);
+        var chatId = ResolveTrustedChatId(session, request.ChatId);
+
+        if (!request.IsEnabled)
+        {
+            _reminders.Disable(userId.Value, chatId);
+            await WriteStateAsync(ctx, session, ct);
+            return;
+        }
+
+        if (!TryParseReminderTime(request.Time, out var hour, out var minute))
+        {
+            await WriteJsonAsync(ctx, 400, new { ok = false, message = "bad_time" }, ct);
+            return;
+        }
+
+        _reminders.Enable(userId.Value, chatId, hour, minute);
+        await WriteStateAsync(ctx, session, ct);
+    }
+
     private async Task HandleStopTimerAsync(HttpContext ctx, CancellationToken ct)
     {
         var query = ctx.Request.Query;
-
-        if (!long.TryParse(query["userId"], out var userId) ||
-            !long.TryParse(query["chatId"], out var chatId))
+        if (!long.TryParse(query["userId"], out var userId) || !long.TryParse(query["chatId"], out var chatId))
         {
             await WriteJsonAsync(ctx, 400, new { ok = false, message = "bad_request" }, ct);
             return;
@@ -447,9 +515,7 @@ public class WebAppService : BackgroundService
     private async Task HandleTimerStatusAsync(HttpContext ctx, CancellationToken ct)
     {
         var query = ctx.Request.Query;
-
-        if (!long.TryParse(query["userId"], out var userId) ||
-            !Guid.TryParse(query["timerId"], out var timerId))
+        if (!long.TryParse(query["userId"], out var userId) || !Guid.TryParse(query["timerId"], out var timerId))
         {
             await WriteJsonAsync(ctx, 400, new { ok = false, active = false, message = "bad_request" }, ct);
             return;
@@ -461,18 +527,13 @@ public class WebAppService : BackgroundService
 
     private async Task<bool> TryServeStaticFileAsync(HttpContext ctx, string path, CancellationToken ct)
     {
-        var relativePath = Uri.UnescapeDataString(path.TrimStart('/'))
-            .Replace('/', Path.DirectorySeparatorChar);
-
+        var relativePath = Uri.UnescapeDataString(path.TrimStart('/')).Replace('/', Path.DirectorySeparatorChar);
         if (string.IsNullOrWhiteSpace(relativePath) || relativePath.Contains(".."))
             return false;
 
         var fullPath = Path.GetFullPath(Path.Combine(_wwwrootPath, relativePath));
-        if (!fullPath.StartsWith(Path.GetFullPath(_wwwrootPath), StringComparison.OrdinalIgnoreCase) ||
-            !File.Exists(fullPath))
-        {
+        if (!fullPath.StartsWith(Path.GetFullPath(_wwwrootPath), StringComparison.OrdinalIgnoreCase) || !File.Exists(fullPath))
             return false;
-        }
 
         var bytes = await File.ReadAllBytesAsync(fullPath, ct);
         ctx.Response.StatusCode = 200;
@@ -484,11 +545,7 @@ public class WebAppService : BackgroundService
         return true;
     }
 
-    private async Task WriteStateAsync(
-        HttpContext ctx,
-        UserSession session,
-        CancellationToken ct,
-        object? extra = null)
+    private async Task WriteStateAsync(HttpContext ctx, UserSession session, CancellationToken ct, object? extra = null)
     {
         var activeTimer = session.ActiveTimer;
         object timer = activeTimer is null
@@ -504,6 +561,10 @@ public class WebAppService : BackgroundService
                 endsAt = activeTimer.EndsAt,
                 remainingSeconds = Math.Max(0, (int)Math.Ceiling(activeTimer.Remaining.TotalSeconds))
             };
+
+        var reminderSettings = _reminders.Get(session.UserId);
+        var selection = _scheduleSelections.Get(session.UserId);
+        var selectedGroup = selection is null ? null : _scheduleCatalog.GetGroup(selection.ScheduleId);
 
         await WriteJsonAsync(ctx, 200, new
         {
@@ -531,6 +592,31 @@ public class WebAppService : BackgroundService
                     deadline = t.Deadline?.ToString("yyyy-MM-dd"),
                     isCompleted = t.IsCompleted,
                     createdAt = t.CreatedAt
+                }),
+            reminders = new
+            {
+                isEnabled = reminderSettings.IsEnabled,
+                time = reminderSettings.TimeText
+            },
+            scheduleSelection = new
+            {
+                scheduleId = selection?.ScheduleId,
+                subGroup = selection?.SubGroup,
+                title = selectedGroup?.Title,
+                semester = _scheduleCatalog.Semester,
+                currentWeekLabel = _scheduleCatalog.GetCurrentWeekLabel()
+            },
+            scheduleCatalog = _scheduleCatalog.GetDirections()
+                .SelectMany(direction => _scheduleCatalog.GetGroupsByDirection(direction.DirectionCode))
+                .Select(group => new
+                {
+                    id = group.Id,
+                    title = group.Title,
+                    directionCode = group.DirectionCode,
+                    directionName = group.DirectionName,
+                    shortTitle = group.ShortTitle,
+                    course = group.Course,
+                    subGroups = group.SubGroups
                 }),
             schedulePhotoDataUrl = session.SchedulePhotoDataUrl,
             schedule = session.Schedule
@@ -568,9 +654,7 @@ public class WebAppService : BackgroundService
         if (_skipInitDataValidation)
         {
             if (requestedUserId > 0)
-            {
                 return requestedUserId;
-            }
 
             await WriteJsonAsync(ctx, 400, new { ok = false, message = "bad_user_id" }, ct);
             return null;
@@ -624,6 +708,24 @@ public class WebAppService : BackgroundService
             _ => "every"
         };
 
+    private static bool TryParseReminderTime(string? value, out int hour, out int minute)
+    {
+        hour = 0;
+        minute = 0;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        if (!TimeOnly.TryParseExact(value, "HH:mm", out var time) &&
+            !TimeOnly.TryParseExact(value, "H:mm", out time))
+        {
+            return false;
+        }
+
+        hour = time.Hour;
+        minute = time.Minute;
+        return true;
+    }
+
     private static async Task<T?> ReadJsonAsync<T>(HttpContext ctx, CancellationToken ct)
     {
         if (ctx.Request.ContentLength is 0 or null)
@@ -636,17 +738,17 @@ public class WebAppService : BackgroundService
         Path.GetExtension(path).ToLowerInvariant() switch
         {
             ".html" => "text/html; charset=utf-8",
-            ".mp3"  => "audio/mpeg",
-            ".ogg"  => "audio/ogg",
-            ".wav"  => "audio/wav",
-            ".m4a"  => "audio/mp4",
-            ".css"  => "text/css; charset=utf-8",
-            ".js"   => "text/javascript; charset=utf-8",
+            ".mp3" => "audio/mpeg",
+            ".ogg" => "audio/ogg",
+            ".wav" => "audio/wav",
+            ".m4a" => "audio/mp4",
+            ".css" => "text/css; charset=utf-8",
+            ".js" => "text/javascript; charset=utf-8",
             ".json" => "application/json; charset=utf-8",
-            ".png"  => "image/png",
+            ".png" => "image/png",
             ".jpg" or ".jpeg" => "image/jpeg",
             ".webp" => "image/webp",
-            _       => "application/octet-stream"
+            _ => "application/octet-stream"
         };
 
     private static void SetNoCacheHeaders(HttpContext ctx)
@@ -663,11 +765,7 @@ public class WebAppService : BackgroundService
         ctx.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, X-Telegram-Init-Data";
     }
 
-    private static async Task WriteJsonAsync(
-        HttpContext ctx,
-        int statusCode,
-        object body,
-        CancellationToken ct)
+    private static async Task WriteJsonAsync(HttpContext ctx, int statusCode, object body, CancellationToken ct)
     {
         var bytes = JsonSerializer.SerializeToUtf8Bytes(body, JsonOptions);
         ctx.Response.StatusCode = statusCode;
@@ -684,6 +782,8 @@ public class WebAppService : BackgroundService
     private sealed record TaskToggleRequest(long UserId, long ChatId, string? TaskId, bool IsCompleted);
     private sealed record TaskDeleteRequest(long UserId, long ChatId, string? TaskId);
     private sealed record ScheduleSaveRequest(long UserId, long ChatId, string? PhotoDataUrl, List<ScheduleRowRequest> Entries);
+    private sealed record ScheduleSelectRequest(long UserId, long ChatId, string ScheduleId, int? SubGroup);
+    private sealed record ReminderSaveRequest(long UserId, long ChatId, bool IsEnabled, string? Time);
     private sealed record ScheduleRowRequest(
         string? Id,
         string? Day,

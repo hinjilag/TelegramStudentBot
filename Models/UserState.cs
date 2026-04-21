@@ -18,15 +18,6 @@ public enum UserState
     /// <summary>Ожидание произвольного времени таймера в минутах</summary>
     WaitingForTimerMinutes,
 
-    /// <summary>Ожидание дня недели для новой записи расписания</summary>
-    WaitingForScheduleDay,
-
-    /// <summary>Ожидание названия предмета для новой записи расписания</summary>
-    WaitingForScheduleSubject,
-
-    /// <summary>Ожидание времени занятия (например, 09:00–10:30)</summary>
-    WaitingForScheduleTime,
-
-    /// <summary>Ожидание типа недели для занятия</summary>
-    WaitingForScheduleWeekType,
+    /// <summary>Ожидание времени ежедневных напоминаний в формате HH:mm</summary>
+    WaitingForReminderTime,
 }

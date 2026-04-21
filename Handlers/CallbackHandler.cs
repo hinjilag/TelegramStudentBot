@@ -1,4 +1,4 @@
-﻿using Telegram.Bot;
+using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
@@ -13,15 +13,24 @@ public class CallbackHandler
     private readonly ITelegramBotClient _bot;
     private readonly SessionService _sessions;
     private readonly TimerService _timers;
+    private readonly ReminderSettingsService _reminders;
+    private readonly ScheduleCatalogService _scheduleCatalog;
+    private readonly UserScheduleSelectionService _scheduleSelections;
 
     public CallbackHandler(
         ITelegramBotClient bot,
         SessionService sessions,
-        TimerService timers)
+        TimerService timers,
+        ReminderSettingsService reminders,
+        ScheduleCatalogService scheduleCatalog,
+        UserScheduleSelectionService scheduleSelections)
     {
         _bot = bot;
         _sessions = sessions;
         _timers = timers;
+        _reminders = reminders;
+        _scheduleCatalog = scheduleCatalog;
+        _scheduleSelections = scheduleSelections;
     }
 
     public async Task HandleAsync(CallbackQuery query, CancellationToken ct)
@@ -42,34 +51,38 @@ public class CallbackHandler
             _sessions.Save();
         }
 
-        if (data.StartsWith("timer_"))
+        if (data.StartsWith("timer_", StringComparison.Ordinal))
         {
             await HandleTimerCallbackAsync(chatId, userId, session, data, ct);
             return;
         }
 
-        if (data.StartsWith("rest_"))
+        if (data.StartsWith("rest_", StringComparison.Ordinal))
         {
             await HandleRestCallbackAsync(chatId, userId, data, ct);
             return;
         }
 
-        if (data.StartsWith("plan_"))
+        if (data.StartsWith("plan_", StringComparison.Ordinal))
         {
             await HandlePlanCallbackAsync(chatId, session, data, ct);
             return;
         }
 
-        if (data.StartsWith("task_"))
+        if (data.StartsWith("task_", StringComparison.Ordinal))
         {
             await HandleTaskCallbackAsync(chatId, session, data, ct);
             return;
         }
 
-        if (data.StartsWith("schedule_"))
+        if (data.StartsWith("schedule_", StringComparison.Ordinal))
         {
-            await HandleScheduleCallbackAsync(chatId, session, data, ct);
+            await HandleScheduleCallbackAsync(chatId, userId, session, data, ct);
+            return;
         }
+
+        if (data.StartsWith("reminder_", StringComparison.Ordinal))
+            await HandleReminderCallbackAsync(chatId, userId, session, data, ct);
     }
 
     private async Task HandleTimerCallbackAsync(long chatId, long userId, UserSession session, string data, CancellationToken ct)
@@ -80,39 +93,25 @@ public class CallbackHandler
             case "timer_30":
             case "timer_45":
             case "timer_60":
-            {
-                var minutes = int.Parse(data.Split('_')[1]);
-                await _timers.StartWorkTimerAsync(chatId, userId, minutes);
+                await _timers.StartWorkTimerAsync(chatId, userId, int.Parse(data.Split('_')[1]));
                 break;
-            }
 
             case "timer_custom":
-            {
                 session.State = UserState.WaitingForTimerMinutes;
-                await _bot.SendMessage(
-                    chatId: chatId,
-                    text: "✏️ Введи количество минут (от 1 до 300):",
-                    parseMode: ParseMode.Html,
-                    cancellationToken: ct);
+                await _bot.SendMessage(chatId, "Введи количество минут от 1 до 300.", parseMode: ParseMode.Html, cancellationToken: ct);
                 break;
-            }
 
             case "timer_stop":
-            {
                 var stopped = _timers.StopTimer(userId);
-                var text = stopped ? "⏹ Таймер <b>остановлен</b>." : "ℹ️ Нет активного таймера.";
-                await _bot.SendMessage(chatId, text, parseMode: ParseMode.Html, cancellationToken: ct);
+                await _bot.SendMessage(chatId, stopped ? "Таймер остановлен." : "Активного таймера нет.", parseMode: ParseMode.Html, cancellationToken: ct);
                 break;
-            }
         }
     }
 
     private async Task HandleRestCallbackAsync(long chatId, long userId, string data, CancellationToken ct)
     {
         if (int.TryParse(data.Split('_')[1], out var minutes))
-        {
             await _timers.StartRestTimerAsync(chatId, userId, minutes);
-        }
     }
 
     private async Task HandlePlanCallbackAsync(long chatId, UserSession session, string data, CancellationToken ct)
@@ -120,17 +119,10 @@ public class CallbackHandler
         switch (data)
         {
             case "plan_add":
-            {
                 session.State = UserState.WaitingForTaskTitle;
                 session.DraftTask = null;
-
-                await _bot.SendMessage(
-                    chatId: chatId,
-                    text: "📝 <b>Добавление задачи</b>\n\nВведи <b>название</b> задачи:",
-                    parseMode: ParseMode.Html,
-                    cancellationToken: ct);
+                await _bot.SendMessage(chatId, "📝 <b>Добавление задачи</b>\n\nВведи название задачи.", parseMode: ParseMode.Html, cancellationToken: ct);
                 break;
-            }
 
             case "plan_list":
                 await SendTaskListAsync(chatId, session, ct);
@@ -150,129 +142,204 @@ public class CallbackHandler
 
         if (task is null)
         {
-            await _bot.SendMessage(chatId, "⚠️ Задача не найдена.", cancellationToken: ct);
+            await _bot.SendMessage(chatId, "Задача не найдена.", cancellationToken: ct);
             return;
         }
 
         switch (action)
         {
             case "done":
-            {
                 task.IsCompleted = true;
                 _sessions.Save();
-                var title = TelegramHtml.Escape(task.Title);
-                await _bot.SendMessage(
-                    chatId: chatId,
-                    text: $"✅ Задача <b>«{title}»</b> отмечена как выполненная! 🎉",
-                    parseMode: ParseMode.Html,
-                    cancellationToken: ct);
+                await _bot.SendMessage(chatId, $"✅ Задача <b>«{TelegramHtml.Escape(task.Title)}»</b> отмечена как выполненная.", parseMode: ParseMode.Html, cancellationToken: ct);
                 break;
-            }
 
             case "del":
-            {
-                var title = TelegramHtml.Escape(task.Title);
                 session.Tasks.Remove(task);
                 _sessions.Save();
-                await _bot.SendMessage(
-                    chatId: chatId,
-                    text: $"🗑 Задача <b>«{title}»</b> удалена.",
-                    parseMode: ParseMode.Html,
-                    cancellationToken: ct);
+                await _bot.SendMessage(chatId, $"🗑 Задача <b>«{TelegramHtml.Escape(task.Title)}»</b> удалена.", parseMode: ParseMode.Html, cancellationToken: ct);
                 break;
-            }
         }
     }
 
-    private async Task HandleScheduleCallbackAsync(long chatId, UserSession session, string data, CancellationToken ct)
+    private async Task HandleScheduleCallbackAsync(long chatId, long userId, UserSession session, string data, CancellationToken ct)
     {
         switch (data)
         {
-            case "schedule_add":
-            {
-                session.State = UserState.WaitingForScheduleDay;
-                session.DraftSchedule = new ScheduleEntry();
-                await _bot.SendMessage(
-                    chatId,
-                    "🗓 <b>Добавление занятия</b>\n\n" +
-                    "Введи <b>день недели</b>:\n" +
-                    "Понедельник / Вторник / Среда / Четверг / Пятница / Суббота / Воскресенье",
-                    parseMode: ParseMode.Html,
-                    cancellationToken: ct);
-                break;
-            }
+            case "schedule_select":
+                await SendScheduleGroupChooserAsync(chatId, ct);
+                return;
 
-            case "schedule_list":
-                await SendScheduleListAsync(chatId, session, ct);
-                break;
+            case "schedule_today":
+                await SendTodayScheduleAsync(chatId, session, ct);
+                return;
 
             case "schedule_clear":
-            {
+                _scheduleSelections.Delete(userId);
                 session.Schedule.Clear();
+                session.SchedulePhotoDataUrl = null;
                 _sessions.Save();
-                await _bot.SendMessage(chatId, "🗑 Расписание очищено.", cancellationToken: ct);
-                break;
-            }
+                await _bot.SendMessage(chatId, "Выбор группы сброшен. Расписание очищено.", cancellationToken: ct);
+                return;
+
+            case "schedule_week":
+                await SendWeekScheduleAsync(chatId, session, ct);
+                return;
+        }
+
+        if (data.StartsWith("schedule_group_", StringComparison.Ordinal))
+        {
+            var scheduleId = data["schedule_group_".Length..];
+            await SelectScheduleGroupAsync(chatId, userId, session, scheduleId, subGroup: null, ct);
+            return;
+        }
+
+        if (data.StartsWith("schedule_sub_", StringComparison.Ordinal))
+        {
+            var payload = data["schedule_sub_".Length..];
+            var separatorIndex = payload.LastIndexOf('_');
+            if (separatorIndex <= 0)
+                return;
+
+            var scheduleId = payload[..separatorIndex];
+            if (!int.TryParse(payload[(separatorIndex + 1)..], out var subGroup))
+                return;
+
+            await SelectScheduleGroupAsync(chatId, userId, session, scheduleId, subGroup, ct);
         }
     }
 
-    private async Task SendScheduleListAsync(long chatId, UserSession session, CancellationToken ct)
+    private async Task SendScheduleGroupChooserAsync(long chatId, CancellationToken ct)
     {
-        if (session.Schedule.Count == 0)
+        var buttons = _scheduleCatalog.GetDirections()
+            .SelectMany(direction => _scheduleCatalog.GetGroupsByDirection(direction.DirectionCode))
+            .Select(group => (group.Title, $"schedule_group_{group.Id}"));
+
+        await _bot.SendMessage(
+            chatId: chatId,
+            text: "<b>Выбери группу</b>\n\nЕсли у группы есть подгруппы, я затем попрошу выбрать и подгруппу.",
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: ct);
+    }
+
+    private async Task SelectScheduleGroupAsync(long chatId, long userId, UserSession session, string scheduleId, int? subGroup, CancellationToken ct)
+    {
+        var group = _scheduleCatalog.GetGroup(scheduleId);
+        if (group is null)
         {
+            await _bot.SendMessage(chatId, "Не нашёл такую группу в каталоге.", cancellationToken: ct);
+            return;
+        }
+
+        if (!subGroup.HasValue && group.SubGroups.Count > 0)
+        {
+            var buttons = group.SubGroups.Select(number => ($"Подгруппа {number}", $"schedule_sub_{group.Id}_{number}"));
             await _bot.SendMessage(
-                chatId,
-                "🗓 Расписание пусто.\nДобавь занятия через /schedule → «Добавить занятие».",
+                chatId: chatId,
+                text: $"<b>{TelegramHtml.Escape(group.Title)}</b>\n\nТеперь выбери подгруппу:",
+                parseMode: ParseMode.Html,
+                replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
                 cancellationToken: ct);
             return;
         }
 
-        var days = new[] { "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье" };
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine("🗓 <b>Расписание занятий:</b>\n");
-
-        foreach (var day in days)
+        _scheduleSelections.Save(userId, new UserScheduleSelection
         {
-            var entries = session.Schedule.Where(e => e.Day == day).ToList();
-            if (entries.Count == 0)
-                continue;
+            ScheduleId = group.Id,
+            SubGroup = subGroup
+        });
 
-            sb.AppendLine($"<b>{day}:</b>");
-            foreach (var entry in entries)
-            {
-                var time = TelegramHtml.Escape(entry.Time);
-                var subject = TelegramHtml.Escape(entry.Subject);
-                var week = entry.WeekType switch
-                {
-                    "even" => " — чётная неделя",
-                    "odd" => " — нечётная неделя",
-                    _ => ""
-                };
-                var priority = entry.IsPriority ? " 🔴 приоритет" : "";
-                sb.AppendLine($"  🕐 {time} — {subject}{week}{priority}");
-            }
-            sb.AppendLine();
-        }
+        session.Schedule = _scheduleCatalog.GetAllEntriesForSelection(group, subGroup);
+        session.SchedulePhotoDataUrl = null;
+        _sessions.Save();
 
+        var subgroupText = subGroup.HasValue ? $"\nПодгруппа: <b>{subGroup.Value}</b>" : string.Empty;
         await _bot.SendMessage(
-            chatId,
-            sb.ToString().TrimEnd(),
+            chatId: chatId,
+            text: $"<b>Расписание подключено</b>\n\nГруппа: <b>{TelegramHtml.Escape(group.Title)}</b>{subgroupText}\nЗаписей в расписании: <b>{session.Schedule.Count}</b>",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
     }
 
-    private async Task SendTaskListAsync(long chatId, UserSession session, CancellationToken ct)
+    private async Task SendTodayScheduleAsync(long chatId, UserSession session, CancellationToken ct)
     {
-        var active = session.Tasks.Where(t => !t.IsCompleted).ToList();
-        var completed = session.Tasks.Where(t => t.IsCompleted).ToList();
+        if (session.Schedule.Count == 0)
+        {
+            await _bot.SendMessage(chatId, "Сначала выбери группу через /schedule.", cancellationToken: ct);
+            return;
+        }
 
-        if (session.Tasks.Count == 0)
+        var dayNumber = ScheduleCatalogService.GetDayNumber(DateTime.Today);
+        var currentWeekType = _scheduleCatalog.GetCurrentWeekType();
+        var todayEntries = session.Schedule
+            .Where(entry => entry.DayOfWeek == dayNumber && (!entry.WeekTypeCode.HasValue || entry.WeekTypeCode.Value == currentWeekType))
+            .OrderBy(entry => entry.LessonNumber)
+            .ThenBy(entry => entry.Time)
+            .ToList();
+
+        if (todayEntries.Count == 0)
         {
             await _bot.SendMessage(
                 chatId: chatId,
-                text: "📋 <b>Список задач пуст.</b>\nДобавь первую задачу через /plan → «Добавить задачу».",
+                text: $"<b>На сегодня пар нет</b>\nТекущая неделя: <b>{TelegramHtml.Escape(_scheduleCatalog.GetCurrentWeekLabel())}</b>.",
                 parseMode: ParseMode.Html,
                 cancellationToken: ct);
+            return;
+        }
+
+        var text = "<b>Расписание на сегодня</b>\n" +
+                   $"Неделя: <b>{TelegramHtml.Escape(_scheduleCatalog.GetCurrentWeekLabel())}</b>\n\n" +
+                   ScheduleService.FormatSchedule(todayEntries, currentWeekType);
+
+        await _bot.SendMessage(chatId, text, parseMode: ParseMode.Html, cancellationToken: ct);
+    }
+
+    private async Task SendWeekScheduleAsync(long chatId, UserSession session, CancellationToken ct)
+    {
+        if (session.Schedule.Count == 0)
+        {
+            await _bot.SendMessage(chatId, "Сначала выбери группу через /schedule.", cancellationToken: ct);
+            return;
+        }
+
+        var currentWeekType = _scheduleCatalog.GetCurrentWeekType();
+        var text = "<b>Расписание на неделю</b>\n" +
+                   $"Текущая неделя: <b>{TelegramHtml.Escape(_scheduleCatalog.GetCurrentWeekLabel())}</b>\n\n" +
+                   ScheduleService.FormatSchedule(session.Schedule, currentWeekType);
+
+        await _bot.SendMessage(chatId, text, parseMode: ParseMode.Html, cancellationToken: ct);
+    }
+
+    private async Task HandleReminderCallbackAsync(long chatId, long userId, UserSession session, string data, CancellationToken ct)
+    {
+        switch (data)
+        {
+            case "reminder_enable_default":
+                _reminders.Enable(userId, chatId, 20, 0);
+                await _bot.SendMessage(chatId, "Напоминания включены. Каждый день в 20:00 я пришлю список задач на завтра.", cancellationToken: ct);
+                break;
+
+            case "reminder_disable":
+                _reminders.Disable(userId, chatId);
+                await _bot.SendMessage(chatId, "Напоминания выключены.", cancellationToken: ct);
+                break;
+
+            case "reminder_change_time":
+                session.State = UserState.WaitingForReminderTime;
+                await _bot.SendMessage(chatId, "Введи время напоминаний в формате <b>HH:mm</b>, например <code>19:30</code>.", parseMode: ParseMode.Html, cancellationToken: ct);
+                break;
+        }
+    }
+
+    private async Task SendTaskListAsync(long chatId, UserSession session, CancellationToken ct)
+    {
+        var active = session.Tasks.Where(task => !task.IsCompleted).ToList();
+        var completed = session.Tasks.Where(task => task.IsCompleted).ToList();
+
+        if (session.Tasks.Count == 0)
+        {
+            await _bot.SendMessage(chatId, "📋 <b>Список задач пуст.</b>\nДобавь первую задачу через /plan.", parseMode: ParseMode.Html, cancellationToken: ct);
             return;
         }
 
@@ -284,18 +351,15 @@ public class CallbackHandler
 
         foreach (var task in active.Take(10))
         {
-            var deadlineText = task.Deadline.HasValue
-                ? $"\n📅 Дедлайн: {task.Deadline.Value:dd.MM.yyyy}"
-                : string.Empty;
-
+            var deadlineText = task.Deadline.HasValue ? $"\n📅 Дедлайн: {task.Deadline.Value:dd.MM.yyyy}" : string.Empty;
             var urgency = string.Empty;
             if (task.Deadline.HasValue)
             {
                 var days = (task.Deadline.Value.Date - DateTime.Today).Days;
                 urgency = days switch
                 {
-                    < 0 => " 🔴 <b>Просрочено!</b>",
-                    0 => " 🟡 <b>Сдать сегодня!</b>",
+                    < 0 => " 🔴 <b>Просрочено</b>",
+                    0 => " 🟡 <b>Сдать сегодня</b>",
                     1 => " 🟡 Завтра",
                     <= 3 => $" 🟠 Через {days} дня",
                     _ => $" ✅ Через {days} дней"
@@ -313,31 +377,9 @@ public class CallbackHandler
 
             await _bot.SendMessage(
                 chatId: chatId,
-                text: $"📌 <b>{TelegramHtml.Escape(task.Title)}</b>{urgency}\n" +
-                      $"📚 {TelegramHtml.Escape(task.Subject)}{deadlineText}",
+                text: $"📌 <b>{TelegramHtml.Escape(task.Title)}</b>{urgency}\n📚 {TelegramHtml.Escape(task.Subject)}{deadlineText}",
                 parseMode: ParseMode.Html,
                 replyMarkup: keyboard,
-                cancellationToken: ct);
-        }
-
-        if (active.Count > 10)
-        {
-            await _bot.SendMessage(
-                chatId: chatId,
-                text: $"... и ещё {active.Count - 10} задач(и). Выполни часть, чтобы увидеть остальные.",
-                parseMode: ParseMode.Html,
-                cancellationToken: ct);
-        }
-
-        if (completed.Count > 0)
-        {
-            var completedText = string.Join("\n", completed.Take(5).Select(t =>
-                $"✅ {TelegramHtml.Escape(t.Title)} ({TelegramHtml.Escape(t.Subject)})"));
-            await _bot.SendMessage(
-                chatId: chatId,
-                text: $"<b>Выполнено:</b>\n{completedText}" +
-                      (completed.Count > 5 ? $"\n... и ещё {completed.Count - 5}" : ""),
-                parseMode: ParseMode.Html,
                 cancellationToken: ct);
         }
     }

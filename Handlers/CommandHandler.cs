@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
@@ -9,32 +9,36 @@ using TelegramStudentBot.Services;
 
 namespace TelegramStudentBot.Handlers;
 
-/// <summary>
-/// Обработчик команд (/start, /help, /timer, /rest, /plan, /fatigue, /status, /stop, /ai).
-/// Каждый метод соответствует одной команде.
-/// </summary>
 public class CommandHandler
 {
     private readonly ITelegramBotClient _bot;
     private readonly SessionService _sessions;
     private readonly TimerService _timers;
+    private readonly ReminderSettingsService _reminders;
+    private readonly ScheduleCatalogService _scheduleCatalog;
+    private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly string? _webAppUrl;
     private readonly string? _webAppStopUrl;
 
-    public CommandHandler(ITelegramBotClient bot, SessionService sessions, TimerService timers, IConfiguration config)
+    public CommandHandler(
+        ITelegramBotClient bot,
+        SessionService sessions,
+        TimerService timers,
+        ReminderSettingsService reminders,
+        ScheduleCatalogService scheduleCatalog,
+        UserScheduleSelectionService scheduleSelections,
+        IConfiguration config)
     {
-        _bot           = bot;
-        _sessions      = sessions;
-        _timers        = timers;
-        _webAppUrl     = config["WebAppUrl"]?.TrimEnd('/');
+        _bot = bot;
+        _sessions = sessions;
+        _timers = timers;
+        _reminders = reminders;
+        _scheduleCatalog = scheduleCatalog;
+        _scheduleSelections = scheduleSelections;
+        _webAppUrl = config["WebAppUrl"]?.TrimEnd('/');
         _webAppStopUrl = config["WebAppStopUrl"]?.TrimEnd('/');
     }
 
-    // ══════════════════════════════════════════════════════════
-    //  /start
-    // ══════════════════════════════════════════════════════════
-
-    /// <summary>Приветствие при первом запуске или перезапуске</summary>
     public async Task HandleStartAsync(Message msg, CancellationToken ct)
     {
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
@@ -42,237 +46,228 @@ public class CommandHandler
         var firstName = TelegramHtml.Escape(session.FirstName);
 
         await _bot.SendMessage(
-            chatId:      msg.Chat.Id,
-            text:        $"👋 Привет, <b>{firstName}</b>!\n\n" +
-                         $"Я помогу тебе учиться эффективно:\n" +
-                         $"📋 Планировать задачи\n" +
-                         $"🗓 Вести расписание занятий\n" +
-                         $"⏱ Запускать таймеры (Помодоро)\n" +
-                         $"😴 Следить за усталостью\n\n" +
-                         $"Открой Mini App, чтобы управлять всем из одного окна.",
-            parseMode:   ParseMode.Html,
-            replyMarkup: BuildMiniAppKeyboard(msg),
-            cancellationToken: ct);
-    }
-
-    // ══════════════════════════════════════════════════════════
-    //  /help
-    // ══════════════════════════════════════════════════════════
-
-    /// <summary>Справка по всем командам</summary>
-    public async Task HandleHelpAsync(Message msg, CancellationToken ct)
-    {
-        await _bot.SendMessage(
-            chatId:    msg.Chat.Id,
-            text:      "📖 <b>Список команд:</b>\n\n" +
-                       "📱 <b>Mini App:</b>\n" +
-                       "/app — открыть полный интерфейс\n\n" +
-                       "⏱ <b>Таймер учёбы:</b>\n" +
-                       "/timer — запустить таймер (25/30/45/60 мин или своё)\n" +
-                       "/stop — остановить текущий таймер\n\n" +
-                       "☕ <b>Отдых:</b>\n" +
-                       "/rest — запустить таймер отдыха\n\n" +
-                       "📋 <b>Планирование:</b>\n" +
-                       "/plan — управление задачами\n\n" +
-                       "😴 <b>Усталость:</b>\n" +
-                       "/fatigue — показать уровень усталости\n\n" +
-                       "📊 <b>Статус:</b>\n" +
-                       "/status — общий дашборд (таймер + усталость + задачи)\n\n" +
-                       "🗓 <b>Расписание:</b>\n" +
-                       "/schedule — добавить и посмотреть расписание занятий\n\n" +
-                       "❓ /help — эта справка",
+            chatId: msg.Chat.Id,
+            text: $"👋 Привет, <b>{firstName}</b>!\n\n" +
+                  "Я помогу тебе учиться спокойнее и собраннее:\n" +
+                  "📋 вести задачи\n" +
+                  "🗓 смотреть расписание по группе\n" +
+                  "⏰ получать напоминания о дедлайнах\n" +
+                  "⏱ запускать таймеры\n" +
+                  "😴 следить за усталостью\n\n" +
+                  "Открой Mini App, чтобы управлять всем в одном месте.",
             parseMode: ParseMode.Html,
             replyMarkup: BuildMiniAppKeyboard(msg),
             cancellationToken: ct);
     }
 
-    /// <summary>Открыть полноценный Mini App интерфейс</summary>
-    public async Task HandleAppAsync(Message msg, CancellationToken ct)
+    public async Task HandleHelpAsync(Message msg, CancellationToken ct)
     {
         await _bot.SendMessage(
-            chatId:      msg.Chat.Id,
-            text:        "📱 <b>Mini App</b>\n\nЗдесь можно запускать таймеры, вести ДЗ и заполнять расписание по фото.",
-            parseMode:   ParseMode.Html,
+            chatId: msg.Chat.Id,
+            text: "📖 <b>Команды</b>\n\n" +
+                  "📱 <b>Mini App</b>\n/app — открыть Mini App\n\n" +
+                  "⏱ <b>Таймеры</b>\n/timer — рабочий таймер\n/rest — таймер отдыха\n/stop — остановить таймер\n\n" +
+                  "📋 <b>Задачи</b>\n/plan — задачи и план\n\n" +
+                  "🗓 <b>Расписание</b>\n/schedule — выбрать группу и посмотреть расписание\n\n" +
+                  "⏰ <b>Напоминания</b>\n/reminders — настроить ежедневные напоминания\n\n" +
+                  "😴 <b>Состояние</b>\n/fatigue — уровень усталости\n/status — общий статус\n\n" +
+                  "❓ /help — эта справка",
+            parseMode: ParseMode.Html,
             replyMarkup: BuildMiniAppKeyboard(msg),
             cancellationToken: ct);
     }
 
-    // ══════════════════════════════════════════════════════════
-    //  /timer
-    // ══════════════════════════════════════════════════════════
+    public async Task HandleAppAsync(Message msg, CancellationToken ct)
+    {
+        await _bot.SendMessage(
+            chatId: msg.Chat.Id,
+            text: "📱 <b>Mini App</b>\n\nЗдесь можно запускать таймеры, вести задачи, выбирать группу и настраивать напоминания.",
+            parseMode: ParseMode.Html,
+            replyMarkup: BuildMiniAppKeyboard(msg),
+            cancellationToken: ct);
+    }
 
-    /// <summary>Показать меню выбора длительности рабочего таймера</summary>
     public async Task HandleTimerAsync(Message msg, CancellationToken ct)
     {
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
 
-        // Если уже идёт таймер — сообщаем пользователю
-        string prefix = string.Empty;
+        var prefix = string.Empty;
         if (session.ActiveTimer is not null)
         {
             var remaining = session.ActiveTimer.Remaining;
             var typeLabel = session.ActiveTimer.Type == TimerType.Work ? "рабочий" : "отдых";
-            prefix = $"⚠️ Уже идёт таймер <b>({typeLabel})</b>, осталось: " +
-                     $"<b>{(int)remaining.TotalMinutes} мин {remaining.Seconds} сек</b>\n" +
-                     $"Выбери новый, чтобы заменить текущий:\n\n";
+            prefix = $"⚠️ Уже идёт таймер <b>{typeLabel}</b>, осталось <b>{(int)remaining.TotalMinutes} мин {remaining.Seconds} сек</b>.\n\n";
         }
 
         await _bot.SendMessage(
-            chatId:      msg.Chat.Id,
-            text:        prefix + "⏱ <b>Выбери длительность рабочего таймера:</b>",
-            parseMode:   ParseMode.Html,
+            chatId: msg.Chat.Id,
+            text: prefix + "⏱ <b>Выбери длительность рабочего таймера:</b>",
+            parseMode: ParseMode.Html,
             replyMarkup: BuildTimerKeyboard(),
             cancellationToken: ct);
     }
 
-    // ══════════════════════════════════════════════════════════
-    //  /rest
-    // ══════════════════════════════════════════════════════════
-
-    /// <summary>Показать меню выбора длительности отдыха</summary>
     public async Task HandleRestAsync(Message msg, CancellationToken ct)
     {
         await _bot.SendMessage(
-            chatId:      msg.Chat.Id,
-            text:        "☕ <b>Выбери длительность перерыва:</b>",
-            parseMode:   ParseMode.Html,
+            chatId: msg.Chat.Id,
+            text: "☕ <b>Выбери длительность перерыва:</b>",
+            parseMode: ParseMode.Html,
             replyMarkup: BuildRestKeyboard(),
             cancellationToken: ct);
     }
 
-    // ══════════════════════════════════════════════════════════
-    //  /stop
-    // ══════════════════════════════════════════════════════════
-
-    /// <summary>Досрочно остановить активный таймер</summary>
     public async Task HandleStopAsync(Message msg, CancellationToken ct)
     {
         var stopped = _timers.StopTimer(msg.From!.Id);
-
         var text = stopped
-            ? "⏹ Таймер <b>остановлен</b>. Когда будешь готов — запускай снова!"
-            : "ℹ️ Нет активного таймера.";
+            ? "⏹ Таймер <b>остановлен</b>."
+            : "Активного таймера нет.";
 
         await _bot.SendMessage(
-            chatId:    msg.Chat.Id,
-            text:      text,
+            chatId: msg.Chat.Id,
+            text: text,
             parseMode: ParseMode.Html,
             cancellationToken: ct);
     }
 
-    // ══════════════════════════════════════════════════════════
-    //  /fatigue
-    // ══════════════════════════════════════════════════════════
-
-    /// <summary>Показать уровень усталости и советы</summary>
     public async Task HandleFatigueAsync(Message msg, CancellationToken ct)
     {
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
-
-        // Визуальная шкала усталости (10 делений)
-        var filled  = session.FatigueLevel / 10;
-        var empty   = 10 - filled;
-        var bar     = new string('█', filled) + new string('░', empty);
+        var filled = session.FatigueLevel / 10;
+        var empty = 10 - filled;
+        var bar = new string('█', filled) + new string('░', empty);
 
         var advice = session.FatigueLevel switch
         {
-            <= 30 => "💡 Ты в отличной форме! Самое время учиться.",
-            <= 60 => "💡 Умеренная усталость. Продолжай, но не забывай про перерывы.",
-            <= 85 => "💡 Высокая усталость! Рекомендую сделать перерыв → /rest",
-            _      => "💡 Истощение! Нужен длительный отдых (30+ мин) → /rest"
+            <= 30 => "Ты в хорошей форме.",
+            <= 60 => "Усталость умеренная, не забывай про перерывы.",
+            <= 85 => "Уже стоит передохнуть.",
+            _ => "Лучше сделать длинный отдых."
         };
 
         await _bot.SendMessage(
-            chatId:    msg.Chat.Id,
-            text:      $"😴 <b>Уровень усталости:</b>\n\n" +
-                       $"[{bar}] {session.FatigueLevel}%\n" +
-                       $"Статус: {session.FatigueDescription}\n" +
-                       $"Сессий без отдыха: {session.WorkSessionsWithoutRest}\n\n" +
-                       $"{advice}",
+            chatId: msg.Chat.Id,
+            text: $"😴 <b>Уровень усталости</b>\n\n[{bar}] {session.FatigueLevel}%\n" +
+                  $"Статус: {session.FatigueDescription}\n" +
+                  $"Сессий без отдыха: {session.WorkSessionsWithoutRest}\n\n{advice}",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
     }
 
-    // ══════════════════════════════════════════════════════════
-    //  /status
-    // ══════════════════════════════════════════════════════════
-
-    /// <summary>Общий дашборд: таймер + усталость + задачи</summary>
     public async Task HandleStatusAsync(Message msg, CancellationToken ct)
     {
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
         var firstName = TelegramHtml.Escape(session.FirstName);
 
-        // Блок таймера
-        string timerBlock;
-        if (session.ActiveTimer is not null)
-        {
-            var t         = session.ActiveTimer;
-            var remaining = t.Remaining;
-            var typeLabel = t.Type == TimerType.Work ? "⏱ Работа" : "☕ Отдых";
-            timerBlock = $"{typeLabel}: осталось <b>{(int)remaining.TotalMinutes} мин {remaining.Seconds} сек</b>\n" +
-                         $"Завершится в {t.EndsAt:HH:mm}";
-        }
-        else
-        {
-            timerBlock = "⏹ Таймер не запущен";
-        }
+        var timerBlock = session.ActiveTimer is null
+            ? "Таймер не запущен"
+            : $"{(session.ActiveTimer.Type == TimerType.Work ? "Работа" : "Отдых")}: " +
+              $"ещё <b>{(int)session.ActiveTimer.Remaining.TotalMinutes} мин {session.ActiveTimer.Remaining.Seconds} сек</b>";
 
-        // Блок усталости
-        var filled   = session.FatigueLevel / 10;
-        var bar      = new string('█', filled) + new string('░', 10 - filled);
-        var fatBlock = $"[{bar}] {session.FatigueLevel}% — {session.FatigueDescription}";
+        var fatigueBar = new string('█', session.FatigueLevel / 10) + new string('░', 10 - (session.FatigueLevel / 10));
+        var taskPending = session.Tasks.Count(task => !task.IsCompleted);
+        var reminderSettings = _reminders.Get(msg.From.Id);
+        var reminderBlock = reminderSettings.IsEnabled ? $"Включены на <b>{reminderSettings.TimeText}</b>" : "Выключены";
 
-        // Блок задач
-        var pending   = session.Tasks.Count(t => !t.IsCompleted);
-        var completed = session.Tasks.Count(t => t.IsCompleted);
-        var taskBlock = session.Tasks.Count == 0
-            ? "Список задач пуст"
-            : $"Выполнено: {completed}, Осталось: {pending}";
+        var selection = _scheduleSelections.Get(msg.From.Id);
+        var scheduleBlock = selection is null
+            ? "Группа не выбрана"
+            : TelegramHtml.Escape(_scheduleCatalog.GetGroup(selection.ScheduleId)?.Title ?? selection.ScheduleId);
 
         await _bot.SendMessage(
-            chatId:    msg.Chat.Id,
-            text:      $"📊 <b>Твой статус, {firstName}</b>\n\n" +
-                       $"🕐 <b>Таймер:</b>\n{timerBlock}\n\n" +
-                       $"😴 <b>Усталость:</b>\n{fatBlock}\n\n" +
-                       $"📋 <b>Задачи:</b>\n{taskBlock}",
+            chatId: msg.Chat.Id,
+            text: $"📊 <b>Статус: {firstName}</b>\n\n" +
+                  $"🕐 <b>Таймер</b>\n{timerBlock}\n\n" +
+                  $"😴 <b>Усталость</b>\n[{fatigueBar}] {session.FatigueLevel}%\n\n" +
+                  $"📋 <b>Задачи</b>\nАктивных: <b>{taskPending}</b>\n\n" +
+                  $"🗓 <b>Расписание</b>\n{scheduleBlock}\n\n" +
+                  $"⏰ <b>Напоминания</b>\n{reminderBlock}",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
     }
 
-    // ══════════════════════════════════════════════════════════
-    //  /plan
-    // ══════════════════════════════════════════════════════════
-
-    /// <summary>Меню управления учебными задачами</summary>
     public async Task HandlePlanAsync(Message msg, CancellationToken ct)
     {
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
-        var pending  = session.PendingTasksCount;
+        var pending = session.PendingTasksCount;
 
         var text = pending > 0
             ? $"📋 <b>Твой план</b>\nНевыполненных задач: <b>{pending}</b>\n\nЧто делаем?"
-            : "📋 <b>Твой план</b>\nЗадач пока нет. Добавь первую!";
+            : "📋 <b>Твой план</b>\nЗадач пока нет. Добавь первую.";
 
         await _bot.SendMessage(
-            chatId:      msg.Chat.Id,
-            text:        text,
-            parseMode:   ParseMode.Html,
+            chatId: msg.Chat.Id,
+            text: text,
+            parseMode: ParseMode.Html,
             replyMarkup: BuildPlanKeyboard(),
             cancellationToken: ct);
     }
 
-    // ══════════════════════════════════════════════════════════
-    //  Построители клавиатур
-    // ══════════════════════════════════════════════════════════
+    public async Task HandleScheduleAsync(Message msg, CancellationToken ct)
+    {
+        var userId = msg.From!.Id;
+        var selection = _scheduleSelections.Get(userId);
+        var session = _sessions.GetOrCreate(userId, msg.From.FirstName);
+        var currentWeek = _scheduleCatalog.GetCurrentWeekLabel();
 
-    /// <summary>Клавиатура выбора рабочего таймера</summary>
+        string text;
+        if (selection is null)
+        {
+            text =
+                "<b>Расписание занятий</b>\n\n" +
+                "Как это работает:\n" +
+                "1. Нажми <b>Выбрать группу</b>\n" +
+                "2. Выбери свою группу\n" +
+                "3. Если нужно, выбери подгруппу\n" +
+                "4. Потом можно открыть расписание на сегодня или на всю неделю";
+        }
+        else
+        {
+            var group = _scheduleCatalog.GetGroup(selection.ScheduleId);
+            var subgroupText = selection.SubGroup.HasValue ? $"\nПодгруппа: <b>{selection.SubGroup.Value}</b>" : string.Empty;
+            text =
+                "<b>Расписание занятий</b>\n\n" +
+                $"Группа: <b>{TelegramHtml.Escape(group?.Title ?? selection.ScheduleId)}</b>{subgroupText}\n" +
+                $"Записей в расписании: <b>{session.Schedule.Count}</b>\n" +
+                $"Текущая неделя: <b>{TelegramHtml.Escape(currentWeek)}</b>\n\n" +
+                "Что можно сделать:\n" +
+                "• посмотреть пары на сегодня\n" +
+                "• открыть расписание на всю неделю\n" +
+                "• сменить группу";
+        }
+
+        await _bot.SendMessage(
+            chatId: msg.Chat.Id,
+            text: text,
+            parseMode: ParseMode.Html,
+            replyMarkup: BuildScheduleKeyboard(),
+            cancellationToken: ct);
+    }
+
+    public async Task HandleRemindersAsync(Message msg, CancellationToken ct)
+    {
+        var settings = _reminders.Get(msg.From!.Id);
+        var status = settings.IsEnabled
+            ? $"✅ Включены на <b>{settings.TimeText}</b>"
+            : "⛔ Выключены";
+
+        await _bot.SendMessage(
+            chatId: msg.Chat.Id,
+            text: "⏰ <b>Напоминания о дедлайнах</b>\n\n" +
+                  "Раз в день бот проверяет задачи с дедлайном на завтра и присылает короткий список.\n\n" +
+                  $"Статус: {status}",
+            parseMode: ParseMode.Html,
+            replyMarkup: BuildReminderKeyboard(settings),
+            cancellationToken: ct);
+    }
+
     private static InlineKeyboardMarkup BuildTimerKeyboard() =>
         new(new[]
         {
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("⏱ 25 мин (Помодоро)", "timer_25"),
+                InlineKeyboardButton.WithCallbackData("⏱ 25 мин", "timer_25"),
                 InlineKeyboardButton.WithCallbackData("⏱ 30 мин", "timer_30")
             },
             new[]
@@ -287,66 +282,58 @@ public class CommandHandler
             }
         });
 
-    /// <summary>Клавиатура выбора перерыва</summary>
     private static InlineKeyboardMarkup BuildRestKeyboard() =>
         new(new[]
         {
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("☕ 5 мин (короткий)", "rest_5"),
-                InlineKeyboardButton.WithCallbackData("☕ 15 мин (средний)", "rest_15")
+                InlineKeyboardButton.WithCallbackData("☕ 5 мин", "rest_5"),
+                InlineKeyboardButton.WithCallbackData("☕ 15 мин", "rest_15")
             },
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("🛌 30 мин (длинный)", "rest_30")
+                InlineKeyboardButton.WithCallbackData("🛌 30 мин", "rest_30")
             }
         });
 
-    /// <summary>Клавиатура меню планирования</summary>
     private static InlineKeyboardMarkup BuildPlanKeyboard() =>
         new(new[]
         {
             new[]
             {
                 InlineKeyboardButton.WithCallbackData("➕ Добавить задачу", "plan_add"),
-                InlineKeyboardButton.WithCallbackData("📋 Показать план",   "plan_list")
+                InlineKeyboardButton.WithCallbackData("📋 Показать план", "plan_list")
             }
         });
 
-    // ══════════════════════════════════════════════════════════
-    //  /schedule
-    // ══════════════════════════════════════════════════════════
-
-    /// <summary>Меню управления расписанием занятий</summary>
-    public async Task HandleScheduleAsync(Message msg, CancellationToken ct)
-    {
-        var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
-        var count   = session.Schedule.Count;
-
-        var text = count > 0
-            ? $"🗓 <b>Расписание занятий</b>\nЗаписей: <b>{count}</b>\n\nЧто делаем?"
-            : "🗓 <b>Расписание занятий</b>\nРасписание пока не добавлено.";
-
-        await _bot.SendMessage(
-            chatId:      msg.Chat.Id,
-            text:        text,
-            parseMode:   ParseMode.Html,
-            replyMarkup: BuildScheduleKeyboard(),
-            cancellationToken: ct);
-    }
-
-    /// <summary>Клавиатура меню расписания</summary>
     private static InlineKeyboardMarkup BuildScheduleKeyboard() =>
         new(new[]
         {
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("➕ Добавить занятие",    "schedule_add"),
-                InlineKeyboardButton.WithCallbackData("📋 Показать расписание", "schedule_list")
+                InlineKeyboardButton.WithCallbackData("🎓 Выбрать группу", "schedule_select"),
+                InlineKeyboardButton.WithCallbackData("📅 На сегодня", "schedule_today")
             },
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("🗑 Очистить всё",        "schedule_clear")
+                InlineKeyboardButton.WithCallbackData("🗂 Вся неделя", "schedule_week"),
+                InlineKeyboardButton.WithCallbackData("🗑 Сбросить", "schedule_clear")
+            }
+        });
+
+    private static InlineKeyboardMarkup BuildReminderKeyboard(UserReminderSettings settings) =>
+        new(new[]
+        {
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData(
+                    settings.IsEnabled ? "🕗 Изменить время" : "✅ Включить на 20:00",
+                    settings.IsEnabled ? "reminder_change_time" : "reminder_enable_default")
+            },
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("✏️ Своё время", "reminder_change_time"),
+                InlineKeyboardButton.WithCallbackData("⛔ Выключить", "reminder_disable")
             }
         });
 
@@ -369,14 +356,11 @@ public class CommandHandler
 
         var isStaticPage = _webAppUrl.Contains("github.io", StringComparison.OrdinalIgnoreCase);
         var pagePath = isStaticPage ? "/timer.html" : "/app";
-        var url = $"{_webAppUrl}{pagePath}?view={Uri.EscapeDataString(view)}" +
-                  $"&userId={msg.From.Id}&chatId={msg.Chat.Id}";
+        var url = $"{_webAppUrl}{pagePath}?view={Uri.EscapeDataString(view)}&userId={msg.From.Id}&chatId={msg.Chat.Id}";
 
         var apiBase = isStaticPage ? _webAppStopUrl : _webAppUrl;
         if (!string.IsNullOrWhiteSpace(apiBase))
-        {
             url += $"&apiBase={Uri.EscapeDataString(apiBase)}";
-        }
 
         return url;
     }

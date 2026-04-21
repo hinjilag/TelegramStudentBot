@@ -1,4 +1,4 @@
- using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
@@ -7,9 +7,6 @@ using TelegramStudentBot.Models;
 
 namespace TelegramStudentBot.Services;
 
-/// <summary>
-/// Sends compact Telegram chat updates for changes made outside the chat UI.
-/// </summary>
 public class ChatSyncService
 {
     private readonly ITelegramBotClient _bot;
@@ -22,21 +19,17 @@ public class ChatSyncService
     }
 
     public Task TrySendTimerStoppedAsync(long chatId, CancellationToken ct) =>
-        TrySendAsync(
-            chatId,
-            "⏹ Таймер остановлен из Mini App.",
-            replyMarkup: null,
-            ct);
+        TrySendAsync(chatId, "⏹ Таймер остановлен из Mini App.", replyMarkup: null, ct);
 
     public Task TrySendTaskAddedAsync(long chatId, StudyTask task, CancellationToken ct)
     {
         var deadline = task.Deadline.HasValue
             ? $"\n📅 Дедлайн: <b>{task.Deadline.Value:dd.MM.yyyy}</b>"
-            : "";
+            : string.Empty;
 
         return TrySendAsync(
             chatId,
-            "📌 <b>ДЗ добавлено из Mini App</b>\n\n" +
+            "📌 <b>Задача добавлена из Mini App</b>\n\n" +
             $"<b>{TelegramHtml.Escape(task.Title)}</b>\n" +
             $"📚 {TelegramHtml.Escape(task.Subject)}{deadline}",
             BuildTaskKeyboard(task),
@@ -45,11 +38,11 @@ public class ChatSyncService
 
     public Task TrySendTaskStatusChangedAsync(long chatId, StudyTask task, CancellationToken ct)
     {
-        var status = task.IsCompleted ? "отмечено как выполненное" : "возвращено в активные";
+        var status = task.IsCompleted ? "отмечена как выполненная" : "возвращена в активные";
 
         return TrySendAsync(
             chatId,
-            $"✅ ДЗ <b>«{TelegramHtml.Escape(task.Title)}»</b> {status} из Mini App.",
+            $"✅ Задача <b>«{TelegramHtml.Escape(task.Title)}»</b> {status} из Mini App.",
             replyMarkup: null,
             ct);
     }
@@ -57,7 +50,7 @@ public class ChatSyncService
     public Task TrySendTaskDeletedAsync(long chatId, StudyTask task, CancellationToken ct) =>
         TrySendAsync(
             chatId,
-            $"🗑 ДЗ <b>«{TelegramHtml.Escape(task.Title)}»</b> удалено из Mini App.",
+            $"🗑 Задача <b>«{TelegramHtml.Escape(task.Title)}»</b> удалена из Mini App.",
             replyMarkup: null,
             ct);
 
@@ -65,29 +58,25 @@ public class ChatSyncService
     {
         var lines = new List<string>
         {
-            "🗓 <b>Расписание обновлено из Mini App</b>",
-            $"Строк: <b>{entries.Count}</b>" + (hasPhoto ? "\nФото расписания сохранено." : "")
+            "🗓 <b>Расписание обновлено</b>"
         };
 
-        foreach (var entry in entries.Take(8))
+        if (hasPhoto)
+            lines.Add("Фото расписания сохранено.");
+
+        if (entries.Count == 0)
         {
-            lines.Add(FormatScheduleEntry(entry));
+            lines.Add("Расписание пока пустое.");
+            return TrySendAsync(chatId, string.Join("\n\n", lines), replyMarkup: null, ct);
         }
 
-        if (entries.Count > 8)
-        {
-            lines.Add($"...и еще {entries.Count - 8}");
-        }
+        lines.Add(ScheduleService.FormatSchedule(entries.ToList()));
 
-        return TrySendAsync(chatId, string.Join("\n", lines), replyMarkup: null, ct);
+        return TrySendAsync(chatId, string.Join("\n\n", lines), replyMarkup: null, ct);
     }
 
     public Task TrySendScheduleClearedAsync(long chatId, CancellationToken ct) =>
-        TrySendAsync(
-            chatId,
-            "🗑 Расписание очищено из Mini App.",
-            replyMarkup: null,
-            ct);
+        TrySendAsync(chatId, "🗑 Расписание очищено.", replyMarkup: null, ct);
 
     private async Task TrySendAsync(long chatId, string text, InlineKeyboardMarkup? replyMarkup, CancellationToken ct)
     {
@@ -122,17 +111,4 @@ public class ChatSyncService
                 InlineKeyboardButton.WithCallbackData("🗑 Удалить", $"task_del_{task.ShortId}")
             }
         });
-
-    private static string FormatScheduleEntry(ScheduleEntry entry)
-    {
-        var week = entry.WeekType switch
-        {
-            "even" => " (четная)",
-            "odd" => " (нечетная)",
-            _ => ""
-        };
-
-        var priority = entry.IsPriority ? " 🔴" : "";
-        return $"• <b>{TelegramHtml.Escape(entry.Day)}</b> {TelegramHtml.Escape(entry.Time)} - {TelegramHtml.Escape(entry.Subject)}{week}{priority}";
-    }
 }
