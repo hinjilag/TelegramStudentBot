@@ -7,10 +7,12 @@ public class UserScheduleSelectionService
 {
     private readonly Lock _lock = new();
     private readonly string _path;
+    private readonly UserProfileStorageService _userProfiles;
     private readonly Dictionary<long, UserScheduleSelection> _selections;
 
-    public UserScheduleSelectionService()
+    public UserScheduleSelectionService(UserProfileStorageService userProfiles)
     {
+        _userProfiles = userProfiles;
         _path = ResolveSelectionPath();
         _selections = LoadSelections(_path);
     }
@@ -24,6 +26,8 @@ public class UserScheduleSelectionService
                 {
                     ScheduleId = selection.ScheduleId,
                     SubGroup = selection.SubGroup,
+                    Nickname = selection.Nickname,
+                    Username = selection.Username,
                     UpdatedAt = selection.UpdatedAt
                 }
                 : null;
@@ -34,8 +38,31 @@ public class UserScheduleSelectionService
     {
         lock (_lock)
         {
+            ApplyUserMetadata(userId, selection);
             selection.UpdatedAt = DateTime.Now;
             _selections[userId] = selection;
+            SaveSelections();
+        }
+    }
+
+    public void SyncUserMetadata(long userId)
+    {
+        lock (_lock)
+        {
+            if (!_selections.TryGetValue(userId, out var selection))
+                return;
+
+            var oldNickname = selection.Nickname;
+            var oldUsername = selection.Username;
+
+            ApplyUserMetadata(userId, selection);
+
+            if (string.Equals(oldNickname, selection.Nickname, StringComparison.Ordinal) &&
+                string.Equals(oldUsername, selection.Username, StringComparison.Ordinal))
+            {
+                return;
+            }
+
             SaveSelections();
         }
     }
@@ -72,6 +99,16 @@ public class UserScheduleSelectionService
         var json = File.ReadAllText(path);
         return JsonSerializer.Deserialize<Dictionary<long, UserScheduleSelection>>(json, JsonOptions)
             ?? new Dictionary<long, UserScheduleSelection>();
+    }
+
+    private void ApplyUserMetadata(long userId, UserScheduleSelection selection)
+    {
+        var profile = _userProfiles.Get(userId);
+        if (profile is null)
+            return;
+
+        selection.Nickname = profile.Nickname;
+        selection.Username = profile.Username;
     }
 
     private static string ResolveSelectionPath()

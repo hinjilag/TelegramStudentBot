@@ -7,10 +7,12 @@ public class ReminderSettingsService
 {
     private readonly Lock _lock = new();
     private readonly string _path;
+    private readonly UserProfileStorageService _userProfiles;
     private readonly Dictionary<long, UserReminderSettings> _settingsByUser;
 
-    public ReminderSettingsService()
+    public ReminderSettingsService(UserProfileStorageService userProfiles)
     {
+        _userProfiles = userProfiles;
         _path = ResolveSettingsPath();
         _settingsByUser = LoadSettings(_path);
     }
@@ -39,8 +41,31 @@ public class ReminderSettingsService
     {
         lock (_lock)
         {
+            ApplyUserMetadata(userId, settings);
             settings.UpdatedAt = DateTime.Now;
             _settingsByUser[userId] = CloneSettings(settings);
+            SaveAll();
+        }
+    }
+
+    public void SyncUserMetadata(long userId)
+    {
+        lock (_lock)
+        {
+            if (!_settingsByUser.TryGetValue(userId, out var settings))
+                return;
+
+            var oldNickname = settings.Nickname;
+            var oldUsername = settings.Username;
+
+            ApplyUserMetadata(userId, settings);
+
+            if (string.Equals(oldNickname, settings.Nickname, StringComparison.Ordinal) &&
+                string.Equals(oldUsername, settings.Username, StringComparison.Ordinal))
+            {
+                return;
+            }
+
             SaveAll();
         }
     }
@@ -55,6 +80,7 @@ public class ReminderSettingsService
 
             settings.ChatId = chatId;
             settings.PromptAnswered = answered;
+            ApplyUserMetadata(userId, settings);
             settings.UpdatedAt = DateTime.Now;
             _settingsByUser[userId] = settings;
             SaveAll();
@@ -74,6 +100,7 @@ public class ReminderSettingsService
             settings.PromptAnswered = true;
             settings.Hour = hour;
             settings.Minute = minute;
+            ApplyUserMetadata(userId, settings);
             settings.UpdatedAt = DateTime.Now;
             _settingsByUser[userId] = settings;
             SaveAll();
@@ -91,6 +118,7 @@ public class ReminderSettingsService
             settings.ChatId = chatId;
             settings.IsEnabled = false;
             settings.PromptAnswered = true;
+            ApplyUserMetadata(userId, settings);
             settings.UpdatedAt = DateTime.Now;
             _settingsByUser[userId] = settings;
             SaveAll();
@@ -105,6 +133,7 @@ public class ReminderSettingsService
                 return;
 
             settings.LastNotificationDate = notificationDate.Date;
+            ApplyUserMetadata(userId, settings);
             settings.UpdatedAt = DateTime.Now;
             SaveAll();
         }
@@ -137,6 +166,8 @@ public class ReminderSettingsService
         return new UserReminderSettings
         {
             ChatId = settings.ChatId,
+            Nickname = settings.Nickname,
+            Username = settings.Username,
             IsEnabled = settings.IsEnabled,
             PromptAnswered = settings.PromptAnswered,
             Hour = settings.Hour,
@@ -144,6 +175,16 @@ public class ReminderSettingsService
             LastNotificationDate = settings.LastNotificationDate,
             UpdatedAt = settings.UpdatedAt
         };
+    }
+
+    private void ApplyUserMetadata(long userId, UserReminderSettings settings)
+    {
+        var profile = _userProfiles.Get(userId);
+        if (profile is null)
+            return;
+
+        settings.Nickname = profile.Nickname;
+        settings.Username = profile.Username;
     }
 
     private static string ResolveSettingsPath()

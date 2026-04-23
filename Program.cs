@@ -31,6 +31,8 @@ var host = Host.CreateDefaultBuilder(args)
 
         services.AddSingleton<ITelegramBotClient>(_ => new TelegramBotClient(token));
 
+        services.AddSingleton<BotVisitLogService>();
+        services.AddSingleton<UserProfileStorageService>();
         services.AddSingleton<StudyTaskStorageService>();
         services.AddSingleton<ReminderSettingsService>();
         services.AddSingleton<SessionService>();

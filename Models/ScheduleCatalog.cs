@@ -40,6 +40,10 @@ public class UserScheduleSelection
 
     public int? SubGroup { get; set; }
 
+    public string Nickname { get; set; } = "Студент";
+
+    public string? Username { get; set; }
+
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
 }
 

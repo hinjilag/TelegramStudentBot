@@ -40,6 +40,10 @@ public class SessionService
                 };
                 _sessions[userId] = session;
             }
+
+            if (!string.IsNullOrWhiteSpace(firstName))
+                session.FirstName = firstName;
+
             return session;
         }
     }

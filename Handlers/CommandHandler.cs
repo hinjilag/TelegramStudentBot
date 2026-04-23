@@ -20,6 +20,7 @@ public class CommandHandler
     private readonly ScheduleCatalogService _scheduleCatalog;
     private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly ReminderSettingsService _reminders;
+    private readonly BotVisitLogService _visits;
 
     public CommandHandler(
         ITelegramBotClient bot,
@@ -27,7 +28,8 @@ public class CommandHandler
         TimerService timers,
         ScheduleCatalogService scheduleCatalog,
         UserScheduleSelectionService scheduleSelections,
-        ReminderSettingsService reminders)
+        ReminderSettingsService reminders,
+        BotVisitLogService visits)
     {
         _bot = bot;
         _sessions = sessions;
@@ -35,6 +37,7 @@ public class CommandHandler
         _scheduleCatalog = scheduleCatalog;
         _scheduleSelections = scheduleSelections;
         _reminders = reminders;
+        _visits = visits;
     }
 
     // ══════════════════════════════════════════════════════════
@@ -44,6 +47,8 @@ public class CommandHandler
     /// <summary>Приветствие при первом запуске или перезапуске</summary>
     public async Task HandleStartAsync(Message msg, CancellationToken ct)
     {
+        _visits.RecordVisit(msg.From!);
+
         var userId = msg.From!.Id;
         var session = _sessions.GetOrCreate(userId, msg.From.FirstName);
         session.State = UserState.Idle;
