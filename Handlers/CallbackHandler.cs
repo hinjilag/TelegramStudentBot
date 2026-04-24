@@ -51,7 +51,7 @@ public class CallbackHandler
         if (data.StartsWith("plan_")) { await HandlePlanAsync(chatId, session, data, ct); return; }
         if (data.StartsWith("hw_")) { await HandleHomeworkAsync(query, userId, session, data, ct); return; }
         if (data.StartsWith("rem_")) { await HandleReminderAsync(query, session, data, ct); return; }
-        if (data.StartsWith("task_")) { await HandleTaskAsync(chatId, session, data, ct); return; }
+        if (data.StartsWith("task_")) { await HandleTaskAsync(query, session, data, ct); return; }
         if (data.StartsWith("sched_")) { await HandleScheduleAsync(query, userId, session, data, ct); return; }
         if (data.StartsWith("review_")) { await HandleReviewActionAsync(chatId, session, data, ct); return; }
         if (data.StartsWith("week_")) { await HandleWeekChoiceAsync(chatId, session, data, ct); return; }
@@ -371,8 +371,31 @@ public class CallbackHandler
             cancellationToken: ct);
     }
 
-    private async Task HandleTaskAsync(long chatId, UserSession session, string data, CancellationToken ct)
+    private async Task HandleTaskAsync(CallbackQuery query, UserSession session, string data, CancellationToken ct)
     {
+        var message = query.Message!;
+        var chatId = message.Chat.Id;
+
+        if (data == "task_back")
+        {
+            await RefreshTaskListMessageAsync(message, session, ct);
+            return;
+        }
+
+        if (data == "task_choose_done" || data == "task_choose_del")
+        {
+            var action = data == "task_choose_del" ? "del" : "done";
+            var view = HomeworkListView.BuildTaskChoice(session, action);
+            await _bot.EditMessageText(
+                chatId: chatId,
+                messageId: message.MessageId,
+                text: view.Text,
+                parseMode: ParseMode.Html,
+                replyMarkup: view.Keyboard,
+                cancellationToken: ct);
+            return;
+        }
+
         var parts = data.Split('_', 3);
         if (parts.Length < 3)
             return;
@@ -389,23 +412,38 @@ public class CallbackHandler
             case "done":
                 task.IsCompleted = true;
                 _sessions.SaveTasks(session);
-                await _bot.SendMessage(
-                    chatId: chatId,
-                    text: $"✅ Задача <b>«{task.Title}»</b> выполнена!",
-                    parseMode: ParseMode.Html,
-                    cancellationToken: ct);
+                await RefreshTaskListMessageAsync(message, session, ct);
                 break;
 
             case "del":
-                session.Tasks.Remove(task);
-                _sessions.SaveTasks(session);
-                await _bot.SendMessage(
+                var confirmation = HomeworkListView.BuildDeleteConfirmation(task);
+                await _bot.EditMessageText(
                     chatId: chatId,
-                    text: $"🗑 Задача <b>«{task.Title}»</b> удалена.",
+                    messageId: message.MessageId,
+                    text: confirmation.Text,
                     parseMode: ParseMode.Html,
+                    replyMarkup: confirmation.Keyboard,
                     cancellationToken: ct);
                 break;
+
+            case "confirmdel":
+                session.Tasks.Remove(task);
+                _sessions.SaveTasks(session);
+                await RefreshTaskListMessageAsync(message, session, ct);
+                break;
         }
+    }
+
+    private async Task RefreshTaskListMessageAsync(Message message, UserSession session, CancellationToken ct)
+    {
+        var view = HomeworkListView.Build(session);
+        await _bot.EditMessageText(
+            chatId: message.Chat.Id,
+            messageId: message.MessageId,
+            text: view.Text,
+            parseMode: ParseMode.Html,
+            replyMarkup: view.Keyboard,
+            cancellationToken: ct);
     }
 
     private async Task HandleScheduleAsync(
@@ -1250,72 +1288,14 @@ public class CallbackHandler
 
     private async Task SendTaskListAsync(long chatId, UserSession session, CancellationToken ct)
     {
-        var active = session.Tasks.Where(t => !t.IsCompleted).ToList();
-        var completed = session.Tasks.Where(t => t.IsCompleted).ToList();
-
-        if (session.Tasks.Count == 0)
-        {
-            await _bot.SendMessage(
-                chatId: chatId,
-                text: "📋 <b>Список задач пуст.</b>\nДобавь первую через /plan → «Добавить задачу».",
-                parseMode: ParseMode.Html,
-                cancellationToken: ct);
-            return;
-        }
-
+        var view = HomeworkListView.Build(
+            session,
+            "📋 <b>Список задач пуст.</b>\nДобавь первую через /plan → «Добавить задачу».");
         await _bot.SendMessage(
             chatId: chatId,
-            text: $"📋 <b>Твои задачи</b> | Активных: {active.Count} | Выполнено: {completed.Count}",
+            text: view.Text,
             parseMode: ParseMode.Html,
-            cancellationToken: ct);
-
-        foreach (var task in active.Take(10))
-        {
-            var deadlineText = task.Deadline.HasValue ? $"\n📅 {task.Deadline.Value:dd.MM.yyyy}" : string.Empty;
-
-            string urgency = string.Empty;
-            if (task.Deadline.HasValue)
-            {
-                var days = (task.Deadline.Value.Date - DateTime.Today).Days;
-                urgency = days switch
-                {
-                    < 0 => " 🔴 <b>Просрочено!</b>",
-                    0 => " 🟡 <b>Сдать сегодня!</b>",
-                    1 => " 🟡 Завтра",
-                    <= 3 => $" 🟠 Через {days} дня",
-                    _ => $" ✅ Через {days} дней"
-                };
-            }
-
-            var keyboard = new InlineKeyboardMarkup(new[]
-            {
-                new[]
-                {
-                    InlineKeyboardButton.WithCallbackData("✅ Выполнено", $"task_done_{task.ShortId}"),
-                    InlineKeyboardButton.WithCallbackData("🗑 Удалить", $"task_del_{task.ShortId}")
-                }
-            });
-
-            await _bot.SendMessage(
-                chatId: chatId,
-                text: $"📌 <b>{task.Title}</b>{urgency}\n📚 {task.Subject}{deadlineText}",
-                parseMode: ParseMode.Html,
-                replyMarkup: keyboard,
-                cancellationToken: ct);
-        }
-
-        if (active.Count > 10)
-            await _bot.SendMessage(chatId, $"... и ещё {active.Count - 10} задач(и).", cancellationToken: ct);
-
-        if (completed.Count == 0)
-            return;
-
-        var completedText = string.Join("\n", completed.Take(5).Select(t => $"✅ {t.Title} ({t.Subject})"));
-        await _bot.SendMessage(
-            chatId: chatId,
-            text: $"<b>Выполнено:</b>\n{completedText}" +
-                  (completed.Count > 5 ? $"\n... и ещё {completed.Count - 5}" : string.Empty),
-            parseMode: ParseMode.Html,
+            replyMarkup: view.Keyboard,
             cancellationToken: ct);
     }
 }

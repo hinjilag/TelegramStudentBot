@@ -376,98 +376,13 @@ public class CommandHandler
         UserSession session,
         CancellationToken ct)
     {
-        var active = session.Tasks
-            .Where(t => !t.IsCompleted)
-            .OrderBy(t => t.Deadline ?? DateTime.MaxValue)
-            .ThenBy(t => t.CreatedAt)
-            .ToList();
-
-        var completed = session.Tasks
-            .Where(t => t.IsCompleted)
-            .OrderByDescending(t => t.CreatedAt)
-            .ToList();
-
-        if (session.Tasks.Count == 0)
-        {
-            await _bot.SendMessage(
-                chatId: chatId,
-                text: "📚 <b>Домашних заданий и задач пока нет.</b>\nДобавить ДЗ можно через /add_homework.",
-                parseMode: ParseMode.Html,
-                cancellationToken: ct);
-            return;
-        }
-
+        var view = HomeworkListView.Build(session);
         await _bot.SendMessage(
             chatId: chatId,
-            text: $"📚 <b>Домашние задания и задачи</b>\nАктивных: <b>{active.Count}</b> | Выполнено: <b>{completed.Count}</b>",
+            text: view.Text,
             parseMode: ParseMode.Html,
+            replyMarkup: view.Keyboard,
             cancellationToken: ct);
-
-        foreach (var task in active.Take(20))
-        {
-            var deadlineText = task.Deadline.HasValue
-                ? task.Deadline.Value.ToString("dd.MM.yyyy")
-                : "без дедлайна";
-
-            var keyboard = new InlineKeyboardMarkup(new[]
-            {
-                new[]
-                {
-                    InlineKeyboardButton.WithCallbackData("✅ Выполнено", $"task_done_{task.ShortId}"),
-                    InlineKeyboardButton.WithCallbackData("🗑 Удалить", $"task_del_{task.ShortId}")
-                }
-            });
-
-            await _bot.SendMessage(
-                chatId: chatId,
-                text: $"📌 <b>{Escape(task.Title)}</b>{FormatTaskUrgency(task)}\n" +
-                      $"📚 {Escape(task.Subject)}\n" +
-                      $"📅 {deadlineText}",
-                parseMode: ParseMode.Html,
-                replyMarkup: keyboard,
-                cancellationToken: ct);
-        }
-
-        if (active.Count > 20)
-            await _bot.SendMessage(chatId, $"... и ещё {active.Count - 20} задач(и).", cancellationToken: ct);
-
-        if (active.Count == 0)
-        {
-            await _bot.SendMessage(
-                chatId: chatId,
-                text: "Активных ДЗ и задач нет.",
-                cancellationToken: ct);
-        }
-
-        if (completed.Count == 0)
-            return;
-
-        var completedText = string.Join("\n", completed
-            .Take(5)
-            .Select(t => $"✅ {Escape(t.Title)} ({Escape(t.Subject)})"));
-
-        await _bot.SendMessage(
-            chatId: chatId,
-            text: $"<b>Выполнено:</b>\n{completedText}" +
-                  (completed.Count > 5 ? $"\n... и ещё {completed.Count - 5}" : string.Empty),
-            parseMode: ParseMode.Html,
-            cancellationToken: ct);
-    }
-
-    private static string FormatTaskUrgency(StudyTask task)
-    {
-        if (!task.Deadline.HasValue)
-            return string.Empty;
-
-        var days = (task.Deadline.Value.Date - DateTime.Today).Days;
-        return days switch
-        {
-            < 0 => " 🔴 <b>Просрочено!</b>",
-            0 => " 🟡 <b>Сдать сегодня!</b>",
-            1 => " 🟡 Завтра",
-            <= 3 => $" 🟠 Через {days} дня",
-            _ => $" ✅ Через {days} дней"
-        };
     }
 
     private async Task SendSelectedScheduleMenuAsync(
