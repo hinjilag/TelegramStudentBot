@@ -35,6 +35,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<UserProfileStorageService>();
         services.AddSingleton<StudyTaskStorageService>();
         services.AddSingleton<ReminderSettingsService>();
+        services.AddSingleton<HomeworkSubjectPreferencesService>();
         services.AddSingleton<SessionService>();
         services.AddSingleton<TimerService>();
         services.AddSingleton<ScheduleCatalogService>();

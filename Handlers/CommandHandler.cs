@@ -20,6 +20,7 @@ public class CommandHandler
     private readonly ScheduleCatalogService _scheduleCatalog;
     private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly ReminderSettingsService _reminders;
+    private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
     private readonly BotVisitLogService _visits;
 
     public CommandHandler(
@@ -29,6 +30,7 @@ public class CommandHandler
         ScheduleCatalogService scheduleCatalog,
         UserScheduleSelectionService scheduleSelections,
         ReminderSettingsService reminders,
+        HomeworkSubjectPreferencesService homeworkSubjects,
         BotVisitLogService visits)
     {
         _bot = bot;
@@ -37,6 +39,7 @@ public class CommandHandler
         _scheduleCatalog = scheduleCatalog;
         _scheduleSelections = scheduleSelections;
         _reminders = reminders;
+        _homeworkSubjects = homeworkSubjects;
         _visits = visits;
     }
 
@@ -64,9 +67,13 @@ public class CommandHandler
                 await _bot.SendMessage(
                     chatId: msg.Chat.Id,
                     text: "👋 <b>С возвращением!</b>\n\n" +
-                          $"Расписание уже настроено: <b>{Escape(FormatGroupTitle(group, selection.SubGroup))}</b>.\n\n" +
-                          "Можешь посмотреть пары через /schedule, добавить ДЗ через /add_homework или открыть список заданий через /homework.\n" +
-                          "Если нужно сфокусироваться на учёбе, запускай таймер через /timer.",
+                          "Я уже помню твоё расписание:\n" +
+                          $"<b>{Escape(FormatGroupTitle(group, selection.SubGroup))}</b>.\n\n" +
+                          "Можешь сразу перейти к нужному:\n" +
+                          "📅 /schedule — пары на день\n" +
+                          "📝 /homework — домашние задания\n" +
+                          "➕ /add_homework — добавить новое ДЗ\n" +
+                          "⏱ /timer — сфокусироваться на учёбе",
                     parseMode: ParseMode.Html,
                     cancellationToken: ct);
                 return;
@@ -223,13 +230,7 @@ public class CommandHandler
             return;
         }
 
-        var subjects = entries
-            .Select(e => ScheduleCatalogService.GetHomeworkSubjectTitle(e.Subject))
-            .Where(s => !string.IsNullOrWhiteSpace(s))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(ScheduleCatalogService.GetHomeworkSubjectSortGroup)
-            .ThenBy(s => s)
-            .ToList();
+        var subjects = GetHomeworkSubjects(entries);
 
         if (subjects.Count == 0)
         {
@@ -245,26 +246,71 @@ public class CommandHandler
             return;
         }
 
+        await SendHomeworkSubjectChoiceAsync(msg.Chat.Id, userId, session, subjects, showAll: false, ct);
+    }
+
+    private async Task SendHomeworkSubjectChoiceAsync(
+        long chatId,
+        long userId,
+        UserSession session,
+        List<string> allSubjects,
+        bool showAll,
+        CancellationToken ct)
+    {
         session.State = UserState.Idle;
         session.DraftTask = null;
         session.HomeworkSubjectChoices.Clear();
         session.HomeworkLessonTypeChoices.Clear();
 
-        var buttons = subjects
+        var preferences = _homeworkSubjects.Get(userId);
+        var favoriteSubjects = preferences.FavoriteSubjects
+            .Where(favorite => allSubjects.Contains(favorite, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+
+        var visibleSubjects = preferences.IsConfigured && !showAll
+            ? favoriteSubjects
+            : allSubjects;
+
+        var buttons = visibleSubjects
             .Select((subject, index) =>
             {
                 var key = index.ToString();
                 session.HomeworkSubjectChoices[key] = subject;
                 return (subject, $"hw_subject_{key}");
             })
-            .Append(("Отмена", "hw_cancel"));
+            .ToList();
+
+        if (!showAll && preferences.IsConfigured)
+            buttons.Add(("👀 Показать все", "hw_show_all"));
+
+        buttons.Add(("⚙️ Настроить", "hw_config"));
+        buttons.Add(("🔴 Отмена", "hw_cancel"));
+
+        var text = visibleSubjects.Count == 0
+            ? "📚 <b>В списке ДЗ пока нет выбранных предметов.</b>\nНажми «Настроить» и отметь нужные."
+            : preferences.IsConfigured || showAll
+                ? "📚 <b>Выбери предмет, по которому задали ДЗ:</b>"
+                : "📚 <b>Выбери предмет, по которому задали ДЗ:</b>\n\n" +
+                  "Если тут есть лишние предметы, нажми «⚙️ Настроить» и оставь только нужные.\n\n" +
+                  "Предметы будут идти в том порядке, в котором ты их отметишь.";
 
         await _bot.SendMessage(
-            chatId: msg.Chat.Id,
-            text: "📚 <b>Выбери предмет, по которому задали ДЗ:</b>",
+            chatId: chatId,
+            text: text,
             parseMode: ParseMode.Html,
             replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
             cancellationToken: ct);
+    }
+
+    private static List<string> GetHomeworkSubjects(List<ScheduleEntry> entries)
+    {
+        return entries
+            .Select(e => ScheduleCatalogService.GetHomeworkSubjectTitle(e.Subject))
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(ScheduleCatalogService.GetHomeworkSubjectSortGroup)
+            .ThenBy(s => s)
+            .ToList();
     }
 
     // ══════════════════════════════════════════════════════════

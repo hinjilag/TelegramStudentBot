@@ -16,6 +16,7 @@ public class CallbackHandler
     private readonly ScheduleCatalogService _scheduleCatalog;
     private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly ReminderSettingsService _reminders;
+    private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
 
     public CallbackHandler(
         ITelegramBotClient bot,
@@ -23,7 +24,8 @@ public class CallbackHandler
         TimerService timers,
         ScheduleCatalogService scheduleCatalog,
         UserScheduleSelectionService scheduleSelections,
-        ReminderSettingsService reminders)
+        ReminderSettingsService reminders,
+        HomeworkSubjectPreferencesService homeworkSubjects)
     {
         _bot = bot;
         _sessions = sessions;
@@ -31,6 +33,7 @@ public class CallbackHandler
         _scheduleCatalog = scheduleCatalog;
         _scheduleSelections = scheduleSelections;
         _reminders = reminders;
+        _homeworkSubjects = homeworkSubjects;
     }
 
     public async Task HandleAsync(CallbackQuery query, CancellationToken ct)
@@ -153,6 +156,30 @@ public class CallbackHandler
             return;
         }
 
+        if (data == "hw_show_all")
+        {
+            await EditHomeworkSubjectChoiceAsync(query, userId, session, showAll: true, ct);
+            return;
+        }
+
+        if (data == "hw_config")
+        {
+            await EditHomeworkSubjectSettingsAsync(query, userId, session, ct);
+            return;
+        }
+
+        if (data == "hw_done")
+        {
+            await EditHomeworkSubjectChoiceAsync(query, userId, session, showAll: false, ct);
+            return;
+        }
+
+        if (data.StartsWith("hw_fav_"))
+        {
+            await ToggleHomeworkFavoriteSubjectAsync(query, userId, session, data, ct);
+            return;
+        }
+
         if (data.StartsWith("hw_subject_"))
         {
             await HandleHomeworkSubjectChoiceAsync(query, userId, session, data, ct);
@@ -214,6 +241,147 @@ public class CallbackHandler
                     cancellationToken: ct);
                 break;
         }
+    }
+
+    private async Task EditHomeworkSubjectChoiceAsync(
+        CallbackQuery query,
+        long userId,
+        UserSession session,
+        bool showAll,
+        CancellationToken ct)
+    {
+        var message = query.Message!;
+        var chatId = message.Chat.Id;
+
+        if (!TryGetAllScheduleEntriesForUser(userId, out _, out _, out var entries))
+        {
+            session.State = UserState.Idle;
+            session.DraftTask = null;
+            session.HomeworkSubjectChoices.Clear();
+            session.HomeworkLessonTypeChoices.Clear();
+
+            await _bot.SendMessage(
+                chatId,
+                "Сначала выбери своё расписание через /schedule, потом я смогу добавить ДЗ.",
+                cancellationToken: ct);
+            return;
+        }
+
+        var allSubjects = GetHomeworkSubjects(entries);
+        var preferences = _homeworkSubjects.Get(userId);
+        var favoriteSubjects = preferences.FavoriteSubjects
+            .Where(favorite => allSubjects.Contains(favorite, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+
+        var visibleSubjects = preferences.IsConfigured && !showAll
+            ? favoriteSubjects
+            : allSubjects;
+
+        session.State = UserState.Idle;
+        session.DraftTask = null;
+        session.HomeworkSubjectChoices.Clear();
+        session.HomeworkLessonTypeChoices.Clear();
+
+        var buttons = visibleSubjects
+            .Select((subject, index) =>
+            {
+                var key = index.ToString();
+                session.HomeworkSubjectChoices[key] = subject;
+                return (subject, $"hw_subject_{key}");
+            })
+            .ToList();
+
+        if (!showAll && preferences.IsConfigured)
+            buttons.Add(("👀 Показать все", "hw_show_all"));
+
+        buttons.Add(("⚙️ Настроить", "hw_config"));
+        buttons.Add(("🔴 Отмена", "hw_cancel"));
+
+        var text = visibleSubjects.Count == 0
+            ? "📚 <b>В списке ДЗ пока нет выбранных предметов.</b>\nНажми «Настроить» и отметь нужные."
+            : preferences.IsConfigured || showAll
+                ? "📚 <b>Выбери предмет, по которому задали ДЗ:</b>"
+                : "📚 <b>Выбери предмет, по которому задали ДЗ:</b>\n\n" +
+                  "Если тут есть лишние предметы, нажми «⚙️ Настроить» и оставь только нужные.\n\n" +
+                  "Предметы будут идти в том порядке, в котором ты их отметишь.";
+
+        await _bot.EditMessageText(
+            chatId: chatId,
+            messageId: message.MessageId,
+            text: text,
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: ct);
+    }
+
+    private async Task EditHomeworkSubjectSettingsAsync(
+        CallbackQuery query,
+        long userId,
+        UserSession session,
+        CancellationToken ct)
+    {
+        var message = query.Message!;
+        var chatId = message.Chat.Id;
+
+        if (!TryGetAllScheduleEntriesForUser(userId, out _, out _, out var entries))
+        {
+            await _bot.SendMessage(
+                chatId,
+                "Сначала выбери своё расписание через /schedule, потом я смогу настроить предметы.",
+                cancellationToken: ct);
+            return;
+        }
+
+        var subjects = GetHomeworkSubjects(entries);
+        var preferences = _homeworkSubjects.Get(userId);
+
+        session.HomeworkSubjectChoices.Clear();
+        session.HomeworkLessonTypeChoices.Clear();
+
+        var buttons = subjects
+            .Select((subject, index) =>
+            {
+                var key = index.ToString();
+                session.HomeworkSubjectChoices[key] = subject;
+                var priority = preferences.FavoriteSubjects.FindIndex(favorite =>
+                    string.Equals(favorite, subject, StringComparison.OrdinalIgnoreCase));
+                var label = priority >= 0
+                    ? $"✅ {priority + 1}. {subject}"
+                    : $"⬜ {subject}";
+
+                return (label, $"hw_fav_{key}");
+            })
+            .Append(("Готово", "hw_done"));
+
+        await _bot.EditMessageText(
+            chatId: chatId,
+            messageId: message.MessageId,
+            text: "⚙️ <b>Предметы для ДЗ</b>\n" +
+                  "Отмечай предметы в нужном порядке: первый выбранный будет выше всех в /add_homework.",
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: ct);
+    }
+
+    private async Task ToggleHomeworkFavoriteSubjectAsync(
+        CallbackQuery query,
+        long userId,
+        UserSession session,
+        string data,
+        CancellationToken ct)
+    {
+        var key = data["hw_fav_".Length..];
+        if (!session.HomeworkSubjectChoices.TryGetValue(key, out var subject))
+        {
+            await _bot.SendMessage(
+                query.Message!.Chat.Id,
+                "Настройка предметов устарела. Открой список заново через /add_homework.",
+                cancellationToken: ct);
+            return;
+        }
+
+        _homeworkSubjects.ToggleFavoriteSubject(userId, subject);
+        await EditHomeworkSubjectSettingsAsync(query, userId, session, ct);
     }
 
     private async Task HandleHomeworkSubjectChoiceAsync(
@@ -279,6 +447,12 @@ public class CallbackHandler
             return;
         }
 
+        if (typedSubjects.Count == 1)
+        {
+            await StartHomeworkTextInputAsync(message, userId, session, entries, typedSubjects[0], ct);
+            return;
+        }
+
         session.HomeworkLessonTypeChoices.Clear();
         var buttons = typedSubjects
             .Select((subject, index) =>
@@ -287,7 +461,7 @@ public class CallbackHandler
                 session.HomeworkLessonTypeChoices[typeKey] = subject;
                 return (ScheduleCatalogService.GetHomeworkLessonTypeLabel(subject), $"hw_type_{typeKey}");
             })
-            .Append(("Отмена", "hw_cancel"));
+            .Append(("🔴 Отмена", "hw_cancel"));
 
         await _bot.EditMessageText(
             chatId: chatId,
@@ -337,6 +511,18 @@ public class CallbackHandler
             return;
         }
 
+        await StartHomeworkTextInputAsync(message, userId, session, entries, subject, ct);
+    }
+
+    private async Task StartHomeworkTextInputAsync(
+        Message message,
+        long userId,
+        UserSession session,
+        List<ScheduleEntry> entries,
+        string subject,
+        CancellationToken ct)
+    {
+        var chatId = message.Chat.Id;
         var deadline = _scheduleCatalog.FindNextLessonDate(entries, subject);
         if (!deadline.HasValue)
         {
@@ -576,6 +762,17 @@ public class CallbackHandler
         return true;
     }
 
+    private static List<string> GetHomeworkSubjects(List<ScheduleEntry> entries)
+    {
+        return entries
+            .Select(e => ScheduleCatalogService.GetHomeworkSubjectTitle(e.Subject))
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(ScheduleCatalogService.GetHomeworkSubjectSortGroup)
+            .ThenBy(s => s)
+            .ToList();
+    }
+
     private async Task SendCourseChoiceAsync(long chatId, string directionCode, CancellationToken ct)
     {
         var groups = _scheduleCatalog.GetGroupsByDirection(directionCode);
@@ -749,8 +946,7 @@ public class CallbackHandler
         await _bot.SendMessage(
             chatId: chatId,
             text: $"<b>{title}</b>\n" +
-                  $"{Escape(FormatGroupTitle(group, selection.SubGroup))}\n" +
-                  $"Неделя: <b>{_scheduleCatalog.GetCurrentWeekLabel()}</b>\n\n" +
+                  $"{Escape(FormatGroupTitle(group, selection.SubGroup))} | <b>{_scheduleCatalog.GetCurrentWeekLabel()}</b>\n\n" +
                   summary,
             parseMode: ParseMode.Html,
             replyMarkup: ScheduleKeyboards.ScheduleMenu,
@@ -974,7 +1170,7 @@ public class CallbackHandler
         await EditScheduleMessageAsync(
             chatId: chatId,
             messageId: messageId,
-            text: $"<b>{title}</b>\n{Escape(FormatGroupTitle(group, selection.SubGroup))}\nНеделя: <b>{_scheduleCatalog.GetCurrentWeekLabel()}</b>\n\n{summary}",
+            text: $"<b>{title}</b>\n{Escape(FormatGroupTitle(group, selection.SubGroup))} | <b>{_scheduleCatalog.GetCurrentWeekLabel()}</b>\n\n{summary}",
             parseMode: ParseMode.Html,
             replyMarkup: ScheduleKeyboards.ScheduleMenu,
             cancellationToken: ct);

@@ -14,6 +14,7 @@ public class UpdateRouter
     private readonly UserProfileStorageService _userProfiles;
     private readonly StudyTaskStorageService _taskStorage;
     private readonly ReminderSettingsService _reminders;
+    private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
     private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly ILogger<UpdateRouter> _logger;
 
@@ -24,6 +25,7 @@ public class UpdateRouter
         UserProfileStorageService userProfiles,
         StudyTaskStorageService taskStorage,
         ReminderSettingsService reminders,
+        HomeworkSubjectPreferencesService homeworkSubjects,
         UserScheduleSelectionService scheduleSelections,
         ILogger<UpdateRouter> logger)
     {
@@ -33,6 +35,7 @@ public class UpdateRouter
         _userProfiles = userProfiles;
         _taskStorage = taskStorage;
         _reminders = reminders;
+        _homeworkSubjects = homeworkSubjects;
         _scheduleSelections = scheduleSelections;
         _logger = logger;
     }
@@ -85,6 +88,7 @@ public class UpdateRouter
         _userProfiles.Upsert(user);
         _taskStorage.SyncUserMetadata(user.Id);
         _reminders.SyncUserMetadata(user.Id);
+        _homeworkSubjects.SyncUserMetadata(user.Id);
         _scheduleSelections.SyncUserMetadata(user.Id);
     }
 
