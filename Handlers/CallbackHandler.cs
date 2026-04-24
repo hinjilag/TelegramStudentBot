@@ -568,6 +568,19 @@ public class CallbackHandler
             return;
         }
 
+        if (data == "task_completed")
+        {
+            var view = HomeworkListView.BuildCompleted(session);
+            await _bot.EditMessageText(
+                chatId: chatId,
+                messageId: message.MessageId,
+                text: view.Text,
+                parseMode: ParseMode.Html,
+                replyMarkup: view.Keyboard,
+                cancellationToken: ct);
+            return;
+        }
+
         if (data == "task_choose_done" || data == "task_choose_del")
         {
             var action = data == "task_choose_del" ? "del" : "done";

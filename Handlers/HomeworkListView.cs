@@ -8,7 +8,7 @@ namespace TelegramStudentBot.Handlers;
 internal static class HomeworkListView
 {
     private const int ActiveLimit = 10;
-    private const int CompletedLimit = 5;
+    private const int CompletedLimit = 10;
 
     internal static (string Text, InlineKeyboardMarkup? Keyboard) Build(
         UserSession session,
@@ -67,18 +67,50 @@ internal static class HomeworkListView
             }
         }
 
-        if (completed.Count > 0)
+        return (sb.ToString().TrimEnd(), BuildKeyboard(active, completed.Count));
+    }
+
+    internal static (string Text, InlineKeyboardMarkup Keyboard) BuildCompleted(UserSession session)
+    {
+        var completed = session.Tasks
+            .Where(t => t.IsCompleted)
+            .OrderByDescending(t => t.CreatedAt)
+            .ToList();
+
+        var sb = new StringBuilder();
+        sb.AppendLine("✅ <b>Выполненные задания</b>");
+        sb.AppendLine($"Всего: <b>{completed.Count}</b>");
+
+        if (completed.Count == 0)
         {
             sb.AppendLine();
-            sb.AppendLine("<b>Выполнено:</b>");
+            sb.AppendLine("Выполненных заданий пока нет.");
+        }
+        else
+        {
+            sb.AppendLine();
+            sb.AppendLine("Показываю последние 10 выполненных задач.");
+            sb.AppendLine();
+
             foreach (var task in completed.Take(CompletedLimit))
-                sb.AppendLine($"✅ {Escape(task.Title)} ({Escape(task.Subject)})");
+                sb.AppendLine($"✅ <b>{Escape(task.Title)}</b>\n   📚 {Escape(task.Subject)}");
 
             if (completed.Count > CompletedLimit)
-                sb.AppendLine($"... и ещё {completed.Count - CompletedLimit}");
+            {
+                sb.AppendLine();
+                sb.AppendLine($"Показаны первые {CompletedLimit}. Ещё: {completed.Count - CompletedLimit}.");
+            }
         }
 
-        return (sb.ToString().TrimEnd(), BuildKeyboard(active));
+        return (
+            sb.ToString().TrimEnd(),
+            new InlineKeyboardMarkup(new[]
+            {
+                new[]
+                {
+                    InlineKeyboardButton.WithCallbackData("⬅️ Назад", "task_back")
+                }
+            }));
     }
 
     internal static (string Text, InlineKeyboardMarkup? Keyboard) BuildTaskChoice(UserSession session, string action)
@@ -139,22 +171,34 @@ internal static class HomeworkListView
             }));
     }
 
-    private static InlineKeyboardMarkup? BuildKeyboard(List<StudyTask> active)
+    private static InlineKeyboardMarkup? BuildKeyboard(List<StudyTask> active, int completedCount)
     {
-        if (active.Count == 0)
+        if (active.Count == 0 && completedCount == 0)
             return null;
 
-        return new InlineKeyboardMarkup(new[]
+        var rows = new List<InlineKeyboardButton[]>();
+
+        if (active.Count > 0)
         {
-            new[]
+            rows.Add(new[]
             {
                 InlineKeyboardButton.WithCallbackData("✅ Выполнить задачу", "task_choose_done")
-            },
-            new[]
+            });
+            rows.Add(new[]
             {
                 InlineKeyboardButton.WithCallbackData("🗑 Удалить задачу", "task_choose_del")
-            }
-        });
+            });
+        }
+
+        if (completedCount > 0)
+        {
+            rows.Add(new[]
+            {
+                InlineKeyboardButton.WithCallbackData("✅ Выполненные", "task_completed")
+            });
+        }
+
+        return new InlineKeyboardMarkup(rows);
     }
 
     private static List<StudyTask> GetActiveTasks(UserSession session)
