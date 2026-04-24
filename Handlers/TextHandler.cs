@@ -59,6 +59,10 @@ public class TextHandler
                 await HandleTaskDeadlineAsync(msg, session, text, ct);
                 break;
 
+            case UserState.WaitingForTaskDeadlineTime:
+                await HandleTaskDeadlineTimeAsync(msg, session, text, ct);
+                break;
+
             case UserState.WaitingForHomeworkText:
                 await HandleHomeworkTextAsync(msg, session, text, ct);
                 break;
@@ -735,12 +739,20 @@ public class TextHandler
             await _bot.SendMessage(msg.Chat.Id, "⚠️ Название не может быть пустым. Введи название задачи:", cancellationToken: ct);
             return;
         }
-        session.DraftTask = new StudyTask { Title = text };
-        session.State     = UserState.WaitingForTaskSubject;
+        session.DraftTask = new StudyTask
+        {
+            Title = text,
+            Subject = TaskSubjects.Personal
+        };
+        session.State = UserState.WaitingForTaskDeadline;
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
-            text:      $"✅ Название: <b>{text}</b>\n\nТеперь введи <b>предмет</b> (например: Математика):",
+            text:      $"✅ Дело: <b>{Escape(text)}</b>\n\n" +
+                       "Введи <b>дедлайн</b>: дату или дату и время.\n" +
+                       "Например: <b>28.04.2026 18:00</b>\n" +
+                       "Если дедлайн не нужен, напиши <b>нет</b>.",
             parseMode: ParseMode.Html,
+            replyMarkup: BuildQuickDeadlineDateKeyboard(),
             cancellationToken: ct);
     }
 
@@ -770,36 +782,120 @@ public class TextHandler
             text == "-")
         {
             session.DraftTask!.Deadline = null;
-        }
-        else
-        {
-            if (!DateTime.TryParseExact(text,
-                    new[] { "dd.MM.yyyy", "dd/MM/yyyy", "d.M.yyyy" },
-                    null, System.Globalization.DateTimeStyles.None, out var deadline))
-            {
-                await _bot.SendMessage(
-                    chatId:    msg.Chat.Id,
-                    text:      "⚠️ Неверный формат даты. Используй ДД.ММ.ГГГГ\nИли напиши <b>нет</b>.",
-                    parseMode: ParseMode.Html,
-                    cancellationToken: ct);
-                return;
-            }
-            session.DraftTask!.Deadline = deadline;
+            await SaveDraftTaskAsync(msg, session, ct);
+            return;
         }
 
+        if (!TryParseTaskDeadline(text, out var deadline))
+        {
+            await _bot.SendMessage(
+                chatId:    msg.Chat.Id,
+                text:      "⚠️ Неверный формат дедлайна.\n" +
+                           "Напиши дату или дату и время, например <b>28.04.2026 18:00</b>.\n" +
+                           "Или напиши <b>нет</b>.",
+                parseMode: ParseMode.Html,
+                replyMarkup: BuildQuickDeadlineDateKeyboard(),
+                cancellationToken: ct);
+            return;
+        }
+
+        session.DraftTask!.Deadline = deadline;
+        await SaveDraftTaskAsync(msg, session, ct);
+    }
+
+    private async Task HandleTaskDeadlineTimeAsync(
+        Message msg, UserSession session, string text, CancellationToken ct)
+    {
+        if (!session.PendingTaskDeadlineDate.HasValue || session.DraftTask is null)
+        {
+            session.PendingTaskDeadlineDate = null;
+            session.State = UserState.Idle;
+            await _bot.SendMessage(msg.Chat.Id, "⚠️ Дата дедлайна потерялась. Начни добавление заново через /plan.", cancellationToken: ct);
+            return;
+        }
+
+        if (text.Equals("нет", StringComparison.OrdinalIgnoreCase) ||
+            text.Equals("no", StringComparison.OrdinalIgnoreCase) ||
+            text == "-")
+        {
+            session.DraftTask.Deadline = null;
+            session.PendingTaskDeadlineDate = null;
+            await SaveDraftTaskAsync(msg, session, ct);
+            return;
+        }
+
+        if (!TimeSpan.TryParseExact(
+                text,
+                new[] { @"hh\:mm", @"h\:mm" },
+                CultureInfo.InvariantCulture,
+                out var time))
+        {
+            await _bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: "⚠️ Неверный формат времени. Напиши время в формате <b>ЧЧ:ММ</b>, например <b>18:00</b>.",
+                parseMode: ParseMode.Html,
+                cancellationToken: ct);
+            return;
+        }
+
+        session.DraftTask.Deadline = session.PendingTaskDeadlineDate.Value.Date.Add(time);
+        session.PendingTaskDeadlineDate = null;
+        await SaveDraftTaskAsync(msg, session, ct);
+    }
+
+    private async Task SaveDraftTaskAsync(Message msg, UserSession session, CancellationToken ct)
+    {
         var task = session.DraftTask!;
         session.Tasks.Add(task);
         _sessions.SaveTasks(session);
         session.DraftTask = null;
-        session.State     = UserState.Idle;
+        session.PendingTaskDeadlineDate = null;
+        session.State = UserState.Idle;
 
         var dl = task.Deadline.HasValue ? task.Deadline.Value.ToString("dd.MM.yyyy") : "не задан";
+        if (task.Deadline.HasValue && task.Deadline.Value.TimeOfDay != TimeSpan.Zero)
+            dl = task.Deadline.Value.ToString("dd.MM.yyyy HH:mm");
+
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
-            text:      $"🎉 <b>Задача добавлена!</b>\n\n📌 <b>{task.Title}</b>\n📚 {task.Subject}\n📅 {dl}",
+            text:      $"🎉 <b>Дело добавлено!</b>\n\n📌 <b>{Escape(task.Title)}</b>\n📅 {dl}",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
     }
+
+    private static bool TryParseTaskDeadline(string text, out DateTime deadline)
+    {
+        return DateTime.TryParseExact(
+            text,
+            new[]
+            {
+                "dd.MM.yyyy HH:mm",
+                "d.M.yyyy H:mm",
+                "dd/MM/yyyy HH:mm",
+                "d/M/yyyy H:mm",
+                "dd.MM.yyyy",
+                "dd/MM/yyyy",
+                "d.M.yyyy",
+                "d/M/yyyy"
+            },
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out deadline);
+    }
+
+    private static InlineKeyboardMarkup BuildQuickDeadlineDateKeyboard()
+        => new(new[]
+        {
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("Сегодня", "plan_due_today"),
+                InlineKeyboardButton.WithCallbackData("Завтра", "plan_due_tomorrow"),
+            },
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("Послезавтра", "plan_due_after_tomorrow")
+            }
+        });
 
     private async Task HandleHomeworkTextAsync(
         Message msg, UserSession session, string text, CancellationToken ct)

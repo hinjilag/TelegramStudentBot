@@ -51,7 +51,7 @@ public class CallbackHandler
 
         if (data.StartsWith("timer_")) { await HandleTimerAsync(chatId, userId, session, data, ct); return; }
         if (data.StartsWith("rest_")) { await HandleRestAsync(chatId, userId, data, ct); return; }
-        if (data.StartsWith("plan_")) { await HandlePlanAsync(chatId, session, data, ct); return; }
+        if (data.StartsWith("plan_")) { await HandlePlanAsync(query, session, data, ct); return; }
         if (data.StartsWith("hw_")) { await HandleHomeworkAsync(query, userId, session, data, ct); return; }
         if (data.StartsWith("rem_")) { await HandleReminderAsync(query, session, data, ct); return; }
         if (data.StartsWith("task_")) { await HandleTaskAsync(query, session, data, ct); return; }
@@ -111,24 +111,163 @@ public class CallbackHandler
             await _timers.StartRestTimerAsync(chatId, userId, minutes);
     }
 
-    private async Task HandlePlanAsync(long chatId, UserSession session, string data, CancellationToken ct)
+    private async Task HandlePlanAsync(CallbackQuery query, UserSession session, string data, CancellationToken ct)
     {
+        var message = query.Message!;
+        var chatId = message.Chat.Id;
+
         switch (data)
         {
             case "plan_add":
                 session.State = UserState.WaitingForTaskTitle;
                 session.DraftTask = null;
-                await _bot.SendMessage(
+                await _bot.EditMessageText(
                     chatId: chatId,
-                    text: "📝 <b>Добавление задачи</b>\n\nВведи <b>название</b>:",
+                    messageId: message.MessageId,
+                    text: "📝 <b>Добавление дела</b>\n\nНапиши, что нужно сделать:",
                     parseMode: ParseMode.Html,
+                    cancellationToken: ct);
+                return;
+
+            case "plan_list":
+                await EditPlanListMessageAsync(message, session, ct);
+                return;
+
+            case "plan_back":
+                await EditPlanListMessageAsync(message, session, ct);
+                return;
+
+            case "plan_completed":
+                await EditCompletedPlanMessageAsync(message, session, ct);
+                return;
+
+            case "plan_choose_done":
+            case "plan_choose_del":
+                await EditPlanTaskChoiceMessageAsync(message, session, data == "plan_choose_del" ? "del" : "done", ct);
+                return;
+        }
+
+        if (data.StartsWith("plan_due_"))
+        {
+            await HandlePlanQuickDeadlineDateAsync(message, session, data, ct);
+            return;
+        }
+
+        var parts = data.Split('_', 3);
+        if (parts.Length < 3)
+            return;
+
+        var task = session.Tasks.FirstOrDefault(t =>
+            t.ShortId == parts[2] &&
+            TaskSubjects.IsPersonal(t.Subject));
+
+        if (task is null)
+        {
+            await _bot.SendMessage(chatId, "⚠️ Дело не найдено.", cancellationToken: ct);
+            return;
+        }
+
+        switch (parts[1])
+        {
+            case "done":
+                task.IsCompleted = true;
+                _sessions.SaveTasks(session);
+                await EditPlanListMessageAsync(message, session, ct);
+                break;
+
+            case "del":
+                var confirmation = PlanListView.BuildDeleteConfirmation(task);
+                await _bot.EditMessageText(
+                    chatId: chatId,
+                    messageId: message.MessageId,
+                    text: confirmation.Text,
+                    parseMode: ParseMode.Html,
+                    replyMarkup: confirmation.Keyboard,
                     cancellationToken: ct);
                 break;
 
-            case "plan_list":
-                await SendTaskListAsync(chatId, session, ct);
+            case "confirmdel":
+                session.Tasks.Remove(task);
+                _sessions.SaveTasks(session);
+                await EditPlanListMessageAsync(message, session, ct);
                 break;
         }
+    }
+
+    private async Task HandlePlanQuickDeadlineDateAsync(
+        Message message,
+        UserSession session,
+        string data,
+        CancellationToken ct)
+    {
+        var chatId = message.Chat.Id;
+
+        if (session.State != UserState.WaitingForTaskDeadline || session.DraftTask is null)
+        {
+            await _bot.SendMessage(chatId, "⚠️ Сейчас я не жду дедлайн. Начни добавление дела через /plan.", cancellationToken: ct);
+            return;
+        }
+
+        var offsetDays = data switch
+        {
+            "plan_due_today" => 0,
+            "plan_due_tomorrow" => 1,
+            "plan_due_after_tomorrow" => 2,
+            _ => 0
+        };
+
+        var date = DateTime.Today.AddDays(offsetDays);
+        session.PendingTaskDeadlineDate = date;
+        session.State = UserState.WaitingForTaskDeadlineTime;
+
+        await _bot.EditMessageText(
+            chatId: chatId,
+            messageId: message.MessageId,
+            text: $"📅 Дата: <b>{date:dd.MM.yyyy}</b>\n\n" +
+                  "Теперь напиши время дедлайна в формате <b>ЧЧ:ММ</b>, например <b>18:00</b>.\n" +
+                  "Если дедлайн не нужен, напиши <b>нет</b>.",
+            parseMode: ParseMode.Html,
+            cancellationToken: ct);
+    }
+
+    private async Task EditPlanListMessageAsync(Message message, UserSession session, CancellationToken ct)
+    {
+        var view = PlanListView.Build(session);
+        await _bot.EditMessageText(
+            chatId: message.Chat.Id,
+            messageId: message.MessageId,
+            text: view.Text,
+            parseMode: ParseMode.Html,
+            replyMarkup: view.Keyboard,
+            cancellationToken: ct);
+    }
+
+    private async Task EditCompletedPlanMessageAsync(Message message, UserSession session, CancellationToken ct)
+    {
+        var view = PlanListView.BuildCompleted(session);
+        await _bot.EditMessageText(
+            chatId: message.Chat.Id,
+            messageId: message.MessageId,
+            text: view.Text,
+            parseMode: ParseMode.Html,
+            replyMarkup: view.Keyboard,
+            cancellationToken: ct);
+    }
+
+    private async Task EditPlanTaskChoiceMessageAsync(
+        Message message,
+        UserSession session,
+        string action,
+        CancellationToken ct)
+    {
+        var view = PlanListView.BuildTaskChoice(session, action);
+        await _bot.EditMessageText(
+            chatId: message.Chat.Id,
+            messageId: message.MessageId,
+            text: view.Text,
+            parseMode: ParseMode.Html,
+            replyMarkup: view.Keyboard,
+            cancellationToken: ct);
     }
 
     private async Task HandleHomeworkAsync(
@@ -1497,9 +1636,7 @@ public class CallbackHandler
 
     private async Task SendTaskListAsync(long chatId, UserSession session, CancellationToken ct)
     {
-        var view = HomeworkListView.Build(
-            session,
-            "📋 <b>Список задач пуст.</b>\nДобавь первую через /plan → «Добавить задачу».");
+        var view = PlanListView.Build(session);
         await _bot.SendMessage(
             chatId: chatId,
             text: view.Text,

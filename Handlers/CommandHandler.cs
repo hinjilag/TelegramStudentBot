@@ -21,6 +21,7 @@ public class CommandHandler
     private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly ReminderSettingsService _reminders;
     private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
+    private readonly UserFeatureIntroService _featureIntros;
     private readonly BotVisitLogService _visits;
 
     public CommandHandler(
@@ -31,6 +32,7 @@ public class CommandHandler
         UserScheduleSelectionService scheduleSelections,
         ReminderSettingsService reminders,
         HomeworkSubjectPreferencesService homeworkSubjects,
+        UserFeatureIntroService featureIntros,
         BotVisitLogService visits)
     {
         _bot = bot;
@@ -40,6 +42,7 @@ public class CommandHandler
         _scheduleSelections = scheduleSelections;
         _reminders = reminders;
         _homeworkSubjects = homeworkSubjects;
+        _featureIntros = featureIntros;
         _visits = visits;
     }
 
@@ -73,6 +76,7 @@ public class CommandHandler
                           "📅 /schedule — пары на день\n" +
                           "📝 /homework — домашние задания\n" +
                           "➕ /add_homework — добавить новое ДЗ\n" +
+                          "📋 /plan — личные дела с дедлайнами\n" +
                           "⏱ /timer — сфокусироваться на учёбе",
                     parseMode: ParseMode.Html,
                     cancellationToken: ct);
@@ -84,12 +88,15 @@ public class CommandHandler
 
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
-            text:      "👋 <b>Привет! Я помогу тебе следить за расписанием, домашками и дедлайнами.</b>\n\n" +
+            text:      "👋 <b>Привет! Я помогу тебе следить за расписанием, домашками и личными делами.</b>\n\n" +
                        "Давай сначала настроим расписание:\n" +
                        "1. Нажми /schedule\n" +
                        "2. Выбери направление, курс и подгруппу\n" +
                        "3. После этого я закреплю расписание за тобой\n\n" +
-                       "Когда расписание будет выбрано, ты сможешь добавлять ДЗ по предметам из своего расписания.",
+                       "Когда расписание будет выбрано:\n" +
+                       "📚 /add_homework — ДЗ по предметам\n" +
+                       "📋 /plan — личные дела с датой и временем\n" +
+                       "⏱ /timer — таймер учёбы",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
     }
@@ -189,15 +196,17 @@ public class CommandHandler
     //  /plan
     // ══════════════════════════════════════════════════════════
 
-    /// <summary>Меню управления учебными задачами</summary>
+    /// <summary>Меню управления личными делами.</summary>
     public async Task HandlePlanAsync(Message msg, CancellationToken ct)
     {
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
-        var pending  = session.PendingTasksCount;
+        var userId = msg.From!.Id;
+        var pending = session.Tasks.Count(t => !t.IsCompleted && TaskSubjects.IsPersonal(t.Subject));
+        var shouldShowIntro = !_featureIntros.HasSeenPlanIntro(userId);
 
-        var text = pending > 0
-            ? $"📋 <b>Твой план</b>\nНевыполненных задач: <b>{pending}</b>\n\nЧто делаем?"
-            : "📋 <b>Твой план</b>\nЗадач пока нет. Добавь первую!";
+        var text = BuildPlanMenuText(pending, shouldShowIntro);
+        if (shouldShowIntro)
+            _featureIntros.MarkPlanIntroSeen(userId);
 
         await _bot.SendMessage(
             chatId:      msg.Chat.Id,
@@ -300,6 +309,21 @@ public class CommandHandler
             parseMode: ParseMode.Html,
             replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
             cancellationToken: ct);
+    }
+
+    private static string BuildPlanMenuText(int pending, bool includeIntro)
+    {
+        var text = pending > 0
+            ? $"📋 <b>Личный план</b>\nАктивных дел: <b>{pending}</b>"
+            : "📋 <b>Личный план</b>\nДел пока нет. Добавь первое!";
+
+        if (includeIntro)
+        {
+            text += "\n\nЗдесь можно хранить дела вне учёбы: сходить в поликлинику, купить тетради, не забыть созвон.\n" +
+                    "Я могу поставить дедлайн с датой и временем.";
+        }
+
+        return text + "\n\nЧто делаем?";
     }
 
     private static List<string> GetHomeworkSubjects(List<ScheduleEntry> entries)
@@ -512,7 +536,7 @@ public class CommandHandler
         {
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("➕ Добавить задачу", "plan_add"),
+                InlineKeyboardButton.WithCallbackData("➕ Добавить дело", "plan_add"),
                 InlineKeyboardButton.WithCallbackData("📋 Показать план", "plan_list")
             }
         });
