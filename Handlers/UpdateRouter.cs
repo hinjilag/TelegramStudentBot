@@ -120,6 +120,10 @@ public class UpdateRouter
                 await _commands.HandleHelpAsync(msg, ct);
                 break;
 
+            case "/miniapp":
+                await _commands.HandleMiniAppAsync(msg, ct);
+                break;
+
             case "/timer":
                 await _commands.HandleTimerAsync(msg, ct);
                 break;

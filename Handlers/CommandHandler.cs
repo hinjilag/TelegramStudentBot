@@ -140,6 +140,24 @@ public class CommandHandler
     // ══════════════════════════════════════════════════════════
 
     /// <summary>Показать меню выбора длительности рабочего таймера</summary>
+    public async Task HandleMiniAppAsync(Message msg, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(_webAppUrl))
+        {
+            await _bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: "Mini app пока не настроен. Укажи публичный WebAppUrl в конфигурации бота.",
+                cancellationToken: ct);
+            return;
+        }
+
+        await _bot.SendMessage(
+            chatId: msg.Chat.Id,
+            text: "Открой mini app по кнопке ниже.",
+            replyMarkup: BuildMiniAppLinkMarkup(),
+            cancellationToken: ct);
+    }
+
     public async Task HandleTimerAsync(Message msg, CancellationToken ct)
     {
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
