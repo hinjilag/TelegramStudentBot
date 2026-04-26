@@ -46,7 +46,7 @@ public class CommandHandler
         _homeworkSubjects = homeworkSubjects;
         _featureIntros = featureIntros;
         _visits = visits;
-        _webAppUrl = configuration["WebAppUrl"];
+        _webAppUrl = ResolveWebAppUrl(configuration);
     }
 
     // ══════════════════════════════════════════════════════════
@@ -600,5 +600,18 @@ public class CommandHandler
                 InlineKeyboardButton.WithCallbackData("Выключить", "rem_off")
             }
         });
+    }
+
+    private static string? ResolveWebAppUrl(IConfiguration configuration)
+    {
+        var configuredUrl = configuration["WebAppUrl"];
+        if (!string.IsNullOrWhiteSpace(configuredUrl))
+            return configuredUrl;
+
+        var railwayDomain = configuration["RAILWAY_PUBLIC_DOMAIN"];
+        if (string.IsNullOrWhiteSpace(railwayDomain))
+            return null;
+
+        return $"https://{railwayDomain.TrimEnd('/')}/miniapp/";
     }
 }

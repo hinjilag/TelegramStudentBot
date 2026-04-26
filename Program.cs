@@ -16,7 +16,9 @@ builder.Logging.AddSimpleConsole(options =>
 });
 builder.Logging.AddDebug();
 
-var webPort = builder.Configuration.GetValue<int?>("WebAppPort") ?? 8080;
+var webPort = builder.Configuration.GetValue<int?>("PORT")
+    ?? builder.Configuration.GetValue<int?>("WebAppPort")
+    ?? 8080;
 builder.WebHost.UseUrls($"http://0.0.0.0:{webPort}");
 
 var rawToken = builder.Configuration["BotToken"]
