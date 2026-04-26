@@ -366,7 +366,7 @@ function renderScheduleView(schedule) {
   `;
 }
 
-function renderRemindersView(reminder) {
+function renderRemindersViewDuplicate(reminder) {
   return `
     <div class="single-column">
       <section class="module panel">
