@@ -43,7 +43,7 @@ html,
 body {
   margin: 0;
   min-height: 100%;
-  font-family: "IBM Plex Mono", "Cascadia Mono", "Cascadia Code", "Courier New", monospace;
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
   background:
     radial-gradient(circle at top left, rgba(94, 242, 255, 0.1), transparent 34%),
     radial-gradient(circle at bottom right, rgba(217, 63, 38, 0.15), transparent 38%),
@@ -132,6 +132,7 @@ textarea {
   color: var(--accent);
   letter-spacing: 0.14em;
   font-size: 12px;
+  font-family: "IBM Plex Mono", "Cascadia Mono", "Courier New", monospace;
 }
 
 .boot-copy,
@@ -139,12 +140,14 @@ textarea {
   color: var(--muted);
 }
 
-.dashboard {
+.dashboard,
+.app-frame {
   display: grid;
   gap: 16px;
 }
 
-.hero {
+.hero,
+.topbar {
   padding: 22px;
   display: grid;
   gap: 18px;
@@ -155,7 +158,8 @@ textarea {
     var(--panel-strong);
 }
 
-.hero-top {
+.hero-top,
+.topbar-main {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -186,10 +190,21 @@ textarea {
 .section-title {
   margin: 0;
   font-size: clamp(22px, 4vw, 34px);
+  line-height: 0.95;
+  font-weight: 700;
 }
 
 .hero p {
   margin: 6px 0 0;
+}
+
+.topbar-copy h1,
+.screen-title,
+.module-title,
+.task-title,
+.subject-title,
+.schedule-day-title {
+  font-weight: 700;
 }
 
 .theme-switcher {
@@ -197,6 +212,10 @@ textarea {
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.theme-switcher.compact {
+  justify-content: flex-start;
 }
 
 .theme-chip,
@@ -233,6 +252,7 @@ textarea {
 .theme-chip,
 .nav-chip {
   padding: 10px 14px;
+  font-weight: 700;
 }
 
 .stats-grid,
@@ -309,6 +329,113 @@ textarea {
   flex-wrap: wrap;
 }
 
+.status-strip {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hero-stats {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.hero-stat {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  min-height: 92px;
+}
+
+.hero-stat p,
+.hero-stat span {
+  margin: 0;
+  color: var(--muted);
+}
+
+.hero-stat p {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.hero-stat strong {
+  display: block;
+  margin: 8px 0 4px;
+  font-size: clamp(22px, 6vw, 30px);
+  line-height: 0.95;
+}
+
+.shortcut-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.shortcut-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.shortcut-card:hover {
+  transform: translate(-1px, -1px);
+}
+
+.shortcut-icon,
+.screen-badge {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--accent-soft), rgba(255, 255, 255, 0.08));
+  color: var(--accent);
+  font-family: "IBM Plex Mono", "Courier New", monospace;
+  font-weight: 700;
+}
+
+.shortcut-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.shortcut-copy strong {
+  font-size: 16px;
+}
+
+.shortcut-copy small {
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.screen-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.screen-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 2px 2px 0;
+}
+
+.screen-title {
+  margin: 0;
+  font-size: clamp(24px, 5vw, 34px);
+}
+
 .view-body {
   display: grid;
   gap: 16px;
@@ -332,6 +459,7 @@ textarea {
   background:
     linear-gradient(135deg, var(--accent-soft), rgba(255, 255, 255, 0.05));
   box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.2);
+  font-weight: 700;
 }
 
 .pixel-button.secondary {
@@ -553,6 +681,7 @@ textarea {
   margin: 8px 0 0;
   font-size: clamp(34px, 7vw, 54px);
   letter-spacing: 0.08em;
+  font-family: "IBM Plex Mono", "Cascadia Mono", "Courier New", monospace;
 }
 
 .toast {
@@ -590,6 +719,49 @@ textarea {
   margin: 6px 0;
 }
 
+.tabbar {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 20;
+  width: min(760px, calc(100vw - 16px));
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+  background: rgba(7, 9, 22, 0.92);
+  backdrop-filter: blur(16px);
+}
+
+.tabbar-button {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.tabbar-button.active {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: linear-gradient(135deg, var(--accent-soft), rgba(255, 255, 255, 0.04));
+}
+
+.tabbar-icon {
+  font-family: "IBM Plex Mono", "Courier New", monospace;
+  font-size: 16px;
+}
+
+.tabbar-label {
+  font-size: 12px;
+  font-weight: 700;
+}
+
 @media (max-width: 980px) {
   .stats-grid,
   .content-grid,
@@ -599,15 +771,22 @@ textarea {
   .info-grid {
     grid-template-columns: 1fr;
   }
+
+  .hero-stats,
+  .shortcut-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 720px) {
   .app-root {
     width: min(100vw - 12px, 100%);
     padding-top: 10px;
+    padding-bottom: 128px;
   }
 
   .hero,
+  .topbar,
   .stat-card,
   .module,
   .info-card {
@@ -615,6 +794,7 @@ textarea {
   }
 
   .hero-top,
+  .topbar-main,
   .module-head,
   .task-top,
   .schedule-top,
@@ -625,9 +805,41 @@ textarea {
 
   .theme-switcher {
     justify-content: flex-start;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
   }
 
   .field-grid {
     grid-template-columns: 1fr;
+  }
+
+  .hero-stat strong {
+    font-size: 24px;
+  }
+
+  .shortcut-grid,
+  .hero-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .screen-meta {
+    padding: 0 2px;
+  }
+
+  .tabbar {
+    bottom: 10px;
+    width: calc(100vw - 12px);
+    padding: 8px;
+    gap: 4px;
+    border-radius: 20px;
+  }
+
+  .tabbar-button {
+    padding: 9px 4px;
+  }
+
+  .tabbar-label {
+    font-size: 11px;
   }
 }

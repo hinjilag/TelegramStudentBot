@@ -23,6 +23,14 @@ const THEME_LABELS = {
   matrix: "Matrix Mint"
 };
 
+const VIEW_META = {
+  dashboard: { label: "Обзор", icon: "◫", eyebrow: "MISSION_BOARD" },
+  schedule: { label: "Расписание", icon: "⌘", eyebrow: "SCHEDULE_MATRIX" },
+  homework: { label: "Домашка", icon: "✦", eyebrow: "HOMEWORK_STACK" },
+  plan: { label: "План", icon: "▣", eyebrow: "PERSONAL_QUEUE" },
+  focus: { label: "Фокус", icon: "◎", eyebrow: "FOCUS_ENGINE" }
+};
+
 boot().catch(handleFatalError);
 
 async function boot() {
@@ -117,60 +125,74 @@ function render() {
   const activeHomework = tasks.homework.filter((task) => !task.isCompleted);
   const activePersonal = tasks.personal.filter((task) => !task.isCompleted);
   const completedTasks = [...tasks.homework, ...tasks.personal].filter((task) => task.isCompleted);
+  const activeViewMeta = VIEW_META[store.activeView];
 
   store.root.innerHTML = `
-    <section class="dashboard">
-      <section class="hero panel">
-        <div class="hero-top">
+    <section class="app-frame">
+      <section class="topbar panel">
+        <div class="topbar-main">
           <div class="identity">
             <div class="avatar">${getInitials(user.displayName)}</div>
-            <div>
-              <p class="eyebrow">SYNTH_STUDENT_PANEL</p>
+            <div class="topbar-copy">
+              <p class="eyebrow">ASSISKENT_PANEL</p>
               <h1>${escapeHtml(user.displayName)}</h1>
-              <p class="muted">${escapeHtml(user.username || "без username")} // ${escapeHtml(schedule.currentWeekLabel)} неделя</p>
+              <p class="muted">${escapeHtml(user.username || "без username")} // ${escapeHtml(store.lastSyncLabel)}</p>
             </div>
           </div>
-          <div class="theme-switcher">
-            ${Object.entries(THEME_LABELS).map(([key, label]) => `
-              <button class="theme-chip ${store.selectedTheme === key ? "active" : ""}" data-theme="${key}">
-                ${escapeHtml(label)}
-              </button>
-            `).join("")}
+          <div class="topbar-actions">
+            <button class="pixel-button secondary slim" data-action="refresh">Обновить</button>
           </div>
         </div>
-        <div class="status-line">
-          <span class="status-dot"></span>
-          <span>${escapeHtml(store.lastSyncLabel)}</span>
+        <div class="theme-switcher compact">
+          ${Object.entries(THEME_LABELS).map(([key, label]) => `
+            <button class="theme-chip ${store.selectedTheme === key ? "active" : ""}" data-theme="${key}">
+              ${escapeHtml(label)}
+            </button>
+          `).join("")}
+        </div>
+        <div class="status-strip">
           <span class="tag accent">${schedule.selection ? "Расписание подключено" : "Нужно выбрать расписание"}</span>
           <span class="tag ${reminder.isEnabled ? "success" : "warning"}">${reminder.isEnabled ? `Напоминания ${escapeHtml(reminder.timeText)}` : "Напоминания выключены"}</span>
           <span class="tag">${timer.isActive ? `Таймер ${escapeHtml(timer.type || "")}` : "Таймер не запущен"}</span>
         </div>
-        <div class="stats-grid">
-          ${statCard("HOMEWORK", stats.homeworkPending, `${tasks.homework.length} всего`, "accent")}
-          ${statCard("PLAN", stats.personalPending, `${tasks.personal.length} всего`, "accent")}
-          ${statCard("DONE", stats.completedTasks, "выполнено", "success")}
-          ${statCard("WEEK", schedule.currentWeekType, schedule.currentWeekLabel, "warning")}
+        <div class="hero-stats">
+          ${heroStat("Дедлайны", stats.homeworkPending, "активных")}
+          ${heroStat("План", stats.personalPending, "задач")}
+          ${heroStat("Неделя", schedule.currentWeekType, schedule.currentWeekLabel)}
         </div>
-        <div class="nav-row">
-          ${navChip("dashboard", "Обзор")}
-          ${navChip("schedule", "Расписание")}
-          ${navChip("homework", "Домашка")}
-          ${navChip("plan", "План")}
-          ${navChip("focus", "Фокус")}
+        ${store.activeView === "dashboard" ? `
+          <div class="shortcut-grid">
+            ${shortcutCard("schedule", "Открыть пары и сменить группу")}
+            ${shortcutCard("homework", "Посмотреть и добавить ДЗ")}
+            ${shortcutCard("plan", "Быстрый доступ к личным делам")}
+            ${shortcutCard("focus", "Запустить таймер учебы")}
+          </div>
+        ` : ""}
+      </section>
+      <section class="screen-shell">
+        <div class="screen-meta">
+          <div>
+            <p class="eyebrow">${escapeHtml(activeViewMeta.eyebrow)}</p>
+            <h2 class="screen-title">${escapeHtml(activeViewMeta.label)}</h2>
+          </div>
+          <div class="screen-badge">${activeViewMeta.icon}</div>
         </div>
+        <section class="view-body">
+          ${renderView({
+            schedule,
+            timer,
+            reminder,
+            tasks,
+            activeHomework,
+            activePersonal,
+            completedTasks,
+            homeworkSubjects
+          })}
+        </section>
       </section>
-      <section class="view-body">
-        ${renderView({
-          schedule,
-          timer,
-          reminder,
-          tasks,
-          activeHomework,
-          activePersonal,
-          completedTasks,
-          homeworkSubjects
-        })}
-      </section>
+      <nav class="tabbar panel">
+        ${Object.entries(VIEW_META).map(([view, meta]) => tabButton(view, meta)).join("")}
+      </nav>
     </section>
   `;
 }
@@ -584,6 +606,38 @@ function renderFocusView(timer, reminder) {
 
 function navChip(view, label) {
   return `<button class="nav-chip ${store.activeView === view ? "active" : ""}" data-view="${view}">${escapeHtml(label)}</button>`;
+}
+
+function heroStat(label, value, hint) {
+  return `
+    <article class="hero-stat">
+      <p>${escapeHtml(label)}</p>
+      <strong>${escapeHtml(String(value))}</strong>
+      <span>${escapeHtml(hint)}</span>
+    </article>
+  `;
+}
+
+function shortcutCard(view, description) {
+  const meta = VIEW_META[view];
+  return `
+    <button class="shortcut-card" data-view="${view}">
+      <span class="shortcut-icon">${escapeHtml(meta.icon)}</span>
+      <span class="shortcut-copy">
+        <strong>${escapeHtml(meta.label)}</strong>
+        <small>${escapeHtml(description)}</small>
+      </span>
+    </button>
+  `;
+}
+
+function tabButton(view, meta) {
+  return `
+    <button class="tabbar-button ${store.activeView === view ? "active" : ""}" data-view="${view}">
+      <span class="tabbar-icon">${escapeHtml(meta.icon)}</span>
+      <span class="tabbar-label">${escapeHtml(meta.label)}</span>
+    </button>
+  `;
 }
 
 function statCard(label, value, subtle, tone) {
