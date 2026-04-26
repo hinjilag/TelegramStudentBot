@@ -60,8 +60,6 @@ app.MapGet("/", (IWebHostEnvironment env) =>
     Results.File(Path.Combine(env.WebRootPath, "miniapp", "index.html"), "text/html"));
 app.MapGet("/miniapp", (IWebHostEnvironment env) =>
     Results.File(Path.Combine(env.WebRootPath, "miniapp", "index.html"), "text/html"));
-app.MapGet("/miniapp/", (IWebHostEnvironment env) =>
-    Results.File(Path.Combine(env.WebRootPath, "miniapp", "index.html"), "text/html"));
 app.MapGet("/health", () => Results.Ok(new
 {
     status = "ok",
