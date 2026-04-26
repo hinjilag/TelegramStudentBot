@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/miniapp/styles.css">
+  <link rel="stylesheet" href="/miniapp/styles.css?v=20260426c">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
@@ -25,6 +25,18 @@
     </main>
     <div id="toast" class="toast" hidden></div>
   </div>
-  <script type="module" src="/miniapp/app.js"></script>
+  <script>
+    window.addEventListener("error", function (event) {
+      var app = document.getElementById("app");
+      if (!app) return;
+      app.innerHTML =
+        '<section class="boot-card panel">' +
+        '<p class="eyebrow">FRONTEND_ERROR</p>' +
+        '<h1>Mini App не загрузился</h1>' +
+        '<p class="boot-copy">' + (event.message || "Ошибка в клиентском коде.") + '</p>' +
+        '</section>';
+    });
+  </script>
+  <script type="module" src="/miniapp/app.js?v=20260426c"></script>
 </body>
 </html>

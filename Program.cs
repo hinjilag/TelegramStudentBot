@@ -54,12 +54,29 @@ builder.Services.AddHostedService<DeadlineReminderService>();
 
 var app = builder.Build();
 
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = context =>
+    {
+        if (context.Context.Request.Path.StartsWithSegments("/miniapp", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+            context.Context.Response.Headers.Pragma = "no-cache";
+            context.Context.Response.Headers.Expires = "0";
+        }
+    }
+});
 
-app.MapGet("/", (IWebHostEnvironment env) =>
-    Results.File(Path.Combine(env.WebRootPath, "miniapp", "index.html"), "text/html"));
-app.MapGet("/miniapp", (IWebHostEnvironment env) =>
-    Results.File(Path.Combine(env.WebRootPath, "miniapp", "index.html"), "text/html"));
+app.MapGet("/", (HttpContext httpContext, IWebHostEnvironment env) =>
+{
+    SetNoCacheHeaders(httpContext.Response);
+    return Results.File(Path.Combine(env.WebRootPath, "miniapp", "index.html"), "text/html");
+});
+app.MapGet("/miniapp", (HttpContext httpContext, IWebHostEnvironment env) =>
+{
+    SetNoCacheHeaders(httpContext.Response);
+    return Results.File(Path.Combine(env.WebRootPath, "miniapp", "index.html"), "text/html");
+});
 app.MapGet("/health", () => Results.Ok(new
 {
     status = "ok",
@@ -91,4 +108,11 @@ static void ClearBrokenProxyEnvironment()
     {
         Environment.SetEnvironmentVariable(name, null);
     }
+}
+
+static void SetNoCacheHeaders(HttpResponse response)
+{
+    response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+    response.Headers.Pragma = "no-cache";
+    response.Headers.Expires = "0";
 }
