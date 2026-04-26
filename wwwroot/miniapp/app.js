@@ -13,7 +13,7 @@ const store = {
   scheduleMode: "today",
   selectedHomeworkGroup: "",
   selectedTimerSound: localStorage.getItem("assistKentTimerSound") || "off",
-  lastSyncLabel: "РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ...",
+  lastSyncLabel: "Синхронизация...",
   timerTick: null,
   refreshTick: null,
   audioContext: null,
@@ -28,20 +28,20 @@ const THEME_LABELS = {
 };
 
 const VIEW_META = {
-  dashboard: { label: "РћР±Р·РѕСЂ", shortLabel: "РћР±Р·РѕСЂ", icon: "в—«", eyebrow: "MISSION_BOARD" },
-  schedule: { label: "Р Р°СЃРїРёСЃР°РЅРёРµ", shortLabel: "РџР°СЂС‹", icon: "вЊ", eyebrow: "SCHEDULE_MATRIX" },
-  homework: { label: "Р”РѕРјР°С€РєР°", shortLabel: "Р”Р—", icon: "вњ¦", eyebrow: "HOMEWORK_STACK" },
-  plan: { label: "РџР»Р°РЅ", shortLabel: "РџР»Р°РЅ", icon: "в–Ј", eyebrow: "PERSONAL_QUEUE" },
-  focus: { label: "Р¤РѕРєСѓСЃ", shortLabel: "Р¤РѕРєСѓСЃ", icon: "в—Ћ", eyebrow: "FOCUS_ENGINE" }
+  dashboard: { label: "Обзор", shortLabel: "Обзор", icon: "◫", eyebrow: "СВОДКА" },
+  schedule: { label: "Расписание", shortLabel: "Пары", icon: "⌘", eyebrow: "РАСПИСАНИЕ" },
+  homework: { label: "Домашка", shortLabel: "ДЗ", icon: "✦", eyebrow: "ДОМАШКА" },
+  plan: { label: "План", shortLabel: "План", icon: "▣", eyebrow: "ЛИЧНОЕ" },
+  focus: { label: "Фокус", shortLabel: "Фокус", icon: "◎", eyebrow: "ТАЙМЕР" }
 };
 
-VIEW_META.reminders = { label: "РќР°РїРѕРјРёРЅР°РЅРёСЏ", shortLabel: "РќР°РїРѕРј.", icon: "в—Њ", eyebrow: "ALERT_ROUTER" };
+VIEW_META.reminders = { label: "Напоминания", shortLabel: "Напом.", icon: "◌", eyebrow: "НАПОМИНАНИЯ" };
 
 const TIMER_SOUND_META = {
-  off: { label: "РўРёС€РёРЅР°", hint: "Р±РµР· С„РѕРЅРѕРІРѕРіРѕ Р·РІСѓРєР°" },
-  pulse: { label: "Pulse", hint: "РјСЏРіРєРёР№ СЂРёС‚Рј РґР»СЏ С„РѕРєСѓСЃР°" },
-  rain: { label: "Rain", hint: "С€СѓРј РґРѕР¶РґСЏ Рё РІРѕР·РґСѓС…Р°" },
-  arcade: { label: "Arcade", hint: "РїРёРєСЃРµР»СЊРЅС‹Р№ СЃРёРЅС‚-Р»СѓРї" }
+  off: { label: "Тишина", hint: "без фонового звука" },
+  pulse: { label: "Pulse", hint: "мягкий ритм для фокуса" },
+  rain: { label: "Rain", hint: "шум дождя и воздуха" },
+  arcade: { label: "Arcade", hint: "пиксельный синт-луп" }
 };
 
 boot().catch(handleFatalError);
@@ -95,7 +95,7 @@ async function api(path, options = {}) {
 
   const data = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(data?.error || `РћС€РёР±РєР° Р·Р°РїСЂРѕСЃР° (${response.status})`);
+    throw new Error(data?.error || `Ошибка запроса (${response.status})`);
   }
 
   return data;
@@ -104,7 +104,7 @@ async function api(path, options = {}) {
 async function refreshState({ silent = false } = {}) {
   const state = await api("/api/miniapp/state");
   store.state = state;
-  store.lastSyncLabel = `РЎРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°РЅРѕ ${new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
+  store.lastSyncLabel = `Синхронизировано ${new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
 
   if (!store.selectedDirectionCode) {
     store.selectedDirectionCode = state.schedule.selectedDirectionCode || state.schedule.directions[0]?.directionCode || "";
@@ -167,20 +167,20 @@ function render() {
             <div class="identity">
               <div class="avatar">${getInitials(user.displayName)}</div>
               <div class="topbar-copy">
-                <p class="eyebrow">ASSISKENT_PANEL</p>
+                <p class="eyebrow">ASSISKENT</p>
                 <h1>${escapeHtml(user.displayName)}</h1>
-                <p class="muted">${escapeHtml(user.username || "Р±РµР· username")} // ${escapeHtml(store.lastSyncLabel)}</p>
+                <p class="muted">${escapeHtml(user.username || "без username")} // ${escapeHtml(store.lastSyncLabel)}</p>
               </div>
             </div>
             <div class="topbar-actions">
-              <button class="pixel-button secondary slim" data-action="refresh">РћР±РЅРѕРІРёС‚СЊ</button>
+              <button class="pixel-button secondary slim" data-action="refresh">Обновить</button>
             </div>
           </div>
           <div class="theme-panel">
-            <span class="theme-label">РўРµРјР° РёРЅС‚РµСЂС„РµР№СЃР°</span>
+            <span class="theme-label">Тема интерфейса</span>
             <div class="theme-switcher compact">
               ${Object.entries(THEME_LABELS).map(([key, label]) => `
-                <button class="theme-chip ${store.selectedTheme === key ? "active" : ""}" data-theme="${key}" aria-label="РўРµРјР° ${escapeHtml(label)}">
+                <button class="theme-chip ${store.selectedTheme === key ? "active" : ""}" data-theme="${key}" aria-label="Тема ${escapeHtml(label)}">
                   <span class="theme-chip-dot theme-${key}"></span>
                   <span>${escapeHtml(label)}</span>
                 </button>
@@ -188,20 +188,20 @@ function render() {
             </div>
           </div>
           <div class="status-strip">
-            ${statusActionButton("schedule", schedule.selection ? "Р Р°СЃРїРёСЃР°РЅРёРµ РїРѕРґРєР»СЋС‡РµРЅРѕ" : "РќСѓР¶РЅРѕ РІС‹Р±СЂР°С‚СЊ СЂР°СЃРїРёСЃР°РЅРёРµ", "accent")}
-            ${statusActionButton("reminders", reminder.isEnabled ? `РќР°РїРѕРјРёРЅР°РЅРёСЏ ${escapeHtml(reminder.timeText)}` : "РќР°РїРѕРјРёРЅР°РЅРёСЏ РІС‹РєР»СЋС‡РµРЅС‹", reminder.isEnabled ? "success" : "warning")}
-            ${statusActionButton("focus", timer.isActive ? `РўР°Р№РјРµСЂ ${escapeHtml(timer.type || "")}` : "РўР°Р№РјРµСЂ РЅРµ Р·Р°РїСѓС‰РµРЅ", "default")}
+            ${statusActionButton("schedule", schedule.selection ? "Расписание подключено" : "Нужно выбрать расписание", "accent")}
+            ${statusActionButton("reminders", reminder.isEnabled ? `Напоминания ${escapeHtml(reminder.timeText)}` : "Напоминания выключены", reminder.isEnabled ? "success" : "warning")}
+            ${statusActionButton("focus", timer.isActive ? `Таймер ${escapeHtml(timer.type || "")}` : "Таймер не запущен", "default")}
           </div>
           <div class="hero-stats">
-            ${heroStat("Р”РµРґР»Р°Р№РЅС‹", stats.homeworkPending, "Р°РєС‚РёРІРЅС‹С…")}
-            ${heroStat("РџР»Р°РЅ", stats.personalPending, "Р·Р°РґР°С‡")}
-            ${heroStat("РќРµРґРµР»СЏ", schedule.currentWeekType, schedule.currentWeekLabel)}
+            ${heroStat("Дедлайны", stats.homeworkPending, "активных")}
+            ${heroStat("План", stats.personalPending, "задач")}
+            ${heroStat("Неделя", schedule.currentWeekType, schedule.currentWeekLabel)}
           </div>
           <div class="shortcut-grid">
-            ${shortcutCard("schedule", "РћС‚РєСЂС‹С‚СЊ РїР°СЂС‹ Рё СЃРјРµРЅРёС‚СЊ РіСЂСѓРїРїСѓ")}
-            ${shortcutCard("homework", "РџРѕСЃРјРѕС‚СЂРµС‚СЊ Рё РґРѕР±Р°РІРёС‚СЊ Р”Р—")}
-            ${shortcutCard("plan", "Р‘С‹СЃС‚СЂС‹Р№ РґРѕСЃС‚СѓРї Рє Р»РёС‡РЅС‹Рј РґРµР»Р°Рј")}
-            ${shortcutCard("focus", "Р—Р°РїСѓСЃС‚РёС‚СЊ С‚Р°Р№РјРµСЂ СѓС‡РµР±С‹")}
+            ${shortcutCard("schedule", "Открыть пары и сменить группу")}
+            ${shortcutCard("homework", "Посмотреть и добавить ДЗ")}
+            ${shortcutCard("plan", "Быстрый доступ к личным делам")}
+            ${shortcutCard("focus", "Запустить таймер учебы")}
           </div>
         </section>
       ` : ""}
@@ -259,36 +259,36 @@ function renderDashboardView({ schedule, timer, reminder, activeHomework, active
       <section class="module panel">
         <div class="module-head">
           <div>
-            <p class="eyebrow">MISSION_BOARD</p>
-            <h2 class="module-title">РўРµРєСѓС‰Р°СЏ РѕР±СЃС‚Р°РЅРѕРІРєР°</h2>
+            <p class="eyebrow">СВОДКА</p>
+            <h2 class="module-title">Текущая обстановка</h2>
           </div>
-          <button class="pixel-button secondary" data-action="refresh">РћР±РЅРѕРІРёС‚СЊ</button>
+          <button class="pixel-button secondary" data-action="refresh">Обновить</button>
         </div>
         <div class="overview-grid">
           <article class="info-card panel">
             <div class="module-head">
-              <h3 class="module-title">РЎРµРіРѕРґРЅСЏ</h3>
-              <span class="tag accent">${schedule.todayEntries.length} РїР°СЂ</span>
+              <h3 class="module-title">Сегодня</h3>
+              <span class="tag accent">${schedule.todayEntries.length} пар</span>
             </div>
             ${schedule.todayEntries.length > 0 ? schedule.todayEntries.slice(0, 4).map(entry => `
               <div class="schedule-entry">
                 <div class="lesson-pill">${entry.lessonNumber}</div>
                 <div>
                   <div><strong>${escapeHtml(entry.subject)}</strong></div>
-                  <div class="muted">${escapeHtml(entry.time || "РІСЂРµРјСЏ РЅРµ СѓРєР°Р·Р°РЅРѕ")}</div>
+                  <div class="muted">${escapeHtml(entry.time || "время не указано")}</div>
                 </div>
               </div>
-            `).join("") : emptyState("РќР° СЃРµРіРѕРґРЅСЏ РїР°СЂ РЅРµС‚ РёР»Рё СЂР°СЃРїРёСЃР°РЅРёРµ РµС‰С‘ РЅРµ РІС‹Р±СЂР°РЅРѕ.")}
+            `).join("") : emptyState("На сегодня пар нет или расписание ещё не выбрано.")}
           </article>
           <article class="info-card panel">
             <div class="module-head">
-              <h3 class="module-title">РђРєС‚РёРІРЅС‹Р№ С„РѕРєСѓСЃ</h3>
-              <span class="tag ${timer.isActive ? "success" : "warning"}">${timer.isActive ? "РІ СЂР°Р±РѕС‚Рµ" : "РЅРµР°РєС‚РёРІРµРЅ"}</span>
+              <h3 class="module-title">Активный фокус</h3>
+              <span class="tag ${timer.isActive ? "success" : "warning"}">${timer.isActive ? "в работе" : "неактивен"}</span>
             </div>
             <div class="focus-display">
-              <p class="eyebrow">FOCUS_ENGINE</p>
+              <p class="eyebrow">ТАЙМЕР</p>
               <p class="focus-clock">${escapeHtml(timerText(timer))}</p>
-              <p class="muted">${timer.isActive ? `СЂРµР¶РёРј ${escapeHtml(timer.type || "")}` : "Р—Р°РїСѓСЃС‚Рё СЂР°Р±РѕС‡РёР№ РёР»Рё РѕС‚РґС‹С…-С‚Р°Р№РјРµСЂ РІ СЂР°Р·РґРµР»Рµ Р¤РѕРєСѓСЃ."}</p>
+              <p class="muted">${timer.isActive ? `режим ${escapeHtml(timer.type || "")}` : "Запусти рабочий или отдых-таймер в разделе Фокус."}</p>
             </div>
           </article>
         </div>
@@ -296,64 +296,64 @@ function renderDashboardView({ schedule, timer, reminder, activeHomework, active
       <section class="stack">
         <section class="module panel">
           <div class="module-head">
-            <h2 class="module-title">Р”РµРґР»Р°Р№РЅС‹</h2>
-            <span class="tag accent">${activeHomework.length} Р°РєС‚РёРІРЅС‹С…</span>
+            <h2 class="module-title">Дедлайны</h2>
+            <span class="tag accent">${activeHomework.length} активных</span>
           </div>
           ${activeHomework.length > 0
             ? activeHomework.slice(0, 4).map(task => taskCard(task, "homework")).join("")
-            : emptyState("Р”РѕРјР°С€РЅРёРµ Р·Р°РґР°РЅРёСЏ РїРѕСЏРІСЏС‚СЃСЏ Р·РґРµСЃСЊ РїРѕСЃР»Рµ РґРѕР±Р°РІР»РµРЅРёСЏ.")}
+            : emptyState("Домашние задания появятся здесь после добавления.")}
         </section>
         <section class="module panel">
           <div class="module-head">
-            <h2 class="module-title">Р›РёС‡РЅС‹Р№ РїР»Р°РЅ</h2>
-            <span class="tag accent">${activePersonal.length} Р°РєС‚РёРІРЅС‹С…</span>
+            <h2 class="module-title">Личный план</h2>
+            <span class="tag accent">${activePersonal.length} активных</span>
           </div>
           ${activePersonal.length > 0
             ? activePersonal.slice(0, 4).map(task => taskCard(task, "personal")).join("")
-            : emptyState("Р”РѕР±Р°РІСЊ СЃРІРѕРё РґРµР»Р°, С‡С‚РѕР±С‹ РЅРµ РґРµСЂР¶Р°С‚СЊ РІСЃС‘ РІ РіРѕР»РѕРІРµ.")}
+            : emptyState("Добавь свои дела, чтобы не держать всё в голове.")}
         </section>
         <section class="module panel">
           <div class="module-head">
-            <h2 class="module-title">РќР°РїРѕРјРёРЅР°РЅРёСЏ</h2>
-            <span class="tag ${reminder.isEnabled ? "success" : "warning"}">${reminder.isEnabled ? reminder.timeText : "off"}</span>
+            <h2 class="module-title">Напоминания</h2>
+            <span class="tag ${reminder.isEnabled ? "success" : "warning"}">${reminder.isEnabled ? reminder.timeText : "выкл"}</span>
           </div>
           <p class="muted">
             ${reminder.isEnabled
-              ? `Р§Р°С‚ РїРѕР»СѓС‡РёС‚ РЅР°РїРѕРјРёРЅР°РЅРёРµ Рѕ РґРµРґР»Р°Р№РЅР°С… РЅР° Р·Р°РІС‚СЂР° РєР°Р¶РґС‹Р№ РґРµРЅСЊ РІ ${escapeHtml(reminder.timeText)} РїРѕ РњРЎРљ.`
-              : "РќР°РїРѕРјРёРЅР°РЅРёСЏ РІС‹РєР»СЋС‡РµРЅС‹. Р’РєР»СЋС‡Рё РёС… РІРѕ РІРєР»Р°РґРєРµ Р¤РѕРєСѓСЃ."}
+              ? `Чат получит напоминание о дедлайнах на завтра каждый день в ${escapeHtml(reminder.timeText)} по МСК.`
+              : "Напоминания выключены. Включи их во вкладке Фокус."}
           </p>
           <div class="divider"></div>
-          <p class="muted">Р’С‹РїРѕР»РЅРµРЅРѕ РІСЃРµРіРѕ: <strong>${completedTasks.length}</strong></p>
+          <p class="muted">Выполнено всего: <strong>${completedTasks.length}</strong></p>
         </section>
       </section>
       <section class="module panel">
         <div class="module-head">
           <div>
-            <p class="eyebrow">LESSON_FEED</p>
-            <h2 class="module-title">РџСЂРѕСЃРјРѕС‚СЂ РїР°СЂ</h2>
+            <p class="eyebrow">ПАРЫ</p>
+            <h2 class="module-title">Просмотр пар</h2>
           </div>
           <div class="actions-row">
-            <button class="nav-chip ${store.scheduleMode === "today" ? "active" : ""}" data-action="schedule-mode" data-mode="today">РЎРµРіРѕРґРЅСЏ</button>
-            <button class="nav-chip ${store.scheduleMode === "week" ? "active" : ""}" data-action="schedule-mode" data-mode="week">РќРµРґРµР»СЏ</button>
+            <button class="nav-chip ${store.scheduleMode === "today" ? "active" : ""}" data-action="schedule-mode" data-mode="today">Сегодня</button>
+            <button class="nav-chip ${store.scheduleMode === "week" ? "active" : ""}" data-action="schedule-mode" data-mode="week">Неделя</button>
           </div>
         </div>
         ${entries.length > 0 ? Object.entries(grouped).map(([day, dayEntries]) => `
           <div class="schedule-day">
             <div class="module-head">
               <h3 class="schedule-day-title">${escapeHtml(day)}</h3>
-              <span class="tag">${dayEntries.length} РїР°СЂ</span>
+              <span class="tag">${dayEntries.length} пар</span>
             </div>
             ${dayEntries.map(entry => `
               <div class="schedule-entry">
                 <div class="lesson-pill">${entry.lessonNumber}</div>
                 <div>
                   <div><strong>${escapeHtml(entry.subject)}</strong></div>
-                  <div class="muted">${escapeHtml(entry.time || "РІСЂРµРјСЏ РЅРµ СѓРєР°Р·Р°РЅРѕ")}</div>
+                  <div class="muted">${escapeHtml(entry.time || "время не указано")}</div>
                 </div>
               </div>
             `).join("")}
           </div>
-        `).join("") : emptyState("РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ РїРѕРєР°Р·Р°. РћР±С‹С‡РЅРѕ СЌС‚Рѕ Р·РЅР°С‡РёС‚, С‡С‚Рѕ СЂР°СЃРїРёСЃР°РЅРёРµ РµС‰Рµ РЅРµ РІС‹Р±СЂР°РЅРѕ РёР»Рё РЅР° СЃРµРіРѕРґРЅСЏ РїР°СЂ РЅРµС‚.")}
+        `).join("") : emptyState("Нет данных для показа. Обычно это значит, что расписание еще не выбрано или на сегодня пар нет.")}
       </section>
     </div>
   `;
@@ -370,14 +370,14 @@ function renderScheduleView(schedule) {
       <section class="module panel">
         <div class="module-head">
           <div>
-            <p class="eyebrow">SCHEDULE_MATRIX</p>
-            <h2 class="module-title">Р’С‹Р±РѕСЂ СЂР°СЃРїРёСЃР°РЅРёСЏ</h2>
+            <p class="eyebrow">ВЫБОР</p>
+            <h2 class="module-title">Выбор расписания</h2>
           </div>
-          ${schedule.selection ? '<button class="pixel-button danger slim" data-action="clear-schedule">РЈРґР°Р»РёС‚СЊ</button>' : ""}
+          ${schedule.selection ? '<button class="pixel-button danger slim" data-action="clear-schedule">Удалить</button>' : ""}
         </div>
         <form id="schedule-form" class="stack">
           <div class="field">
-            <label for="direction-select">РќР°РїСЂР°РІР»РµРЅРёРµ</label>
+            <label for="direction-select">Направление</label>
             <select id="direction-select" name="directionCode">
               ${schedule.directions.map(direction => `
                 <option value="${escapeHtml(direction.directionCode)}" ${store.selectedDirectionCode === direction.directionCode ? "selected" : ""}>
@@ -387,7 +387,7 @@ function renderScheduleView(schedule) {
             </select>
           </div>
           <div class="field">
-            <label for="group-select">РљСѓСЂСЃ / РіСЂСѓРїРїР°</label>
+            <label for="group-select">Курс / группа</label>
             <select id="group-select" name="scheduleId">
               ${store.groups.map(group => `
                 <option value="${escapeHtml(group.scheduleId)}" ${(schedule.selection?.scheduleId || selectedGroup?.scheduleId) === group.scheduleId ? "selected" : ""}>
@@ -398,190 +398,59 @@ function renderScheduleView(schedule) {
           </div>
           ${selectedGroup && selectedGroup.subGroups.length > 0 ? `
             <div class="field">
-              <label for="subgroup-select">РџРѕРґРіСЂСѓРїРїР°</label>
+              <label for="subgroup-select">Подгруппа</label>
               <select id="subgroup-select" name="subGroup">
                 ${selectedGroup.subGroups.map(subGroup => `
-                  <option value="${subGroup}" ${String(selectedSubgroup) === String(subGroup) ? "selected" : ""}>РџРѕРґРіСЂСѓРїРїР° ${subGroup}</option>
+                  <option value="${subGroup}" ${String(selectedSubgroup) === String(subGroup) ? "selected" : ""}>Подгруппа ${subGroup}</option>
                 `).join("")}
               </select>
             </div>
           ` : ""}
-          <button class="pixel-button" type="submit">РЎРѕС…СЂР°РЅРёС‚СЊ СЂР°СЃРїРёСЃР°РЅРёРµ</button>
-        </form>        <div class="divider"></div>
+          <button class="pixel-button" type="submit">Сохранить расписание</button>
+        </form>
+        <div class="divider"></div>
         <div class="card-stack">
           <article class="schedule-card">
-            <p class="eyebrow">CURRENT_BINDING</p>
+            <p class="eyebrow">ТЕКУЩЕЕ</p>
             ${schedule.selection ? `
               <h3 class="schedule-day-title">${escapeHtml(schedule.selection.title)}</h3>
               <div class="schedule-meta">
                 <span class="tag accent">${escapeHtml(schedule.currentWeekLabel)}</span>
-                <span class="tag">${schedule.selection.subGroup ? `РїРѕРґРіСЂСѓРїРїР° ${schedule.selection.subGroup}` : "Р±РµР· РїРѕРґРіСЂСѓРїРїС‹"}</span>
+                <span class="tag">${schedule.selection.subGroup ? `подгруппа ${schedule.selection.subGroup}` : "без подгруппы"}</span>
                 <span class="tag">${escapeHtml(schedule.semester)}</span>
               </div>
-            ` : emptyState("РџРѕРєР° РЅРёС‡РµРіРѕ РЅРµ РІС‹Р±СЂР°РЅРѕ. РџРѕРґРєР»СЋС‡Рё РіСЂСѓРїРїСѓ, Рё mini app РїРѕРґС‚СЏРЅРµС‚ РїСЂРµРґРјРµС‚С‹ Рё РґРµРґР»Р°Р№РЅС‹.")}
+            ` : emptyState("Пока ничего не выбрано. Подключи группу, и mini app подтянет предметы и дедлайны.")}
           </article>
         </div>
       </section>
       <section class="module panel">
         <div class="module-head">
           <div>
-            <p class="eyebrow">LESSON_FEED</p>
-            <h2 class="module-title">РџСЂРѕСЃРјРѕС‚СЂ РїР°СЂ</h2>
+            <p class="eyebrow">ПАРЫ</p>
+            <h2 class="module-title">Просмотр пар</h2>
           </div>
           <div class="actions-row">
-            <button class="nav-chip ${store.scheduleMode === "today" ? "active" : ""}" data-action="schedule-mode" data-mode="today">РЎРµРіРѕРґРЅСЏ</button>
-            <button class="nav-chip ${store.scheduleMode === "week" ? "active" : ""}" data-action="schedule-mode" data-mode="week">РќРµРґРµР»СЏ</button>
+            <button class="nav-chip ${store.scheduleMode === "today" ? "active" : ""}" data-action="schedule-mode" data-mode="today">Сегодня</button>
+            <button class="nav-chip ${store.scheduleMode === "week" ? "active" : ""}" data-action="schedule-mode" data-mode="week">Неделя</button>
           </div>
         </div>
         ${entries.length > 0 ? Object.entries(grouped).map(([day, dayEntries]) => `
           <div class="schedule-day">
             <div class="module-head">
               <h3 class="schedule-day-title">${escapeHtml(day)}</h3>
-              <span class="tag">${dayEntries.length} РїР°СЂ</span>
+              <span class="tag">${dayEntries.length} пар</span>
             </div>
             ${dayEntries.map(entry => `
               <div class="schedule-entry">
                 <div class="lesson-pill">${entry.lessonNumber}</div>
                 <div>
                   <div><strong>${escapeHtml(entry.subject)}</strong></div>
-                  <div class="muted">${escapeHtml(entry.time || "РІСЂРµРјСЏ РЅРµ СѓРєР°Р·Р°РЅРѕ")}</div>
+                  <div class="muted">${escapeHtml(entry.time || "время не указано")}</div>
                 </div>
               </div>
             `).join("")}
           </div>
-        `).join("") : emptyState("РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ РїРѕРєР°Р·Р°. РћР±С‹С‡РЅРѕ СЌС‚Рѕ Р·РЅР°С‡РёС‚, С‡С‚Рѕ СЂР°СЃРїРёСЃР°РЅРёРµ РµС‰Рµ РЅРµ РІС‹Р±СЂР°РЅРѕ РёР»Рё РЅР° СЃРµРіРѕРґРЅСЏ РїР°СЂ РЅРµС‚.")}
-      </section>
-    </div>
-  `;
-}
-
-function renderRemindersViewDuplicate(reminder) {
-  return `
-    <div class="single-column">
-      <section class="module panel">
-        <div class="module-head">
-          <div>
-            <p class="eyebrow">LESSON_FEED</p>
-            <h2 class="module-title">РџСЂРѕСЃРјРѕС‚СЂ РїР°СЂ</h2>
-          </div>
-          <div class="actions-row">
-            <button class="nav-chip ${store.scheduleMode === "today" ? "active" : ""}" data-action="schedule-mode" data-mode="today">РЎРµРіРѕРґРЅСЏ</button>
-            <button class="nav-chip ${store.scheduleMode === "week" ? "active" : ""}" data-action="schedule-mode" data-mode="week">РќРµРґРµР»СЏ</button>
-          </div>
-        </div>
-        ${entries.length > 0 ? Object.entries(grouped).map(([day, dayEntries]) => `
-          <div class="schedule-day">
-            <div class="module-head">
-              <h3 class="schedule-day-title">${escapeHtml(day)}</h3>
-              <span class="tag">${dayEntries.length} РїР°СЂ</span>
-            </div>
-            ${dayEntries.map(entry => `
-              <div class="schedule-entry">
-                <div class="lesson-pill">${entry.lessonNumber}</div>
-                <div>
-                  <div><strong>${escapeHtml(entry.subject)}</strong></div>
-                  <div class="muted">${escapeHtml(entry.time || "РІСЂРµРјСЏ РЅРµ СѓРєР°Р·Р°РЅРѕ")}</div>
-                </div>
-              </div>
-            `).join("")}
-          </div>
-        `).join("") : emptyState("РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ РїРѕРєР°Р·Р°. РћР±С‹С‡РЅРѕ СЌС‚Рѕ Р·РЅР°С‡РёС‚, С‡С‚Рѕ СЂР°СЃРїРёСЃР°РЅРёРµ РµС‰С‘ РЅРµ РІС‹Р±СЂР°РЅРѕ РёР»Рё РЅР° СЃРµРіРѕРґРЅСЏ РїР°СЂ РЅРµС‚.")}
-      </section>
-    </div>
-  `;
-}
-
-function renderHomeworkView(homeworkSubjects, homeworkTasks) {
-  const priorityGroups = getPriorityHomeworkGroups(homeworkSubjects);
-  const visibleHomeworkGroups = getVisibleHomeworkGroups(homeworkSubjects);
-  const hasPriorityGroups = priorityGroups.length > 0;
-  const subjectGroup = visibleHomeworkGroups.find((group) => group.title === store.selectedHomeworkGroup) || visibleHomeworkGroups[0];
-  const activeTasks = homeworkTasks.filter((task) => !task.isCompleted);
-  const completedTasks = homeworkTasks.filter((task) => task.isCompleted);
-
-  return `
-    <div class="content-grid">
-      <section class="stack">
-        <section class="module panel">
-          <div class="module-head">
-            <div>
-              <p class="eyebrow">HOMEWORK_COMPOSER</p>
-              <h2 class="module-title">Р”РѕР±Р°РІРёС‚СЊ РґРѕРјР°С€РєСѓ</h2>
-            </div>
-            <span class="tag accent">${homeworkSubjects.length} РїСЂРµРґРјРµС‚РѕРІ</span>
-          </div>
-          ${homeworkSubjects.length === 0
-            ? emptyState("РЎРЅР°С‡Р°Р»Р° РІС‹Р±РµСЂРё СЂР°СЃРїРёСЃР°РЅРёРµ РІРѕ РІРєР»Р°РґРєРµ Р Р°СЃРїРёСЃР°РЅРёРµ. РўРѕРіРґР° mini app РїРѕРґС‚СЏРЅРµС‚ РїСЂРµРґРјРµС‚С‹ Рё Р±Р»РёР¶Р°Р№С€РёРµ РґРµРґР»Р°Р№РЅС‹.")
-            : `
-              <form id="homework-form" class="stack">
-                <div class="field">
-                  <label for="homework-group">Р‘Р°Р·РѕРІС‹Р№ РїСЂРµРґРјРµС‚</label>
-                  <select id="homework-group" name="subjectTitle">
-                    ${homeworkSubjects.map(group => `
-                      <option value="${escapeHtml(group.title)}" ${subjectGroup?.title === group.title ? "selected" : ""}>
-                        ${escapeHtml(group.title)}${group.favoriteOrder ? ` // ${group.favoriteOrder}` : ""}
-                      </option>
-                    `).join("")}
-                  </select>
-                </div>
-                <div class="field">
-                  <label for="homework-subject">РўРёРї Р·Р°РЅСЏС‚РёСЏ</label>
-                  <select id="homework-subject" name="subject">
-                    ${(subjectGroup?.options || []).map(option => `
-                      <option value="${escapeHtml(option.subject)}">
-                        ${escapeHtml(option.lessonType)}${option.nextDeadlineText ? ` // РґРµРґР»Р°Р№РЅ ${escapeHtml(option.nextDeadlineText)}` : ""}
-                      </option>
-                    `).join("")}
-                  </select>
-                </div>
-                <div class="field">
-                  <label for="homework-title">Р§С‚Рѕ Р·Р°РґР°Р»Рё</label>
-                  <textarea id="homework-title" name="title" placeholder="РќР°РїСЂРёРјРµСЂ: СЂРµС€РёС‚СЊ РІР°СЂРёР°РЅС‚С‹ 3-6 Рё РїРѕРґРіРѕС‚РѕРІРёС‚СЊ РєРѕРЅСЃРїРµРєС‚"></textarea>
-                </div>
-                <button class="pixel-button" type="submit">Р”РѕР±Р°РІРёС‚СЊ Р”Р—</button>
-              </form>
-            `}
-        </section>
-        <section class="module panel">
-          <div class="module-head">
-            <div>
-              <p class="eyebrow">PRIORITY_FILTER</p>
-              <h2 class="module-title">РР·Р±СЂР°РЅРЅС‹Рµ РїСЂРµРґРјРµС‚С‹</h2>
-            </div>
-          </div>
-          ${homeworkSubjects.length > 0 ? homeworkSubjects.map(group => `
-            <article class="subject-card">
-              <div class="subject-top">
-                <div>
-                  <h3 class="subject-title">${escapeHtml(group.title)}</h3>
-                  <div class="subject-meta">
-                    <span class="tag">${group.options.length} С‚РёРїРѕРІ Р·Р°РЅСЏС‚РёР№</span>
-                    ${group.favoriteOrder ? `<span class="tag success">РїРѕР·РёС†РёСЏ ${group.favoriteOrder}</span>` : `<span class="tag warning">РЅРµ РІ РёР·Р±СЂР°РЅРЅРѕРј</span>`}
-                  </div>
-                </div>
-                <button class="subject-toggle ${group.isFavorite ? "active" : ""}" data-action="toggle-favorite" data-subject-title="${escapeHtml(group.title)}">
-                  ${group.isFavorite ? "в…" : "в†"}
-                </button>
-              </div>
-            </article>
-          `).join("") : emptyState("РР·Р±СЂР°РЅРЅС‹Рµ РїРѕСЏРІСЏС‚СЃСЏ РїРѕСЃР»Рµ РІС‹Р±РѕСЂР° СЂР°СЃРїРёСЃР°РЅРёСЏ.")}
-        </section>
-      </section>
-      <section class="stack">
-        <section class="module panel">
-          <div class="module-head">
-            <h2 class="module-title">РђРєС‚РёРІРЅС‹Рµ Р”Р—</h2>
-            <span class="tag accent">${activeTasks.length}</span>
-          </div>
-          ${activeTasks.length > 0 ? activeTasks.map(task => taskCard(task, "homework")).join("") : emptyState("Р—РґРµСЃСЊ Р±СѓРґРµС‚ СЃРїРёСЃРѕРє Р°РєС‚СѓР°Р»СЊРЅС‹С… РґРѕРјР°С€РЅРёС… Р·Р°РґР°РЅРёР№.")}
-        </section>
-        <section class="module panel">
-          <div class="module-head">
-            <h2 class="module-title">Р’С‹РїРѕР»РЅРµРЅРЅС‹Рµ</h2>
-            <span class="tag">${completedTasks.length}</span>
-          </div>
-          ${completedTasks.length > 0 ? completedTasks.map(task => taskCard(task, "homework")).join("") : emptyState("РџРѕРєР° Р±РµР· РІС‹РїРѕР»РЅРµРЅРЅС‹С… Р·Р°РґР°С‡.")}
-        </section>
+        `).join("") : emptyState("Нет данных для показа. Обычно это значит, что расписание еще не выбрано или на сегодня пар нет.")}
       </section>
     </div>
   `;
@@ -601,61 +470,61 @@ function renderHomeworkViewV2(homeworkSubjects, homeworkTasks) {
         <section class="module panel">
           <div class="module-head">
             <div>
-              <p class="eyebrow">HOMEWORK_COMPOSER</p>
-              <h2 class="module-title">Р”РѕР±Р°РІРёС‚СЊ Р”Р—</h2>
+              <p class="eyebrow">НОВОЕ ДЗ</p>
+              <h2 class="module-title">Добавить ДЗ</h2>
             </div>
-            <span class="tag accent">${visibleHomeworkGroups.length} ${hasPriorityGroups ? "РІ РїСЂРёРѕСЂРёС‚РµС‚Рµ" : "РїСЂРµРґРјРµС‚РѕРІ"}</span>
+            <span class="tag accent">${visibleHomeworkGroups.length} ${hasPriorityGroups ? "в приоритете" : "предметов"}</span>
           </div>
           ${homeworkSubjects.length === 0
-            ? emptyState("РЎРЅР°С‡Р°Р»Р° РІС‹Р±РµСЂРё СЂР°СЃРїРёСЃР°РЅРёРµ РІРѕ РІРєР»Р°РґРєРµ Р Р°СЃРїРёСЃР°РЅРёРµ. РўРѕРіРґР° mini app РїРѕРґС‚СЏРЅРµС‚ РїСЂРµРґРјРµС‚С‹ Рё Р±Р»РёР¶Р°Р№С€РёРµ РґРµРґР»Р°Р№РЅС‹.")
+            ? emptyState("Сначала выбери расписание во вкладке Расписание. Тогда mini app подтянет предметы и ближайшие дедлайны.")
             : `
               <div class="priority-banner ${hasPriorityGroups ? "active" : ""}">
                 <strong>${hasPriorityGroups
-                  ? "Р”РѕР±Р°РІР»РµРЅРёРµ Р”Р— РёРґС‘С‚ РїРѕ РїСЂРёРѕСЂРёС‚РµС‚РЅС‹Рј РїСЂРµРґРјРµС‚Р°Рј."
-                  : "РЎРµР№С‡Р°СЃ РІ С„РѕСЂРјРµ РІРёРґРЅС‹ РІСЃРµ РїСЂРµРґРјРµС‚С‹."}</strong>
+                  ? "Добавление ДЗ идёт по приоритетным предметам."
+                  : "Сейчас в форме видны все предметы."}</strong>
                 <p>${hasPriorityGroups
-                  ? "РќРёР¶Рµ РїРѕРєР°Р·С‹РІР°РµРј С‚РѕР»СЊРєРѕ РїСЂРёРѕСЂРёС‚РµС‚С‹, РєР°Рє Рё РІ С‡Р°С‚Рµ. РћСЃС‚Р°Р»СЊРЅС‹Рµ РїСЂРµРґРјРµС‚С‹ РјРѕР¶РЅРѕ РІРµСЂРЅСѓС‚СЊ РІ С„РѕСЂРјСѓ С‡РµСЂРµР· Р±Р»РѕРє РЅР°СЃС‚СЂРѕР№РєРё РЅРёР¶Рµ."
-                  : "РћС‚РјРµС‚СЊ РІР°Р¶РЅС‹Рµ РїСЂРµРґРјРµС‚С‹ РЅРёР¶Рµ, Рё РїРѕСЃР»Рµ СЌС‚РѕРіРѕ РІ С„РѕСЂРјРµ РѕСЃС‚Р°РЅСѓС‚СЃСЏ С‚РѕР»СЊРєРѕ РѕРЅРё."}</p>
+                  ? "Ниже показываем только приоритеты, как и в чате. Остальные предметы можно вернуть в форму через блок настройки ниже."
+                  : "Отметь важные предметы ниже, и после этого в форме останутся только они."}</p>
               </div>
               <form id="homework-form" class="stack">
                 <div class="field">
-                  <label for="homework-group">РџСЂРµРґРјРµС‚ РґР»СЏ Р”Р—</label>
+                  <label for="homework-group">Предмет для ДЗ</label>
                   <select id="homework-group" name="subjectTitle">
                     ${visibleHomeworkGroups.map((group) => `
                       <option value="${escapeHtml(group.title)}" ${subjectGroup?.title === group.title ? "selected" : ""}>
-                        ${escapeHtml(group.title)}${group.favoriteOrder ? ` // РїСЂРёРѕСЂРёС‚РµС‚ ${group.favoriteOrder}` : ""}
+                        ${escapeHtml(group.title)}${group.favoriteOrder ? ` // приоритет ${group.favoriteOrder}` : ""}
                       </option>
                     `).join("")}
                   </select>
                 </div>
                 <div class="field">
-                  <label for="homework-subject">РўРёРї Р·Р°РЅСЏС‚РёСЏ</label>
+                  <label for="homework-subject">Тип занятия</label>
                   <select id="homework-subject" name="subject">
                     ${(subjectGroup?.options || []).map((option) => `
                       <option value="${escapeHtml(option.subject)}">
-                        ${escapeHtml(option.lessonType)}${option.nextDeadlineText ? ` // РґРµРґР»Р°Р№РЅ ${escapeHtml(option.nextDeadlineText)}` : ""}
+                        ${escapeHtml(option.lessonType)}${option.nextDeadlineText ? ` // дедлайн ${escapeHtml(option.nextDeadlineText)}` : ""}
                       </option>
                     `).join("")}
                   </select>
                 </div>
                 <div class="field">
-                  <label for="homework-title">Р§С‚Рѕ Р·Р°РґР°Р»Рё</label>
-                  <textarea id="homework-title" name="title" placeholder="РќР°РїСЂРёРјРµСЂ: СЂРµС€РёС‚СЊ РІР°СЂРёР°РЅС‚С‹ 3-6 Рё РїРѕРґРіРѕС‚РѕРІРёС‚СЊ РєРѕРЅСЃРїРµРєС‚"></textarea>
+                  <label for="homework-title">Что задали</label>
+                  <textarea id="homework-title" name="title" placeholder="Например: решить варианты 3-6 и подготовить конспект"></textarea>
                 </div>
-                <button class="pixel-button" type="submit">Р”РѕР±Р°РІРёС‚СЊ Р”Р—</button>
+                <button class="pixel-button" type="submit">Добавить ДЗ</button>
               </form>
             `}
         </section>
         <section class="module panel">
           <div class="module-head">
             <div>
-              <p class="eyebrow">PRIORITY_FILTER</p>
-              <h2 class="module-title">РџСЂРёРѕСЂРёС‚РµС‚РЅС‹Рµ РїСЂРµРґРјРµС‚С‹</h2>
+              <p class="eyebrow">ПРИОРИТЕТЫ</p>
+              <h2 class="module-title">Приоритетные предметы</h2>
             </div>
-            <span class="tag ${hasPriorityGroups ? "success" : "warning"}">${hasPriorityGroups ? `${priorityGroups.length} Р°РєС‚РёРІРЅС‹С…` : "РїРѕРєР° РЅРµ РІС‹Р±СЂР°РЅС‹"}</span>
+            <span class="tag ${hasPriorityGroups ? "success" : "warning"}">${hasPriorityGroups ? `${priorityGroups.length} активных` : "пока не выбраны"}</span>
           </div>
           <p class="priority-helper-text">
-            РћС‚РјРµС‡РµРЅРЅС‹Рµ РїСЂРµРґРјРµС‚С‹ РїРѕРєР°Р·С‹РІР°СЋС‚СЃСЏ РІ С„РѕСЂРјРµ РґРѕР±Р°РІР»РµРЅРёСЏ Р”Р— РІ РїРµСЂРІСѓСЋ РѕС‡РµСЂРµРґСЊ. Р­С‚Рѕ Р·Р°РјРµРЅСЏРµС‚ СЃС‚Р°СЂРѕРµ В«РёР·Р±СЂР°РЅРЅРѕРµВ».
+            Отмеченные предметы показываются в форме добавления ДЗ в первую очередь. Это заменяет старое «избранное».
           </p>
           ${homeworkSubjects.length > 0 ? homeworkSubjects.map((group) => `
             <article class="subject-card ${group.isFavorite ? "priority" : ""}">
@@ -663,35 +532,35 @@ function renderHomeworkViewV2(homeworkSubjects, homeworkTasks) {
                 <div>
                   <h3 class="subject-title">${escapeHtml(group.title)}</h3>
                   <div class="subject-meta">
-                    <span class="tag">${group.options.length} С‚РёРїРѕРІ Р·Р°РЅСЏС‚РёР№</span>
-                    ${group.favoriteOrder ? `<span class="tag success">РїСЂРёРѕСЂРёС‚РµС‚ ${group.favoriteOrder}</span>` : `<span class="tag warning">РЅРµ РІ РїСЂРёРѕСЂРёС‚РµС‚Рµ</span>`}
+                    <span class="tag">${group.options.length} типов занятий</span>
+                    ${group.favoriteOrder ? `<span class="tag success">приоритет ${group.favoriteOrder}</span>` : `<span class="tag warning">не в приоритете</span>`}
                   </div>
                   <p class="subject-note">${group.isFavorite
-                    ? "РџРѕРєР°Р·С‹РІР°РµС‚СЃСЏ РІ С„РѕСЂРјРµ РґРѕР±Р°РІР»РµРЅРёСЏ Р”Р—."
-                    : "РЎРєСЂС‹С‚ РёР· С„РѕСЂРјС‹, РїРѕРєР° РЅРµ РґРѕР±Р°РІР»РµРЅ РІ РїСЂРёРѕСЂРёС‚РµС‚."}</p>
+                    ? "Показывается в форме добавления ДЗ."
+                    : "Скрыт из формы, пока не добавлен в приоритет."}</p>
                 </div>
                 <button class="subject-toggle ${group.isFavorite ? "active" : ""}" data-action="toggle-favorite" data-subject-title="${escapeHtml(group.title)}">
-                  ${group.isFavorite ? "РЈР±СЂР°С‚СЊ" : "Р’ РїСЂРёРѕСЂРёС‚РµС‚"}
+                  ${group.isFavorite ? "Убрать" : "В приоритет"}
                 </button>
               </div>
             </article>
-          `).join("") : emptyState("РџСЂРёРѕСЂРёС‚РµС‚С‹ РїРѕСЏРІСЏС‚СЃСЏ РїРѕСЃР»Рµ РІС‹Р±РѕСЂР° СЂР°СЃРїРёСЃР°РЅРёСЏ.")}
+          `).join("") : emptyState("Приоритеты появятся после выбора расписания.")}
         </section>
       </section>
       <section class="stack">
         <section class="module panel">
           <div class="module-head">
-            <h2 class="module-title">РђРєС‚РёРІРЅС‹Рµ Р”Р—</h2>
+            <h2 class="module-title">Активные ДЗ</h2>
             <span class="tag accent">${activeTasks.length}</span>
           </div>
-          ${activeTasks.length > 0 ? activeTasks.map((task) => taskCard(task, "homework")).join("") : emptyState("Р—РґРµСЃСЊ Р±СѓРґРµС‚ СЃРїРёСЃРѕРє Р°РєС‚СѓР°Р»СЊРЅС‹С… РґРѕРјР°С€РЅРёС… Р·Р°РґР°РЅРёР№.")}
+          ${activeTasks.length > 0 ? activeTasks.map((task) => taskCard(task, "homework")).join("") : emptyState("Здесь будет список актуальных домашних заданий.")}
         </section>
         <section class="module panel">
           <div class="module-head">
-            <h2 class="module-title">Р’С‹РїРѕР»РЅРµРЅРЅС‹Рµ</h2>
+            <h2 class="module-title">Выполненные</h2>
             <span class="tag">${completedTasks.length}</span>
           </div>
-          ${completedTasks.length > 0 ? completedTasks.map((task) => taskCard(task, "homework")).join("") : emptyState("РџРѕРєР° Р±РµР· РІС‹РїРѕР»РЅРµРЅРЅС‹С… Р·Р°РґР°С‡.")}
+          ${completedTasks.length > 0 ? completedTasks.map((task) => taskCard(task, "homework")).join("") : emptyState("Пока без выполненных задач.")}
         </section>
       </section>
     </div>
@@ -707,47 +576,47 @@ function renderPlanView(personalTasks) {
       <section class="module panel">
         <div class="module-head">
           <div>
-            <p class="eyebrow">PERSONAL_QUESTLOG</p>
-            <h2 class="module-title">Р”РѕР±Р°РІРёС‚СЊ Р»РёС‡РЅРѕРµ РґРµР»Рѕ</h2>
+            <p class="eyebrow">ЛИЧНЫЙ ПЛАН</p>
+            <h2 class="module-title">Добавить личное дело</h2>
           </div>
         </div>
         <form id="plan-form" class="stack">
           <div class="field">
-            <label for="plan-title">РќР°Р·РІР°РЅРёРµ</label>
-            <input id="plan-title" name="title" placeholder="РќР°РїСЂРёРјРµСЂ: Р·Р°РїРёСЃР°С‚СЊСЃСЏ Рє РІСЂР°С‡Сѓ">
+            <label for="plan-title">Название</label>
+            <input id="plan-title" name="title" placeholder="Например: записаться к врачу">
           </div>
           <div class="two-column">
             <div class="field">
-              <label for="plan-date">Р”Р°С‚Р°</label>
+              <label for="plan-date">Дата</label>
               <input id="plan-date" name="date" type="date">
             </div>
             <div class="field">
-              <label for="plan-time">Р’СЂРµРјСЏ</label>
+              <label for="plan-time">Время</label>
               <input id="plan-time" name="time" type="time">
             </div>
           </div>
           <div class="actions-row">
-            <button class="nav-chip" type="button" data-action="plan-date" data-offset="0">РЎРµРіРѕРґРЅСЏ</button>
-            <button class="nav-chip" type="button" data-action="plan-date" data-offset="1">Р—Р°РІС‚СЂР°</button>
-            <button class="nav-chip" type="button" data-action="plan-date" data-offset="2">РџРѕСЃР»РµР·Р°РІС‚СЂР°</button>
+            <button class="nav-chip" type="button" data-action="plan-date" data-offset="0">Сегодня</button>
+            <button class="nav-chip" type="button" data-action="plan-date" data-offset="1">Завтра</button>
+            <button class="nav-chip" type="button" data-action="plan-date" data-offset="2">Послезавтра</button>
           </div>
-          <button class="pixel-button" type="submit">Р”РѕР±Р°РІРёС‚СЊ РґРµР»Рѕ</button>
+          <button class="pixel-button" type="submit">Добавить дело</button>
         </form>
       </section>
       <section class="stack">
         <section class="module panel">
           <div class="module-head">
-            <h2 class="module-title">РђРєС‚РёРІРЅС‹Рµ РґРµР»Р°</h2>
+            <h2 class="module-title">Активные дела</h2>
             <span class="tag accent">${activeTasks.length}</span>
           </div>
-          ${activeTasks.length > 0 ? activeTasks.map(task => taskCard(task, "personal")).join("") : emptyState("Р—РґРµСЃСЊ РјРѕР¶РЅРѕ РґРµСЂР¶Р°С‚СЊ РІСЃС‘ Р»РёС‡РЅРѕРµ: Р·РІРѕРЅРєРё, РІСЃС‚СЂРµС‡Рё, РїРѕРєСѓРїРєРё, РґРµРґР»Р°Р№РЅС‹ РІРЅРµ СѓС‡С‘Р±С‹.")}
+          ${activeTasks.length > 0 ? activeTasks.map(task => taskCard(task, "personal")).join("") : emptyState("Здесь можно держать всё личное: звонки, встречи, покупки, дедлайны вне учёбы.")}
         </section>
         <section class="module panel">
           <div class="module-head">
-            <h2 class="module-title">РђСЂС…РёРІ</h2>
+            <h2 class="module-title">Архив</h2>
             <span class="tag">${completedTasks.length}</span>
           </div>
-          ${completedTasks.length > 0 ? completedTasks.map(task => taskCard(task, "personal")).join("") : emptyState("Р’С‹РїРѕР»РЅРµРЅРЅС‹Рµ Р»РёС‡РЅС‹Рµ РґРµР»Р° РїРѕСЏРІСЏС‚СЃСЏ Р·РґРµСЃСЊ.")}
+          ${completedTasks.length > 0 ? completedTasks.map(task => taskCard(task, "personal")).join("") : emptyState("Выполненные личные дела появятся здесь.")}
         </section>
       </section>
     </div>
@@ -760,20 +629,20 @@ function renderFocusView(timer, reminder) {
       <section class="module panel">
         <div class="module-head">
           <div>
-            <p class="eyebrow">FOCUS_ENGINE</p>
+            <p class="eyebrow">ФОКУС</p>
             <h2 class="module-title">Таймеры</h2>
           </div>
           ${timer.isActive ? '<button class="pixel-button danger slim" data-action="stop-timer">Стоп</button>' : ""}
         </div>
         <div class="focus-display">
-          <p class="eyebrow">ACTIVE_LOOP</p>
+          <p class="eyebrow">АКТИВНО</p>
           <p class="focus-clock">${escapeHtml(timerText(timer))}</p>
           <p class="muted">${timer.isActive ? `режим: ${escapeHtml(timer.type || "")}` : "Выбери рабочий или отдых-таймер."}</p>
         </div>
         <div class="sound-panel">
           <div class="module-head compact">
             <div>
-              <p class="eyebrow">SOUNDTRACK</p>
+              <p class="eyebrow">ЗВУК</p>
               <h3 class="module-title small">Музыка для таймера</h3>
             </div>
             <span class="tag">${escapeHtml(TIMER_SOUND_META[store.selectedTimerSound]?.label || "Тишина")}</span>
@@ -790,7 +659,7 @@ function renderFocusView(timer, reminder) {
         <div class="divider"></div>
         <div class="stack">
           <div>
-            <p class="eyebrow">WORK_PRESETS</p>
+            <p class="eyebrow">УЧЁБА</p>
             <div class="actions-row">
               ${[25, 30, 45, 60].map((minutes) => `<button class="pixel-button secondary" data-action="start-timer" data-type="work" data-minutes="${minutes}">${minutes} мин</button>`).join("")}
             </div>
@@ -800,7 +669,7 @@ function renderFocusView(timer, reminder) {
             <button class="pixel-button" type="submit">Старт учёбы</button>
           </form>
           <div>
-            <p class="eyebrow">REST_PRESETS</p>
+            <p class="eyebrow">ОТДЫХ</p>
             <div class="actions-row">
               ${[5, 15, 30].map((minutes) => `<button class="pixel-button secondary" data-action="start-timer" data-type="rest" data-minutes="${minutes}">${minutes} мин</button>`).join("")}
             </div>
@@ -814,7 +683,7 @@ function renderFocusView(timer, reminder) {
       <section class="module panel">
         <div class="module-head">
           <div>
-            <p class="eyebrow">ALERT_ROUTER</p>
+            <p class="eyebrow">НАПОМИНАНИЯ</p>
             <h2 class="module-title">Напоминания</h2>
           </div>
           <span class="tag ${reminder.isEnabled ? "success" : "warning"}">${reminder.isEnabled ? reminder.timeText : "выкл"}</span>
@@ -846,27 +715,27 @@ function renderRemindersView(reminder) {
       <section class="module panel">
         <div class="module-head">
           <div>
-            <p class="eyebrow">ALERT_ROUTER</p>
-            <h2 class="module-title">РќР°РїРѕРјРёРЅР°РЅРёСЏ</h2>
+            <p class="eyebrow">НАПОМИНАНИЯ</p>
+            <h2 class="module-title">Напоминания</h2>
           </div>
-          <span class="tag ${reminder.isEnabled ? "success" : "warning"}">${reminder.isEnabled ? reminder.timeText : "РІС‹РєР»"}</span>
+          <span class="tag ${reminder.isEnabled ? "success" : "warning"}">${reminder.isEnabled ? reminder.timeText : "выкл"}</span>
         </div>
         <form id="reminders-form" class="stack">
           <div class="field">
-            <label for="reminders-enabled">Р РµР¶РёРј</label>
+            <label for="reminders-enabled">Режим</label>
             <select id="reminders-enabled" name="isEnabled">
-              <option value="true" ${reminder.isEnabled ? "selected" : ""}>Р’РєР»СЋС‡РёС‚СЊ</option>
-              <option value="false" ${!reminder.isEnabled ? "selected" : ""}>Р’С‹РєР»СЋС‡РёС‚СЊ</option>
+              <option value="true" ${reminder.isEnabled ? "selected" : ""}>Включить</option>
+              <option value="false" ${!reminder.isEnabled ? "selected" : ""}>Выключить</option>
             </select>
           </div>
           <div class="field time-field">
-            <label for="reminders-time">Р’СЂРµРјСЏ РїРѕ РњРЎРљ</label>
+            <label for="reminders-time">Время по МСК</label>
             <input id="reminders-time" name="time" type="time" value="${escapeHtml(reminder.timeText)}">
           </div>
-          <button class="pixel-button" type="submit">РЎРѕС…СЂР°РЅРёС‚СЊ РЅР°РїРѕРјРёРЅР°РЅРёСЏ</button>
+          <button class="pixel-button" type="submit">Сохранить напоминания</button>
         </form>
         <div class="divider"></div>
-        <p class="muted">Р§Р°С‚ Рё mini app РёСЃРїРѕР»СЊР·СѓСЋС‚ РѕРґРЅРё Рё С‚Рµ Р¶Рµ РЅР°СЃС‚СЂРѕР№РєРё, РїРѕСЌС‚РѕРјСѓ РёР·РјРµРЅРµРЅРёСЏ СЃСЂР°Р·Сѓ СЃРёРЅС…СЂРѕРЅРёР·РёСЂСѓСЋС‚СЃСЏ РјРµР¶РґСѓ РёРЅС‚РµСЂС„РµР№СЃР°РјРё.</p>
+        <p class="muted">Чат и mini app используют одни и те же настройки, поэтому изменения сразу синхронизируются между интерфейсами.</p>
       </section>
     </div>
   `;
@@ -935,23 +804,23 @@ function taskCard(task, scope) {
           <div class="task-meta">
             <span class="tag accent">${escapeHtml(task.subjectTitle)}</span>
             ${task.lessonType ? `<span class="tag">${escapeHtml(task.lessonType)}</span>` : ""}
-            ${task.deadlineText ? `<span class="tag ${task.isCompleted ? "" : "warning"}">${escapeHtml(task.deadlineText)}</span>` : `<span class="tag">Р±РµР· РґРµРґР»Р°Р№РЅР°</span>`}
+            ${task.deadlineText ? `<span class="tag ${task.isCompleted ? "" : "warning"}">${escapeHtml(task.deadlineText)}</span>` : `<span class="tag">без дедлайна</span>`}
           </div>
         </div>
-        <span class="tag ${task.isCompleted ? "success" : "accent"}">${task.isCompleted ? "done" : "active"}</span>
+        <span class="tag ${task.isCompleted ? "success" : "accent"}">${task.isCompleted ? "готово" : "активно"}</span>
       </div>
       <div class="task-actions">
         <button class="pixel-button secondary slim" data-action="toggle-task" data-scope="${scope}" data-task-id="${escapeHtml(task.id)}" data-completed="${String(!task.isCompleted)}">
-          ${task.isCompleted ? "Р’РµСЂРЅСѓС‚СЊ" : "Р’С‹РїРѕР»РЅРµРЅРѕ"}
+          ${task.isCompleted ? "Вернуть" : "Выполнено"}
         </button>
-        <button class="pixel-button ghost slim" data-action="delete-task" data-task-id="${escapeHtml(task.id)}">РЈРґР°Р»РёС‚СЊ</button>
+        <button class="pixel-button ghost slim" data-action="delete-task" data-task-id="${escapeHtml(task.id)}">Удалить</button>
       </div>
     </article>
   `;
 }
 
 function emptyState(message) {
-  return `<div class="section-empty"><strong>РџСѓСЃС‚Рѕ.</strong><br>${escapeHtml(message)}</div>`;
+  return `<div class="section-empty"><strong>Пусто.</strong><br>${escapeHtml(message)}</div>`;
 }
 
 async function handleClick(event) {
@@ -976,7 +845,7 @@ async function handleClick(event) {
     store.selectedTimerSound = target.dataset.sound || "off";
     localStorage.setItem("assistKentTimerSound", store.selectedTimerSound);
     await syncTimerAudio({ allowResume: true, forceRestart: true });
-    toast(`Р—РІСѓРє С‚Р°Р№РјРµСЂР°: ${TIMER_SOUND_META[store.selectedTimerSound]?.label || "РўРёС€РёРЅР°"}.`);
+    toast(`Звук таймера: ${TIMER_SOUND_META[store.selectedTimerSound]?.label || "Тишина"}.`);
     render();
     return;
   }
@@ -999,7 +868,7 @@ async function handleClick(event) {
         method: "POST",
         body: { subjectTitle }
       });
-      toast("РџСЂРёРѕСЂРёС‚РµС‚С‹ РїРѕ Р”Р— РѕР±РЅРѕРІР»РµРЅС‹.");
+      toast("Приоритеты по ДЗ обновлены.");
       refreshAfterMutation();
     });
     return;
@@ -1013,7 +882,7 @@ async function handleClick(event) {
         method: "PATCH",
         body: { isCompleted }
       });
-      toast(isCompleted ? "Р—Р°РґР°С‡Р° РѕС‚РјРµС‡РµРЅР° РІС‹РїРѕР»РЅРµРЅРЅРѕР№." : "Р—Р°РґР°С‡Р° РІРѕР·РІСЂР°С‰РµРЅР° РІ Р°РєС‚РёРІРЅС‹Рµ.");
+      toast(isCompleted ? "Задача отмечена выполненной." : "Задача возвращена в активные.");
       refreshAfterMutation();
     });
     return;
@@ -1023,7 +892,7 @@ async function handleClick(event) {
     const taskId = target.dataset.taskId;
     await runAction(async () => {
       store.state = await api(`/api/miniapp/tasks/${taskId}`, { method: "DELETE" });
-      toast("Р—Р°РґР°С‡Р° СѓРґР°Р»РµРЅР°.");
+      toast("Задача удалена.");
       refreshAfterMutation();
     });
     return;
@@ -1048,7 +917,7 @@ async function handleClick(event) {
         method: "POST",
         body: { type, minutes }
       });
-      toast(type === "rest" ? "РўР°Р№РјРµСЂ РѕС‚РґС‹С…Р° Р·Р°РїСѓС‰РµРЅ." : "Р Р°Р±РѕС‡РёР№ С‚Р°Р№РјРµСЂ Р·Р°РїСѓС‰РµРЅ.");
+      toast(type === "rest" ? "Таймер отдыха запущен." : "Рабочий таймер запущен.");
       refreshAfterMutation();
     });
     return;
@@ -1057,7 +926,7 @@ async function handleClick(event) {
   if (target.dataset.action === "stop-timer") {
     await runAction(async () => {
       store.state = await api("/api/miniapp/timers/stop", { method: "POST" });
-      toast("РўР°Р№РјРµСЂ РѕСЃС‚Р°РЅРѕРІР»РµРЅ.");
+      toast("Таймер остановлен.");
       refreshAfterMutation();
     });
     return;
@@ -1066,7 +935,7 @@ async function handleClick(event) {
   if (target.dataset.action === "clear-schedule") {
     await runAction(async () => {
       store.state = await api("/api/miniapp/schedule", { method: "DELETE" });
-      toast("РџСЂРёРІСЏР·РєР° СЂР°СЃРїРёСЃР°РЅРёСЏ СѓРґР°Р»РµРЅР°.");
+      toast("Привязка расписания удалена.");
       refreshAfterMutation();
     });
   }
@@ -1092,7 +961,7 @@ async function handleSubmit(event) {
           subGroup: subgroupRaw ? Number(subgroupRaw) : null
         }
       });
-      toast("Р Р°СЃРїРёСЃР°РЅРёРµ СЃРѕС…СЂР°РЅРµРЅРѕ.");
+      toast("Расписание сохранено.");
       refreshAfterMutation();
     });
     return;
@@ -1108,7 +977,7 @@ async function handleSubmit(event) {
         body: { subject, title }
       });
       form.reset();
-      toast("Р”РѕРјР°С€РЅРµРµ Р·Р°РґР°РЅРёРµ РґРѕР±Р°РІР»РµРЅРѕ.");
+      toast("Домашнее задание добавлено.");
       refreshAfterMutation();
     });
     return;
@@ -1127,7 +996,7 @@ async function handleSubmit(event) {
         body: { title, deadline }
       });
       form.reset();
-      toast("Р›РёС‡РЅРѕРµ РґРµР»Рѕ РґРѕР±Р°РІР»РµРЅРѕ.");
+      toast("Личное дело добавлено.");
       refreshAfterMutation();
     });
     return;
@@ -1144,7 +1013,7 @@ async function handleSubmit(event) {
         method: "PUT",
         body: { isEnabled, hour, minute }
       });
-      toast("РќР°РїРѕРјРёРЅР°РЅРёСЏ СЃРѕС…СЂР°РЅРµРЅС‹.");
+      toast("Напоминания сохранены.");
       refreshAfterMutation();
     });
     return;
@@ -1160,7 +1029,7 @@ async function handleSubmit(event) {
         body: { type, minutes }
       });
       form.reset();
-      toast(type === "rest" ? "РџРµСЂРµСЂС‹РІ Р·Р°РїСѓС‰РµРЅ." : "Р Р°Р±РѕС‡РёР№ С‚Р°Р№РјРµСЂ Р·Р°РїСѓС‰РµРЅ.");
+      toast(type === "rest" ? "Перерыв запущен." : "Рабочий таймер запущен.");
       refreshAfterMutation();
     });
   }
@@ -1198,7 +1067,7 @@ function refreshAfterMutation() {
     normalizeSelectedHomeworkGroup(store.state.homeworkSubjects);
   }
 
-  store.lastSyncLabel = `РЎРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°РЅРѕ ${new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
+  store.lastSyncLabel = `Синхронизировано ${new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
   render();
   restartTimerTicker();
   syncTimerAudio();
@@ -1493,17 +1362,17 @@ async function runAction(action) {
     await resumeAudioContext();
     await action();
   } catch (error) {
-    toast(error.message || "Р§С‚Рѕ-С‚Рѕ РїРѕС€Р»Рѕ РЅРµ С‚Р°Рє.");
+    toast(error.message || "Что-то пошло не так.");
   }
 }
 
 function handleFatalError(error) {
   store.root.innerHTML = `
     <section class="boot-card panel">
-      <p class="eyebrow">BOOT_FAILED</p>
-      <h1>Mini App РЅРµРґРѕСЃС‚СѓРїРµРЅ</h1>
-      <p class="boot-copy">${escapeHtml(error.message || "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РґР°РЅРЅС‹Рµ.")}</p>
-      <p class="muted">Р•СЃР»Рё РѕС‚РєСЂС‹РІР°РµС€СЊ mini app РЅРµ РёР· Telegram, РґРѕР±Р°РІСЊ <code>?devUserId=...</code> Рё РІРєР»СЋС‡Рё <code>MiniApp:AllowDebugAuth</code>.</p>
+      <p class="eyebrow">ОШИБКА</p>
+      <h1>Mini App недоступен</h1>
+      <p class="boot-copy">${escapeHtml(error.message || "Не удалось загрузить данные.")}</p>
+      <p class="muted">Если открываешь mini app не из Telegram, добавь <code>?devUserId=...</code> и включи <code>MiniApp:AllowDebugAuth</code>.</p>
     </section>
   `;
 }
@@ -1519,6 +1388,7 @@ function escapeHtml(value) {
 function pad(value) {
   return String(value).padStart(2, "0");
 }
+
 
 
 
