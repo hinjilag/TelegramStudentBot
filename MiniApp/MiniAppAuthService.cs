@@ -14,8 +14,10 @@ public class MiniAppAuthService
 
     public MiniAppAuthService(IConfiguration configuration, ILogger<MiniAppAuthService> logger)
     {
-        _botToken = configuration["BotToken"]
+        var rawBotToken = configuration["BotToken"]
             ?? throw new InvalidOperationException("BotToken is required for mini app authentication.");
+
+        _botToken = string.Concat(rawBotToken.Where(c => !char.IsControl(c) && !char.IsWhiteSpace(c)));
         _allowDebugAuth = configuration.GetValue<bool>("MiniApp:AllowDebugAuth");
         _logger = logger;
     }
