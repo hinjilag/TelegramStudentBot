@@ -39,10 +39,10 @@ VIEW_META.reminders = { label: "Напоминания", shortLabel: "Напом
 
 const TIMER_SOUND_META = {
   off: { label: "Тишина", hint: "без фонового звука" },
-  track1: { label: "Трек 1", hint: "файл track-1.mp3", path: "/miniapp/audio/track-1.mp3" },
-  track2: { label: "Трек 2", hint: "файл track-2.mp3", path: "/miniapp/audio/track-2.mp3" },
-  track3: { label: "Трек 3", hint: "файл track-3.mp3", path: "/miniapp/audio/track-3.mp3" },
-  track4: { label: "Трек 4", hint: "файл track-4.mp3", path: "/miniapp/audio/track-4.mp3" }
+  track1: { label: "Ночной город", hint: "ровный ритм для концентрации", path: "/miniapp/audio/track-1.mp3" },
+  track2: { label: "Лунный дождь", hint: "мягкий спокойный фон", path: "/miniapp/audio/track-2.mp3" },
+  track3: { label: "Кибер-волна", hint: "энергичный электронный вайб", path: "/miniapp/audio/track-3.mp3" },
+  track4: { label: "Тихий рассвет", hint: "лёгкая мелодия без перегруза", path: "/miniapp/audio/track-4.mp3" }
 };
 
 if (!TIMER_SOUND_META[store.selectedTimerSound]) {
@@ -661,7 +661,7 @@ function renderFocusView(timer, reminder) {
               </button>
             `).join("")}
           </div>
-          <p class="muted">Подложи свои 4 файла в папку <code>/wwwroot/miniapp/audio</code>, и таймер будет играть именно их.</p>
+          <p class="muted">Выбери фон для сессии и переключай его в любой момент, не останавливая таймер.</p>
         </div>
         <div class="divider"></div>
         <div class="stack">
@@ -1147,7 +1147,7 @@ function startTimerSound(mode) {
   const playPromise = audio.play();
   if (playPromise && typeof playPromise.catch === "function") {
     playPromise.catch(() => {
-      toast(`Не удалось запустить ${meta.label}. Проверь, что файл ${meta.path.split("/").pop()} добавлен в проект.`);
+      toast(`Не удалось запустить мелодию «${meta.label}». Попробуй выбрать её ещё раз.`);
     });
   }
 

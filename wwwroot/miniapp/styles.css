@@ -873,6 +873,33 @@ textarea {
   background: linear-gradient(180deg, rgba(94, 242, 255, 0.14), rgba(255, 255, 255, 0.03));
 }
 
+.focus-grid .pixel-button {
+  padding: 9px 13px;
+  font-size: 12px;
+}
+
+.focus-grid .pixel-button.slim {
+  padding: 7px 10px;
+}
+
+.focus-grid .actions-row {
+  gap: 8px;
+}
+
+.focus-grid .sound-chip {
+  gap: 5px;
+  padding: 11px 10px;
+  border-radius: 14px;
+}
+
+.focus-grid .sound-chip strong {
+  font-size: 11px;
+}
+
+.focus-grid .sound-chip span {
+  font-size: 11px;
+}
+
 .native-input-field input[type="date"],
 .native-input-field input[type="time"],
 .timer-inline-form input {
@@ -906,6 +933,12 @@ textarea {
 .timer-inline-form > * {
   flex: 1 1 160px;
   min-width: 0;
+}
+
+.focus-grid .timer-inline-form input {
+  min-height: 44px;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .toast {
