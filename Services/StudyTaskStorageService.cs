@@ -7,10 +7,12 @@ public class StudyTaskStorageService
 {
     private readonly Lock _lock = new();
     private readonly string _path;
-    private readonly Dictionary<long, List<StudyTask>> _tasksByUser;
+    private readonly UserProfileStorageService _userProfiles;
+    private readonly Dictionary<long, StoredUserTasks> _tasksByUser;
 
-    public StudyTaskStorageService()
+    public StudyTaskStorageService(UserProfileStorageService userProfiles)
     {
+        _userProfiles = userProfiles;
         _path = ResolveTasksPath();
         _tasksByUser = LoadTasks(_path);
     }
@@ -20,7 +22,7 @@ public class StudyTaskStorageService
         lock (_lock)
         {
             return _tasksByUser.TryGetValue(userId, out var tasks)
-                ? tasks.Select(CloneTask).ToList()
+                ? tasks.Tasks.Select(CloneTask).ToList()
                 : new List<StudyTask>();
         }
     }
@@ -31,7 +33,7 @@ public class StudyTaskStorageService
         {
             return _tasksByUser.ToDictionary(
                 item => item.Key,
-                item => item.Value.Select(CloneTask).ToList());
+                item => item.Value.Tasks.Select(CloneTask).ToList());
         }
     }
 
@@ -39,7 +41,37 @@ public class StudyTaskStorageService
     {
         lock (_lock)
         {
-            _tasksByUser[userId] = tasks.Select(CloneTask).ToList();
+            var storedTasks = _tasksByUser.TryGetValue(userId, out var existing)
+                ? existing
+                : new StoredUserTasks();
+
+            storedTasks.Tasks = tasks.Select(CloneTask).ToList();
+            storedTasks.UpdatedAt = DateTime.Now;
+            ApplyUserMetadata(userId, storedTasks);
+
+            _tasksByUser[userId] = storedTasks;
+            SaveAll();
+        }
+    }
+
+    public void SyncUserMetadata(long userId)
+    {
+        lock (_lock)
+        {
+            if (!_tasksByUser.TryGetValue(userId, out var storedTasks))
+                return;
+
+            var oldNickname = storedTasks.Nickname;
+            var oldUsername = storedTasks.Username;
+
+            ApplyUserMetadata(userId, storedTasks);
+
+            if (string.Equals(oldNickname, storedTasks.Nickname, StringComparison.Ordinal) &&
+                string.Equals(oldUsername, storedTasks.Username, StringComparison.Ordinal))
+            {
+                return;
+            }
+
             SaveAll();
         }
     }
@@ -56,14 +88,50 @@ public class StudyTaskStorageService
         File.Move(tempPath, _path, overwrite: true);
     }
 
-    private static Dictionary<long, List<StudyTask>> LoadTasks(string path)
+    private static Dictionary<long, StoredUserTasks> LoadTasks(string path)
     {
         if (!File.Exists(path))
-            return new Dictionary<long, List<StudyTask>>();
+            return new Dictionary<long, StoredUserTasks>();
 
         var json = File.ReadAllText(path);
-        return JsonSerializer.Deserialize<Dictionary<long, List<StudyTask>>>(json, JsonOptions)
-            ?? new Dictionary<long, List<StudyTask>>();
+        using var document = JsonDocument.Parse(json);
+        var result = new Dictionary<long, StoredUserTasks>();
+
+        if (document.RootElement.ValueKind != JsonValueKind.Object)
+            return result;
+
+        foreach (var item in document.RootElement.EnumerateObject())
+        {
+            if (!long.TryParse(item.Name, out var userId))
+                continue;
+
+            StoredUserTasks? record = null;
+
+            if (item.Value.ValueKind == JsonValueKind.Array)
+            {
+                var tasks = JsonSerializer.Deserialize<List<StudyTask>>(item.Value.GetRawText(), JsonOptions)
+                    ?? new List<StudyTask>();
+
+                record = new StoredUserTasks
+                {
+                    Tasks = tasks.Select(CloneTask).ToList()
+                };
+            }
+            else if (item.Value.ValueKind == JsonValueKind.Object)
+            {
+                record = JsonSerializer.Deserialize<StoredUserTasks>(item.Value.GetRawText(), JsonOptions)
+                    ?? new StoredUserTasks();
+
+                record.Tasks = (record.Tasks ?? new List<StudyTask>())
+                    .Select(CloneTask)
+                    .ToList();
+            }
+
+            if (record is not null)
+                result[userId] = record;
+        }
+
+        return result;
     }
 
     private static StudyTask CloneTask(StudyTask task)
@@ -77,6 +145,16 @@ public class StudyTaskStorageService
             IsCompleted = task.IsCompleted,
             CreatedAt = task.CreatedAt
         };
+    }
+
+    private void ApplyUserMetadata(long userId, StoredUserTasks storedTasks)
+    {
+        var profile = _userProfiles.Get(userId);
+        if (profile is null)
+            return;
+
+        storedTasks.Nickname = profile.Nickname;
+        storedTasks.Username = profile.Username;
     }
 
     private static string ResolveTasksPath()

@@ -16,6 +16,7 @@ public class CallbackHandler
     private readonly ScheduleCatalogService _scheduleCatalog;
     private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly ReminderSettingsService _reminders;
+    private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
 
     public CallbackHandler(
         ITelegramBotClient bot,
@@ -23,7 +24,8 @@ public class CallbackHandler
         TimerService timers,
         ScheduleCatalogService scheduleCatalog,
         UserScheduleSelectionService scheduleSelections,
-        ReminderSettingsService reminders)
+        ReminderSettingsService reminders,
+        HomeworkSubjectPreferencesService homeworkSubjects)
     {
         _bot = bot;
         _sessions = sessions;
@@ -31,6 +33,7 @@ public class CallbackHandler
         _scheduleCatalog = scheduleCatalog;
         _scheduleSelections = scheduleSelections;
         _reminders = reminders;
+        _homeworkSubjects = homeworkSubjects;
     }
 
     public async Task HandleAsync(CallbackQuery query, CancellationToken ct)
@@ -48,11 +51,11 @@ public class CallbackHandler
 
         if (data.StartsWith("timer_")) { await HandleTimerAsync(chatId, userId, session, data, ct); return; }
         if (data.StartsWith("rest_")) { await HandleRestAsync(chatId, userId, data, ct); return; }
-        if (data.StartsWith("plan_")) { await HandlePlanAsync(chatId, session, data, ct); return; }
+        if (data.StartsWith("plan_")) { await HandlePlanAsync(query, session, data, ct); return; }
         if (data.StartsWith("hw_")) { await HandleHomeworkAsync(query, userId, session, data, ct); return; }
         if (data.StartsWith("rem_")) { await HandleReminderAsync(query, session, data, ct); return; }
-        if (data.StartsWith("task_")) { await HandleTaskAsync(chatId, session, data, ct); return; }
-        if (data.StartsWith("sched_")) { await HandleScheduleAsync(chatId, userId, session, data, ct); return; }
+        if (data.StartsWith("task_")) { await HandleTaskAsync(query, session, data, ct); return; }
+        if (data.StartsWith("sched_")) { await HandleScheduleAsync(query, userId, session, data, ct); return; }
         if (data.StartsWith("review_")) { await HandleReviewActionAsync(chatId, session, data, ct); return; }
         if (data.StartsWith("week_")) { await HandleWeekChoiceAsync(chatId, session, data, ct); return; }
     }
@@ -108,24 +111,163 @@ public class CallbackHandler
             await _timers.StartRestTimerAsync(chatId, userId, minutes);
     }
 
-    private async Task HandlePlanAsync(long chatId, UserSession session, string data, CancellationToken ct)
+    private async Task HandlePlanAsync(CallbackQuery query, UserSession session, string data, CancellationToken ct)
     {
+        var message = query.Message!;
+        var chatId = message.Chat.Id;
+
         switch (data)
         {
             case "plan_add":
                 session.State = UserState.WaitingForTaskTitle;
                 session.DraftTask = null;
-                await _bot.SendMessage(
+                await _bot.EditMessageText(
                     chatId: chatId,
-                    text: "📝 <b>Добавление задачи</b>\n\nВведи <b>название</b>:",
+                    messageId: message.MessageId,
+                    text: "📝 <b>Добавление дела</b>\n\nНапиши, что нужно сделать:",
                     parseMode: ParseMode.Html,
+                    cancellationToken: ct);
+                return;
+
+            case "plan_list":
+                await EditPlanListMessageAsync(message, session, ct);
+                return;
+
+            case "plan_back":
+                await EditPlanListMessageAsync(message, session, ct);
+                return;
+
+            case "plan_completed":
+                await EditCompletedPlanMessageAsync(message, session, ct);
+                return;
+
+            case "plan_choose_done":
+            case "plan_choose_del":
+                await EditPlanTaskChoiceMessageAsync(message, session, data == "plan_choose_del" ? "del" : "done", ct);
+                return;
+        }
+
+        if (data.StartsWith("plan_due_"))
+        {
+            await HandlePlanQuickDeadlineDateAsync(message, session, data, ct);
+            return;
+        }
+
+        var parts = data.Split('_', 3);
+        if (parts.Length < 3)
+            return;
+
+        var task = session.Tasks.FirstOrDefault(t =>
+            t.ShortId == parts[2] &&
+            TaskSubjects.IsPersonal(t.Subject));
+
+        if (task is null)
+        {
+            await _bot.SendMessage(chatId, "⚠️ Дело не найдено.", cancellationToken: ct);
+            return;
+        }
+
+        switch (parts[1])
+        {
+            case "done":
+                task.IsCompleted = true;
+                _sessions.SaveTasks(session);
+                await EditPlanListMessageAsync(message, session, ct);
+                break;
+
+            case "del":
+                var confirmation = PlanListView.BuildDeleteConfirmation(task);
+                await _bot.EditMessageText(
+                    chatId: chatId,
+                    messageId: message.MessageId,
+                    text: confirmation.Text,
+                    parseMode: ParseMode.Html,
+                    replyMarkup: confirmation.Keyboard,
                     cancellationToken: ct);
                 break;
 
-            case "plan_list":
-                await SendTaskListAsync(chatId, session, ct);
+            case "confirmdel":
+                session.Tasks.Remove(task);
+                _sessions.SaveTasks(session);
+                await EditPlanListMessageAsync(message, session, ct);
                 break;
         }
+    }
+
+    private async Task HandlePlanQuickDeadlineDateAsync(
+        Message message,
+        UserSession session,
+        string data,
+        CancellationToken ct)
+    {
+        var chatId = message.Chat.Id;
+
+        if (session.State != UserState.WaitingForTaskDeadline || session.DraftTask is null)
+        {
+            await _bot.SendMessage(chatId, "⚠️ Сейчас я не жду дедлайн. Начни добавление дела через /plan.", cancellationToken: ct);
+            return;
+        }
+
+        var offsetDays = data switch
+        {
+            "plan_due_today" => 0,
+            "plan_due_tomorrow" => 1,
+            "plan_due_after_tomorrow" => 2,
+            _ => 0
+        };
+
+        var date = DateTime.Today.AddDays(offsetDays);
+        session.PendingTaskDeadlineDate = date;
+        session.State = UserState.WaitingForTaskDeadlineTime;
+
+        await _bot.EditMessageText(
+            chatId: chatId,
+            messageId: message.MessageId,
+            text: $"📅 Дата: <b>{date:dd.MM.yyyy}</b>\n\n" +
+                  "Теперь напиши время дедлайна в формате <b>ЧЧ:ММ</b>, например <b>18:00</b>.\n" +
+                  "Если дедлайн не нужен, напиши <b>нет</b>.",
+            parseMode: ParseMode.Html,
+            cancellationToken: ct);
+    }
+
+    private async Task EditPlanListMessageAsync(Message message, UserSession session, CancellationToken ct)
+    {
+        var view = PlanListView.Build(session);
+        await _bot.EditMessageText(
+            chatId: message.Chat.Id,
+            messageId: message.MessageId,
+            text: view.Text,
+            parseMode: ParseMode.Html,
+            replyMarkup: view.Keyboard,
+            cancellationToken: ct);
+    }
+
+    private async Task EditCompletedPlanMessageAsync(Message message, UserSession session, CancellationToken ct)
+    {
+        var view = PlanListView.BuildCompleted(session);
+        await _bot.EditMessageText(
+            chatId: message.Chat.Id,
+            messageId: message.MessageId,
+            text: view.Text,
+            parseMode: ParseMode.Html,
+            replyMarkup: view.Keyboard,
+            cancellationToken: ct);
+    }
+
+    private async Task EditPlanTaskChoiceMessageAsync(
+        Message message,
+        UserSession session,
+        string action,
+        CancellationToken ct)
+    {
+        var view = PlanListView.BuildTaskChoice(session, action);
+        await _bot.EditMessageText(
+            chatId: message.Chat.Id,
+            messageId: message.MessageId,
+            text: view.Text,
+            parseMode: ParseMode.Html,
+            replyMarkup: view.Keyboard,
+            cancellationToken: ct);
     }
 
     private async Task HandleHomeworkAsync(
@@ -150,6 +292,30 @@ public class CallbackHandler
                 messageId: message.MessageId,
                 text: "Добавление ДЗ отменено.",
                 cancellationToken: ct);
+            return;
+        }
+
+        if (data == "hw_show_all")
+        {
+            await EditHomeworkSubjectChoiceAsync(query, userId, session, showAll: true, ct);
+            return;
+        }
+
+        if (data == "hw_config")
+        {
+            await EditHomeworkSubjectSettingsAsync(query, userId, session, ct);
+            return;
+        }
+
+        if (data == "hw_done")
+        {
+            await EditHomeworkSubjectChoiceAsync(query, userId, session, showAll: false, ct);
+            return;
+        }
+
+        if (data.StartsWith("hw_fav_"))
+        {
+            await ToggleHomeworkFavoriteSubjectAsync(query, userId, session, data, ct);
             return;
         }
 
@@ -216,6 +382,147 @@ public class CallbackHandler
         }
     }
 
+    private async Task EditHomeworkSubjectChoiceAsync(
+        CallbackQuery query,
+        long userId,
+        UserSession session,
+        bool showAll,
+        CancellationToken ct)
+    {
+        var message = query.Message!;
+        var chatId = message.Chat.Id;
+
+        if (!TryGetAllScheduleEntriesForUser(userId, out _, out _, out var entries))
+        {
+            session.State = UserState.Idle;
+            session.DraftTask = null;
+            session.HomeworkSubjectChoices.Clear();
+            session.HomeworkLessonTypeChoices.Clear();
+
+            await _bot.SendMessage(
+                chatId,
+                "Сначала выбери своё расписание через /schedule, потом я смогу добавить ДЗ.",
+                cancellationToken: ct);
+            return;
+        }
+
+        var allSubjects = GetHomeworkSubjects(entries);
+        var preferences = _homeworkSubjects.Get(userId);
+        var favoriteSubjects = preferences.FavoriteSubjects
+            .Where(favorite => allSubjects.Contains(favorite, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+
+        var visibleSubjects = preferences.IsConfigured && !showAll
+            ? favoriteSubjects
+            : allSubjects;
+
+        session.State = UserState.Idle;
+        session.DraftTask = null;
+        session.HomeworkSubjectChoices.Clear();
+        session.HomeworkLessonTypeChoices.Clear();
+
+        var buttons = visibleSubjects
+            .Select((subject, index) =>
+            {
+                var key = index.ToString();
+                session.HomeworkSubjectChoices[key] = subject;
+                return (subject, $"hw_subject_{key}");
+            })
+            .ToList();
+
+        if (!showAll && preferences.IsConfigured)
+            buttons.Add(("👀 Показать все", "hw_show_all"));
+
+        buttons.Add(("⚙️ Настроить", "hw_config"));
+        buttons.Add(("🔴 Отмена", "hw_cancel"));
+
+        var text = visibleSubjects.Count == 0
+            ? "📚 <b>В списке ДЗ пока нет выбранных предметов.</b>\nНажми «Настроить» и отметь нужные."
+            : preferences.IsConfigured || showAll
+                ? "📚 <b>Выбери предмет, по которому задали ДЗ:</b>"
+                : "📚 <b>Выбери предмет, по которому задали ДЗ:</b>\n\n" +
+                  "Если тут есть лишние предметы, нажми «⚙️ Настроить» и оставь только нужные.\n\n" +
+                  "Предметы будут идти в том порядке, в котором ты их отметишь.";
+
+        await _bot.EditMessageText(
+            chatId: chatId,
+            messageId: message.MessageId,
+            text: text,
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: ct);
+    }
+
+    private async Task EditHomeworkSubjectSettingsAsync(
+        CallbackQuery query,
+        long userId,
+        UserSession session,
+        CancellationToken ct)
+    {
+        var message = query.Message!;
+        var chatId = message.Chat.Id;
+
+        if (!TryGetAllScheduleEntriesForUser(userId, out _, out _, out var entries))
+        {
+            await _bot.SendMessage(
+                chatId,
+                "Сначала выбери своё расписание через /schedule, потом я смогу настроить предметы.",
+                cancellationToken: ct);
+            return;
+        }
+
+        var subjects = GetHomeworkSubjects(entries);
+        var preferences = _homeworkSubjects.Get(userId);
+
+        session.HomeworkSubjectChoices.Clear();
+        session.HomeworkLessonTypeChoices.Clear();
+
+        var buttons = subjects
+            .Select((subject, index) =>
+            {
+                var key = index.ToString();
+                session.HomeworkSubjectChoices[key] = subject;
+                var priority = preferences.FavoriteSubjects.FindIndex(favorite =>
+                    string.Equals(favorite, subject, StringComparison.OrdinalIgnoreCase));
+                var label = priority >= 0
+                    ? $"✅ {priority + 1}. {subject}"
+                    : $"⬜ {subject}";
+
+                return (label, $"hw_fav_{key}");
+            })
+            .Append(("Готово", "hw_done"));
+
+        await _bot.EditMessageText(
+            chatId: chatId,
+            messageId: message.MessageId,
+            text: "⚙️ <b>Предметы для ДЗ</b>\n" +
+                  "Отмечай предметы в нужном порядке: первый выбранный будет выше всех в /add_homework.",
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: ct);
+    }
+
+    private async Task ToggleHomeworkFavoriteSubjectAsync(
+        CallbackQuery query,
+        long userId,
+        UserSession session,
+        string data,
+        CancellationToken ct)
+    {
+        var key = data["hw_fav_".Length..];
+        if (!session.HomeworkSubjectChoices.TryGetValue(key, out var subject))
+        {
+            await _bot.SendMessage(
+                query.Message!.Chat.Id,
+                "Настройка предметов устарела. Открой список заново через /add_homework.",
+                cancellationToken: ct);
+            return;
+        }
+
+        _homeworkSubjects.ToggleFavoriteSubject(userId, subject);
+        await EditHomeworkSubjectSettingsAsync(query, userId, session, ct);
+    }
+
     private async Task HandleHomeworkSubjectChoiceAsync(
         CallbackQuery query,
         long userId,
@@ -279,6 +586,12 @@ public class CallbackHandler
             return;
         }
 
+        if (typedSubjects.Count == 1)
+        {
+            await StartHomeworkTextInputAsync(message, userId, session, entries, typedSubjects[0], ct);
+            return;
+        }
+
         session.HomeworkLessonTypeChoices.Clear();
         var buttons = typedSubjects
             .Select((subject, index) =>
@@ -287,7 +600,7 @@ public class CallbackHandler
                 session.HomeworkLessonTypeChoices[typeKey] = subject;
                 return (ScheduleCatalogService.GetHomeworkLessonTypeLabel(subject), $"hw_type_{typeKey}");
             })
-            .Append(("Отмена", "hw_cancel"));
+            .Append(("🔴 Отмена", "hw_cancel"));
 
         await _bot.EditMessageText(
             chatId: chatId,
@@ -337,6 +650,18 @@ public class CallbackHandler
             return;
         }
 
+        await StartHomeworkTextInputAsync(message, userId, session, entries, subject, ct);
+    }
+
+    private async Task StartHomeworkTextInputAsync(
+        Message message,
+        long userId,
+        UserSession session,
+        List<ScheduleEntry> entries,
+        string subject,
+        CancellationToken ct)
+    {
+        var chatId = message.Chat.Id;
         var deadline = _scheduleCatalog.FindNextLessonDate(entries, subject);
         if (!deadline.HasValue)
         {
@@ -371,8 +696,44 @@ public class CallbackHandler
             cancellationToken: ct);
     }
 
-    private async Task HandleTaskAsync(long chatId, UserSession session, string data, CancellationToken ct)
+    private async Task HandleTaskAsync(CallbackQuery query, UserSession session, string data, CancellationToken ct)
     {
+        var message = query.Message!;
+        var chatId = message.Chat.Id;
+
+        if (data == "task_back")
+        {
+            await RefreshTaskListMessageAsync(message, session, ct);
+            return;
+        }
+
+        if (data == "task_completed")
+        {
+            var view = HomeworkListView.BuildCompleted(session);
+            await _bot.EditMessageText(
+                chatId: chatId,
+                messageId: message.MessageId,
+                text: view.Text,
+                parseMode: ParseMode.Html,
+                replyMarkup: view.Keyboard,
+                cancellationToken: ct);
+            return;
+        }
+
+        if (data == "task_choose_done" || data == "task_choose_del")
+        {
+            var action = data == "task_choose_del" ? "del" : "done";
+            var view = HomeworkListView.BuildTaskChoice(session, action);
+            await _bot.EditMessageText(
+                chatId: chatId,
+                messageId: message.MessageId,
+                text: view.Text,
+                parseMode: ParseMode.Html,
+                replyMarkup: view.Keyboard,
+                cancellationToken: ct);
+            return;
+        }
+
         var parts = data.Split('_', 3);
         if (parts.Length < 3)
             return;
@@ -389,32 +750,51 @@ public class CallbackHandler
             case "done":
                 task.IsCompleted = true;
                 _sessions.SaveTasks(session);
-                await _bot.SendMessage(
-                    chatId: chatId,
-                    text: $"✅ Задача <b>«{task.Title}»</b> выполнена!",
-                    parseMode: ParseMode.Html,
-                    cancellationToken: ct);
+                await RefreshTaskListMessageAsync(message, session, ct);
                 break;
 
             case "del":
+                var confirmation = HomeworkListView.BuildDeleteConfirmation(task);
+                await _bot.EditMessageText(
+                    chatId: chatId,
+                    messageId: message.MessageId,
+                    text: confirmation.Text,
+                    parseMode: ParseMode.Html,
+                    replyMarkup: confirmation.Keyboard,
+                    cancellationToken: ct);
+                break;
+
+            case "confirmdel":
                 session.Tasks.Remove(task);
                 _sessions.SaveTasks(session);
-                await _bot.SendMessage(
-                    chatId: chatId,
-                    text: $"🗑 Задача <b>«{task.Title}»</b> удалена.",
-                    parseMode: ParseMode.Html,
-                    cancellationToken: ct);
+                await RefreshTaskListMessageAsync(message, session, ct);
                 break;
         }
     }
 
-    private async Task HandleScheduleAsync(
-        long chatId, long userId, UserSession session, string data, CancellationToken ct)
+    private async Task RefreshTaskListMessageAsync(Message message, UserSession session, CancellationToken ct)
     {
+        var view = HomeworkListView.Build(session);
+        await _bot.EditMessageText(
+            chatId: message.Chat.Id,
+            messageId: message.MessageId,
+            text: view.Text,
+            parseMode: ParseMode.Html,
+            replyMarkup: view.Keyboard,
+            cancellationToken: ct);
+    }
+
+    private async Task HandleScheduleAsync(
+        CallbackQuery query, long userId, UserSession session, string data, CancellationToken ct)
+    {
+        var message = query.Message!;
+        var chatId = message.Chat.Id;
+        var messageId = message.MessageId;
+
         if (data.StartsWith("sched_dir_"))
         {
             var directionCode = data["sched_dir_".Length..];
-            await SendCourseChoiceAsync(chatId, directionCode, ct);
+            await SendCourseChoiceAsync(chatId, messageId, directionCode, ct);
             return;
         }
 
@@ -422,7 +802,7 @@ public class CallbackHandler
         {
             var parts = data.Split('_', 4);
             if (parts.Length == 4 && int.TryParse(parts[3], out var course))
-                await SendSubGroupChoiceOrSaveAsync(chatId, userId, session, parts[2], course, ct);
+                await SendSubGroupChoiceOrSaveAsync(chatId, messageId, userId, session, parts[2], course, ct);
 
             return;
         }
@@ -433,7 +813,7 @@ public class CallbackHandler
             if (parts.Length == 4)
             {
                 var subGroup = parts[3] == "none" ? (int?)null : int.Parse(parts[3]);
-                await SaveScheduleSelectionAsync(chatId, userId, session, parts[2], subGroup, ct);
+                await SaveScheduleSelectionAsync(chatId, messageId, userId, session, parts[2], subGroup, ct);
             }
 
             return;
@@ -442,20 +822,21 @@ public class CallbackHandler
         switch (data)
         {
             case "sched_today":
-                await SendScheduleAsync(chatId, userId, session, onlyToday: true, ct);
+                await SendScheduleAsync(chatId, messageId, userId, session, true, ct);
                 break;
 
             case "sched_week":
-                await SendScheduleAsync(chatId, userId, session, onlyToday: false, ct);
+                await SendScheduleAsync(chatId, messageId, userId, session, false, ct);
                 break;
 
             case "sched_change":
-                await SendDirectionChoiceAsync(chatId, ct);
+                await SendDirectionChoiceAsync(chatId, messageId, ct);
                 break;
 
             case "sched_delete":
-                await _bot.SendMessage(
+                await EditScheduleMessageAsync(
                     chatId: chatId,
+                    messageId: messageId,
                     text: "Удалить сохранённое расписание?",
                     replyMarkup: ScheduleKeyboards.DeleteConfirmation,
                     cancellationToken: ct);
@@ -469,14 +850,16 @@ public class CallbackHandler
                 session.PendingSchedule = null;
                 session.State = UserState.Idle;
 
-                await _bot.SendMessage(
+                await SendDirectionChoiceAsync(
                     chatId,
+                    messageId,
+                    ct,
                     "Расписание удалено. Чтобы выбрать новое, используй /schedule.",
                     cancellationToken: ct);
                 break;
 
             case "sched_delete_no":
-                await SendSelectedScheduleMenuAsync(chatId, userId, session, ct);
+                await SendSelectedScheduleMenuAsync(chatId, messageId, userId, session, ct);
                 break;
 
             case "sched_confirm":
@@ -529,6 +912,17 @@ public class CallbackHandler
         subGroup = selection.SubGroup;
         entries = _scheduleCatalog.GetAllEntriesForSelection(group, subGroup);
         return true;
+    }
+
+    private static List<string> GetHomeworkSubjects(List<ScheduleEntry> entries)
+    {
+        return entries
+            .Select(e => ScheduleCatalogService.GetHomeworkSubjectTitle(e.Subject))
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(ScheduleCatalogService.GetHomeworkSubjectSortGroup)
+            .ThenBy(s => s)
+            .ToList();
     }
 
     private async Task SendCourseChoiceAsync(long chatId, string directionCode, CancellationToken ct)
@@ -704,12 +1098,261 @@ public class CallbackHandler
         await _bot.SendMessage(
             chatId: chatId,
             text: $"<b>{title}</b>\n" +
-                  $"{Escape(FormatGroupTitle(group, selection.SubGroup))}\n" +
-                  $"Неделя: <b>{_scheduleCatalog.GetCurrentWeekLabel()}</b>\n\n" +
+                  $"{Escape(FormatGroupTitle(group, selection.SubGroup))} | <b>{_scheduleCatalog.GetCurrentWeekLabel()}</b>\n\n" +
                   summary,
             parseMode: ParseMode.Html,
             replyMarkup: ScheduleKeyboards.ScheduleMenu,
             cancellationToken: ct);
+    }
+
+    private async Task SendDirectionChoiceAsync(
+        long chatId,
+        int messageId,
+        CancellationToken ct,
+        string? prefix = null)
+    {
+        var buttons = _scheduleCatalog.GetDirections()
+            .Select(d => ($"{d.ShortTitle} — {d.DirectionName}", $"sched_dir_{d.DirectionCode}"));
+
+        var text = string.IsNullOrWhiteSpace(prefix)
+            ? "Шаг 1/3. Выбери направление:"
+            : $"{prefix}\n\nШаг 1/3. Выбери направление:";
+
+        await EditScheduleMessageAsync(
+            chatId: chatId,
+            messageId: messageId,
+            text: text,
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: ct);
+    }
+
+    private Task SendDirectionChoiceAsync(long chatId, string text, CancellationToken cancellationToken)
+    {
+        var buttons = _scheduleCatalog.GetDirections()
+            .Select(d => ($"{d.ShortTitle} — {d.DirectionName}", $"sched_dir_{d.DirectionCode}"));
+
+        return _bot.SendMessage(
+            chatId: chatId,
+            text: $"{text}\n\nШаг 1/3. Выбери направление:",
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: cancellationToken);
+    }
+
+    private Task SendDirectionChoiceAsync(
+        long chatId,
+        int messageId,
+        CancellationToken ct,
+        string text,
+        CancellationToken cancellationToken)
+        => SendDirectionChoiceAsync(chatId, messageId, ct, text);
+
+    private async Task SendCourseChoiceAsync(long chatId, int messageId, string directionCode, CancellationToken ct)
+    {
+        var groups = _scheduleCatalog.GetGroupsByDirection(directionCode);
+        if (groups.Count == 0)
+        {
+            await SendDirectionChoiceAsync(chatId, messageId, ct, "Не нашел курсы для этого направления.");
+            return;
+        }
+
+        var directionName = groups[0].DirectionName;
+        var buttons = groups.Select(g => ($"{g.Course} курс", $"sched_course_{g.DirectionCode}_{g.Course}"));
+
+        await EditScheduleMessageAsync(
+            chatId: chatId,
+            messageId: messageId,
+            text: $"Шаг 2/3. Направление: <b>{Escape(directionName)}</b>\nВыбери курс:",
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: ct);
+    }
+
+    private async Task SendSubGroupChoiceOrSaveAsync(
+        long chatId,
+        int messageId,
+        long userId,
+        UserSession session,
+        string directionCode,
+        int course,
+        CancellationToken ct)
+    {
+        var group = _scheduleCatalog.GetGroup(directionCode, course);
+        if (group is null)
+        {
+            await SendDirectionChoiceAsync(chatId, messageId, ct, "Не нашел расписание для этого курса.");
+            return;
+        }
+
+        if (group.SubGroups.Count == 0)
+        {
+            await SaveScheduleSelectionAsync(chatId, messageId, userId, session, group.Id, null, ct);
+            return;
+        }
+
+        var buttons = group.SubGroups
+            .OrderBy(x => x)
+            .Select(x => ($"Подгруппа {x}", $"sched_pick_{group.Id}_{x}"));
+
+        await EditScheduleMessageAsync(
+            chatId: chatId,
+            messageId: messageId,
+            text: $"Шаг 3/3. Курс: <b>{Escape(group.Title)}</b>\nВыбери подгруппу:",
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: ct);
+    }
+
+    private async Task SaveScheduleSelectionAsync(
+        long chatId,
+        int messageId,
+        long userId,
+        UserSession session,
+        string scheduleId,
+        int? subGroup,
+        CancellationToken ct)
+    {
+        var group = _scheduleCatalog.GetGroup(scheduleId);
+        if (group is null)
+        {
+            await SendDirectionChoiceAsync(chatId, messageId, ct, "Не нашел выбранное расписание.");
+            return;
+        }
+
+        _scheduleSelections.Save(userId, new UserScheduleSelection
+        {
+            ScheduleId = group.Id,
+            SubGroup = subGroup
+        });
+
+        ApplySelectionToSession(session, group, subGroup);
+        await SendSelectedScheduleMenuAsync(
+            chatId,
+            messageId,
+            group,
+            subGroup,
+            ct,
+            "✅ Готово! Расписание сохранено.");
+    }
+
+    private async Task SendSelectedScheduleMenuAsync(
+        long chatId,
+        int messageId,
+        long userId,
+        UserSession session,
+        CancellationToken ct)
+    {
+        var selection = _scheduleSelections.Get(userId);
+        if (selection is null)
+        {
+            await SendDirectionChoiceAsync(chatId, messageId, ct);
+            return;
+        }
+
+        var group = _scheduleCatalog.GetGroup(selection.ScheduleId);
+        if (group is null)
+        {
+            _scheduleSelections.Delete(userId);
+            await SendDirectionChoiceAsync(chatId, messageId, ct);
+            return;
+        }
+
+        ApplySelectionToSession(session, group, selection.SubGroup);
+        await SendSelectedScheduleMenuAsync(chatId, messageId, group, selection.SubGroup, ct);
+    }
+
+    private async Task SendSelectedScheduleMenuAsync(
+        long chatId,
+        int messageId,
+        ScheduleGroup group,
+        int? subGroup,
+        CancellationToken ct,
+        string? prefix = null)
+    {
+        var text = string.IsNullOrWhiteSpace(prefix)
+            ? $"📅 <b>Твоё расписание</b>\n{Escape(FormatGroupTitle(group, subGroup))}\nТекущая неделя: <b>{_scheduleCatalog.GetCurrentWeekLabel()}</b>\n\nЧто показать?"
+            : $"{prefix}\n\n📅 <b>Твоё расписание</b>\n{Escape(FormatGroupTitle(group, subGroup))}\nТекущая неделя: <b>{_scheduleCatalog.GetCurrentWeekLabel()}</b>\n\nЧто показать?";
+
+        await EditScheduleMessageAsync(
+            chatId: chatId,
+            messageId: messageId,
+            text: text,
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.ScheduleMenu,
+            cancellationToken: ct);
+    }
+
+    private async Task SendScheduleAsync(
+        long chatId,
+        int messageId,
+        long userId,
+        UserSession session,
+        bool onlyToday,
+        CancellationToken ct)
+    {
+        var selection = _scheduleSelections.Get(userId);
+        if (selection is null)
+        {
+            await SendDirectionChoiceAsync(chatId, messageId, ct);
+            return;
+        }
+
+        var group = _scheduleCatalog.GetGroup(selection.ScheduleId);
+        if (group is null)
+        {
+            _scheduleSelections.Delete(userId);
+            await SendDirectionChoiceAsync(chatId, messageId, ct);
+            return;
+        }
+
+        ApplySelectionToSession(session, group, selection.SubGroup);
+
+        var entries = session.Schedule;
+        var title = "Расписание на неделю";
+        if (onlyToday)
+        {
+            var today = ScheduleCatalogService.GetDayNumber(DateTime.Today);
+            entries = entries.Where(e => e.DayOfWeek == today).ToList();
+            title = $"Расписание на сегодня, {ScheduleService.GetDayName(today).ToLowerInvariant()}";
+        }
+
+        var summary = entries.Count == 0
+            ? "Пар нет."
+            : ScheduleService.FormatSchedule(entries, session.CurrentWeekType);
+
+        await EditScheduleMessageAsync(
+            chatId: chatId,
+            messageId: messageId,
+            text: $"<b>{title}</b>\n{Escape(FormatGroupTitle(group, selection.SubGroup))} | <b>{_scheduleCatalog.GetCurrentWeekLabel()}</b>\n\n{summary}",
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.ScheduleMenu,
+            cancellationToken: ct);
+    }
+
+    private Task EditScheduleMessageAsync(
+        long chatId,
+        int messageId,
+        string text,
+        CancellationToken cancellationToken,
+        ParseMode? parseMode = null,
+        InlineKeyboardMarkup? replyMarkup = null)
+    {
+        if (parseMode.HasValue)
+        {
+            return _bot.EditMessageText(
+                chatId: chatId,
+                messageId: messageId,
+                text: text,
+                parseMode: parseMode.Value,
+                replyMarkup: replyMarkup,
+                cancellationToken: cancellationToken);
+        }
+
+        return _bot.EditMessageText(
+            chatId: chatId,
+            messageId: messageId,
+            text: text,
+            replyMarkup: replyMarkup,
+            cancellationToken: cancellationToken);
     }
 
     private void ApplySelectionToSession(UserSession session, ScheduleGroup group, int? subGroup)
@@ -993,72 +1636,12 @@ public class CallbackHandler
 
     private async Task SendTaskListAsync(long chatId, UserSession session, CancellationToken ct)
     {
-        var active = session.Tasks.Where(t => !t.IsCompleted).ToList();
-        var completed = session.Tasks.Where(t => t.IsCompleted).ToList();
-
-        if (session.Tasks.Count == 0)
-        {
-            await _bot.SendMessage(
-                chatId: chatId,
-                text: "📋 <b>Список задач пуст.</b>\nДобавь первую через /plan → «Добавить задачу».",
-                parseMode: ParseMode.Html,
-                cancellationToken: ct);
-            return;
-        }
-
+        var view = PlanListView.Build(session);
         await _bot.SendMessage(
             chatId: chatId,
-            text: $"📋 <b>Твои задачи</b> | Активных: {active.Count} | Выполнено: {completed.Count}",
+            text: view.Text,
             parseMode: ParseMode.Html,
-            cancellationToken: ct);
-
-        foreach (var task in active.Take(10))
-        {
-            var deadlineText = task.Deadline.HasValue ? $"\n📅 {task.Deadline.Value:dd.MM.yyyy}" : string.Empty;
-
-            string urgency = string.Empty;
-            if (task.Deadline.HasValue)
-            {
-                var days = (task.Deadline.Value.Date - DateTime.Today).Days;
-                urgency = days switch
-                {
-                    < 0 => " 🔴 <b>Просрочено!</b>",
-                    0 => " 🟡 <b>Сдать сегодня!</b>",
-                    1 => " 🟡 Завтра",
-                    <= 3 => $" 🟠 Через {days} дня",
-                    _ => $" ✅ Через {days} дней"
-                };
-            }
-
-            var keyboard = new InlineKeyboardMarkup(new[]
-            {
-                new[]
-                {
-                    InlineKeyboardButton.WithCallbackData("✅ Выполнено", $"task_done_{task.ShortId}"),
-                    InlineKeyboardButton.WithCallbackData("🗑 Удалить", $"task_del_{task.ShortId}")
-                }
-            });
-
-            await _bot.SendMessage(
-                chatId: chatId,
-                text: $"📌 <b>{task.Title}</b>{urgency}\n📚 {task.Subject}{deadlineText}",
-                parseMode: ParseMode.Html,
-                replyMarkup: keyboard,
-                cancellationToken: ct);
-        }
-
-        if (active.Count > 10)
-            await _bot.SendMessage(chatId, $"... и ещё {active.Count - 10} задач(и).", cancellationToken: ct);
-
-        if (completed.Count == 0)
-            return;
-
-        var completedText = string.Join("\n", completed.Take(5).Select(t => $"✅ {t.Title} ({t.Subject})"));
-        await _bot.SendMessage(
-            chatId: chatId,
-            text: $"<b>Выполнено:</b>\n{completedText}" +
-                  (completed.Count > 5 ? $"\n... и ещё {completed.Count - 5}" : string.Empty),
-            parseMode: ParseMode.Html,
+            replyMarkup: view.Keyboard,
             cancellationToken: ct);
     }
 }

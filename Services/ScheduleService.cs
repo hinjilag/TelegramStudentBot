@@ -19,7 +19,7 @@ public static class ScheduleService
 
         foreach (var day in byDay)
         {
-            sb.AppendLine($"\n<b>{GetDayName(day.Key)}:</b>");
+            sb.AppendLine($"\n<b>{GetDayEmoji(day.Key)} {GetDayName(day.Key)}</b>");
 
             var byLesson = day
                 .GroupBy(e => e.LessonNumber)
@@ -33,9 +33,7 @@ public static class ScheduleService
                     .ThenBy(e => e.Subject)
                     .ToList();
 
-                var lessonLabel = FormatLessonLabel(
-                    lesson.Key,
-                    lessonEntries.FirstOrDefault()?.Time);
+                var lessonLabel = FormatLessonLabel(lesson.Key);
 
                 var hasWeekSplit = lessonEntries.Any(e => e.WeekType.HasValue);
                 if (hasWeekSplit)
@@ -43,13 +41,13 @@ public static class ScheduleService
                     var firstWeek = lessonEntries.Where(e => e.WeekType == 1).ToList();
                     var secondWeek = lessonEntries.Where(e => e.WeekType == 2).ToList();
 
-                    sb.AppendLine($"  {lessonLabel}: первая неделя: {FormatWeekLesson(firstWeek, currentWeekType == 1)}");
-                    sb.AppendLine($"     вторая неделя: {FormatWeekLesson(secondWeek, currentWeekType == 2)}");
+                    sb.AppendLine($"{lessonLabel} | первая неделя | {FormatWeekLesson(firstWeek, currentWeekType == 1)}");
+                    sb.AppendLine($"{lessonLabel} | вторая неделя | {FormatWeekLesson(secondWeek, currentWeekType == 2)}");
                     continue;
                 }
 
                 foreach (var entry in lessonEntries)
-                    sb.AppendLine($"  {lessonLabel}: {Escape(entry.Subject)}{FormatSubGroup(entry.SubGroup)}");
+                    sb.AppendLine($"{lessonLabel} | {FormatLessonEntry(entry)}");
             }
         }
 
@@ -76,18 +74,54 @@ public static class ScheduleService
         var joined = string.Join("; ", entries
             .OrderBy(e => e.SubGroup ?? 0)
             .ThenBy(e => e.Subject)
-            .Select(e => $"{Escape(e.Subject)}{FormatSubGroup(e.SubGroup)}"));
+            .Select(FormatLessonEntry));
 
         return isActiveWeek ? joined + " <" : joined;
+    }
+
+    private static string FormatLessonEntry(ScheduleEntry entry)
+    {
+        var (subject, lessonType) = SplitSubjectAndLessonType(entry.Subject);
+        var formatted = $"{Escape(subject)}{FormatSubGroup(entry.SubGroup)}";
+
+        return string.IsNullOrWhiteSpace(lessonType)
+            ? formatted
+            : $"{formatted} | {Escape(lessonType)}";
+    }
+
+    private static (string Subject, string LessonType) SplitSubjectAndLessonType(string subject)
+    {
+        var trimmed = subject.Trim();
+        var openIndex = trimmed.LastIndexOf(" (", StringComparison.Ordinal);
+
+        if (openIndex < 0 || !trimmed.EndsWith(')'))
+            return (trimmed, string.Empty);
+
+        var lessonType = trimmed[(openIndex + 2)..^1].Trim();
+        var subjectOnly = trimmed[..openIndex].Trim();
+
+        return string.IsNullOrWhiteSpace(subjectOnly) || string.IsNullOrWhiteSpace(lessonType)
+            ? (trimmed, string.Empty)
+            : (subjectOnly, lessonType);
     }
 
     private static string FormatSubGroup(int? subGroup)
         => subGroup.HasValue ? $" (подгр. {subGroup.Value})" : string.Empty;
 
-    private static string FormatLessonLabel(int lesson, string? time)
-        => string.IsNullOrWhiteSpace(time)
-            ? $"{lesson} пара"
-            : $"{lesson} пара ({time})";
+    private static string FormatLessonLabel(int lesson)
+        => $"{lesson} пара";
+
+    private static string GetDayEmoji(int day) => day switch
+    {
+        1 => "🔵",
+        2 => "🟢",
+        3 => "🟡",
+        4 => "🟣",
+        5 => "🟠",
+        6 => "⚪",
+        7 => "🔴",
+        _ => "📌"
+    };
 
     private static string Escape(string text)
         => WebUtility.HtmlEncode(text);

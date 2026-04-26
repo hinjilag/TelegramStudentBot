@@ -2,110 +2,113 @@ using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using TelegramStudentBot.Services;
 
 namespace TelegramStudentBot.Handlers;
 
-/// <summary>
-/// Маршрутизатор обновлений от Telegram.
-/// Получает сырой Update и отправляет его в нужный обработчик:
-///   - Команды (/start, /help и т.д.) → CommandHandler
-///   - Обычный текст в состоянии диалога → TextHandler
-///   - Нажатие инлайн-кнопки → CallbackHandler
-/// </summary>
 public class UpdateRouter
 {
     private readonly CommandHandler _commands;
-    private readonly TextHandler    _text;
+    private readonly TextHandler _text;
     private readonly CallbackHandler _callbacks;
+    private readonly UserProfileStorageService _userProfiles;
+    private readonly StudyTaskStorageService _taskStorage;
+    private readonly ReminderSettingsService _reminders;
+    private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
+    private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly ILogger<UpdateRouter> _logger;
 
     public UpdateRouter(
         CommandHandler commands,
-        TextHandler    text,
+        TextHandler text,
         CallbackHandler callbacks,
+        UserProfileStorageService userProfiles,
+        StudyTaskStorageService taskStorage,
+        ReminderSettingsService reminders,
+        HomeworkSubjectPreferencesService homeworkSubjects,
+        UserScheduleSelectionService scheduleSelections,
         ILogger<UpdateRouter> logger)
     {
-        _commands  = commands;
-        _text      = text;
+        _commands = commands;
+        _text = text;
         _callbacks = callbacks;
-        _logger    = logger;
+        _userProfiles = userProfiles;
+        _taskStorage = taskStorage;
+        _reminders = reminders;
+        _homeworkSubjects = homeworkSubjects;
+        _scheduleSelections = scheduleSelections;
+        _logger = logger;
     }
 
-    /// <summary>
-    /// Точка входа для всех обновлений от Telegram.
-    /// Вызывается из BotService при каждом входящем сообщении.
-    /// </summary>
     public async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken ct)
     {
         try
         {
-            // Нажатие инлайн-кнопки
+            RememberUser(update);
+
             if (update.Type == UpdateType.CallbackQuery && update.CallbackQuery is not null)
             {
                 await _callbacks.HandleAsync(update.CallbackQuery, ct);
                 return;
             }
 
-            // Текстовое сообщение
             if (update.Type == UpdateType.Message && update.Message?.Text is not null)
             {
                 await HandleMessageAsync(update.Message, ct);
                 return;
             }
 
-            // Фотография (сжатая Telegram'ом)
             if (update.Type == UpdateType.Message && update.Message?.Photo is not null)
             {
                 await _text.HandlePhotoAsync(update.Message, ct);
                 return;
             }
 
-            // Документ — возможно несжатое изображение
             if (update.Type == UpdateType.Message && update.Message?.Document is not null)
             {
                 var mime = update.Message.Document.MimeType ?? string.Empty;
-                if (mime.StartsWith("image/"))
+                if (mime.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
                 {
                     await _text.HandlePhotoAsync(update.Message, ct);
-                    return;
                 }
             }
-
-            // Остальные типы обновлений (стикеры, аудио и т.д.) игнорируем
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Необработанная ошибка при обработке обновления {UpdateType}", update.Type);
+            _logger.LogError(ex, "Unhandled error while processing update {UpdateType}", update.Type);
         }
     }
 
-    /// <summary>
-    /// Обработать входящее сообщение.
-    /// Если сообщение начинается с '/' — это команда, иначе — текст.
-    /// </summary>
+    private void RememberUser(Update update)
+    {
+        var user = update.Message?.From ?? update.CallbackQuery?.From;
+        if (user is null)
+            return;
+
+        _userProfiles.Upsert(user);
+        _taskStorage.SyncUserMetadata(user.Id);
+        _reminders.SyncUserMetadata(user.Id);
+        _homeworkSubjects.SyncUserMetadata(user.Id);
+        _scheduleSelections.SyncUserMetadata(user.Id);
+    }
+
     private async Task HandleMessageAsync(Message msg, CancellationToken ct)
     {
         var text = msg.Text!.Trim();
-
-        // Проверяем, является ли это командой
-        // Извлекаем команду без @username_бота (например /start@MyBot → /start)
         var commandPart = text.Split(' ')[0].Split('@')[0].ToLowerInvariant();
 
         if (commandPart.StartsWith('/'))
         {
             await RouteCommandAsync(msg, commandPart, ct);
+            return;
         }
-        else
-        {
-            // Обычный текст — обрабатываем через машину состояний
-            await _text.HandleAsync(msg, ct);
-        }
+
+        await _text.HandleAsync(msg, ct);
     }
 
-    /// <summary>Маршрутизация команд по имени</summary>
     private async Task RouteCommandAsync(Message msg, string command, CancellationToken ct)
     {
-        _logger.LogDebug("Команда {Command} от пользователя {UserId}", command, msg.From?.Id);
+        _logger.LogDebug("Command {Command} from user {UserId}", command, msg.From?.Id);
 
         switch (command)
         {
@@ -154,7 +157,6 @@ public class UpdateRouter
                 break;
 
             default:
-                // Неизвестная команда
                 await _text.HandleAsync(msg, ct);
                 break;
         }

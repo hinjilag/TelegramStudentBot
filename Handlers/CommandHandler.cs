@@ -20,6 +20,9 @@ public class CommandHandler
     private readonly ScheduleCatalogService _scheduleCatalog;
     private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly ReminderSettingsService _reminders;
+    private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
+    private readonly UserFeatureIntroService _featureIntros;
+    private readonly BotVisitLogService _visits;
 
     public CommandHandler(
         ITelegramBotClient bot,
@@ -27,7 +30,10 @@ public class CommandHandler
         TimerService timers,
         ScheduleCatalogService scheduleCatalog,
         UserScheduleSelectionService scheduleSelections,
-        ReminderSettingsService reminders)
+        ReminderSettingsService reminders,
+        HomeworkSubjectPreferencesService homeworkSubjects,
+        UserFeatureIntroService featureIntros,
+        BotVisitLogService visits)
     {
         _bot = bot;
         _sessions = sessions;
@@ -35,6 +41,9 @@ public class CommandHandler
         _scheduleCatalog = scheduleCatalog;
         _scheduleSelections = scheduleSelections;
         _reminders = reminders;
+        _homeworkSubjects = homeworkSubjects;
+        _featureIntros = featureIntros;
+        _visits = visits;
     }
 
     // ══════════════════════════════════════════════════════════
@@ -44,6 +53,8 @@ public class CommandHandler
     /// <summary>Приветствие при первом запуске или перезапуске</summary>
     public async Task HandleStartAsync(Message msg, CancellationToken ct)
     {
+        _visits.RecordVisit(msg.From!);
+
         var userId = msg.From!.Id;
         var session = _sessions.GetOrCreate(userId, msg.From.FirstName);
         session.State = UserState.Idle;
@@ -59,9 +70,14 @@ public class CommandHandler
                 await _bot.SendMessage(
                     chatId: msg.Chat.Id,
                     text: "👋 <b>С возвращением!</b>\n\n" +
-                          $"Расписание уже настроено: <b>{Escape(FormatGroupTitle(group, selection.SubGroup))}</b>.\n\n" +
-                          "Можешь посмотреть пары через /schedule, добавить ДЗ через /add_homework или открыть список заданий через /homework.\n" +
-                          "Если нужно сфокусироваться на учёбе, запускай таймер через /timer.",
+                          "Я уже помню твоё расписание:\n" +
+                          $"<b>{Escape(FormatGroupTitle(group, selection.SubGroup))}</b>.\n\n" +
+                          "Можешь сразу перейти к нужному:\n" +
+                          "📅 /schedule — пары на день\n" +
+                          "📝 /homework — домашние задания\n" +
+                          "➕ /add_homework — добавить новое ДЗ\n" +
+                          "📋 /plan — личные дела с дедлайнами\n" +
+                          "⏱ /timer — сфокусироваться на учёбе",
                     parseMode: ParseMode.Html,
                     cancellationToken: ct);
                 return;
@@ -72,12 +88,15 @@ public class CommandHandler
 
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
-            text:      "👋 <b>Привет! Я помогу тебе следить за расписанием, домашками и дедлайнами.</b>\n\n" +
+            text:      "👋 <b>Привет! Я помогу тебе следить за расписанием, домашками и личными делами.</b>\n\n" +
                        "Давай сначала настроим расписание:\n" +
                        "1. Нажми /schedule\n" +
                        "2. Выбери направление, курс и подгруппу\n" +
                        "3. После этого я закреплю расписание за тобой\n\n" +
-                       "Когда расписание будет выбрано, ты сможешь добавлять ДЗ по предметам из своего расписания.",
+                       "Когда расписание будет выбрано:\n" +
+                       "📚 /add_homework — ДЗ по предметам\n" +
+                       "📋 /plan — личные дела с датой и временем\n" +
+                       "⏱ /timer — таймер учёбы",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
     }
@@ -177,15 +196,17 @@ public class CommandHandler
     //  /plan
     // ══════════════════════════════════════════════════════════
 
-    /// <summary>Меню управления учебными задачами</summary>
+    /// <summary>Меню управления личными делами.</summary>
     public async Task HandlePlanAsync(Message msg, CancellationToken ct)
     {
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
-        var pending  = session.PendingTasksCount;
+        var userId = msg.From!.Id;
+        var pending = session.Tasks.Count(t => !t.IsCompleted && TaskSubjects.IsPersonal(t.Subject));
+        var shouldShowIntro = !_featureIntros.HasSeenPlanIntro(userId);
 
-        var text = pending > 0
-            ? $"📋 <b>Твой план</b>\nНевыполненных задач: <b>{pending}</b>\n\nЧто делаем?"
-            : "📋 <b>Твой план</b>\nЗадач пока нет. Добавь первую!";
+        var text = BuildPlanMenuText(pending, shouldShowIntro);
+        if (shouldShowIntro)
+            _featureIntros.MarkPlanIntroSeen(userId);
 
         await _bot.SendMessage(
             chatId:      msg.Chat.Id,
@@ -218,13 +239,7 @@ public class CommandHandler
             return;
         }
 
-        var subjects = entries
-            .Select(e => ScheduleCatalogService.GetHomeworkSubjectTitle(e.Subject))
-            .Where(s => !string.IsNullOrWhiteSpace(s))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(ScheduleCatalogService.GetHomeworkSubjectSortGroup)
-            .ThenBy(s => s)
-            .ToList();
+        var subjects = GetHomeworkSubjects(entries);
 
         if (subjects.Count == 0)
         {
@@ -240,26 +255,86 @@ public class CommandHandler
             return;
         }
 
+        await SendHomeworkSubjectChoiceAsync(msg.Chat.Id, userId, session, subjects, showAll: false, ct);
+    }
+
+    private async Task SendHomeworkSubjectChoiceAsync(
+        long chatId,
+        long userId,
+        UserSession session,
+        List<string> allSubjects,
+        bool showAll,
+        CancellationToken ct)
+    {
         session.State = UserState.Idle;
         session.DraftTask = null;
         session.HomeworkSubjectChoices.Clear();
         session.HomeworkLessonTypeChoices.Clear();
 
-        var buttons = subjects
+        var preferences = _homeworkSubjects.Get(userId);
+        var favoriteSubjects = preferences.FavoriteSubjects
+            .Where(favorite => allSubjects.Contains(favorite, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+
+        var visibleSubjects = preferences.IsConfigured && !showAll
+            ? favoriteSubjects
+            : allSubjects;
+
+        var buttons = visibleSubjects
             .Select((subject, index) =>
             {
                 var key = index.ToString();
                 session.HomeworkSubjectChoices[key] = subject;
                 return (subject, $"hw_subject_{key}");
             })
-            .Append(("Отмена", "hw_cancel"));
+            .ToList();
+
+        if (!showAll && preferences.IsConfigured)
+            buttons.Add(("👀 Показать все", "hw_show_all"));
+
+        buttons.Add(("⚙️ Настроить", "hw_config"));
+        buttons.Add(("🔴 Отмена", "hw_cancel"));
+
+        var text = visibleSubjects.Count == 0
+            ? "📚 <b>В списке ДЗ пока нет выбранных предметов.</b>\nНажми «Настроить» и отметь нужные."
+            : preferences.IsConfigured || showAll
+                ? "📚 <b>Выбери предмет, по которому задали ДЗ:</b>"
+                : "📚 <b>Выбери предмет, по которому задали ДЗ:</b>\n\n" +
+                  "Если тут есть лишние предметы, нажми «⚙️ Настроить» и оставь только нужные.\n\n" +
+                  "Предметы будут идти в том порядке, в котором ты их отметишь.";
 
         await _bot.SendMessage(
-            chatId: msg.Chat.Id,
-            text: "📚 <b>Выбери предмет, по которому задали ДЗ:</b>",
+            chatId: chatId,
+            text: text,
             parseMode: ParseMode.Html,
             replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
             cancellationToken: ct);
+    }
+
+    private static string BuildPlanMenuText(int pending, bool includeIntro)
+    {
+        var text = pending > 0
+            ? $"📋 <b>Личный план</b>\nАктивных дел: <b>{pending}</b>"
+            : "📋 <b>Личный план</b>\nДел пока нет. Добавь первое!";
+
+        if (includeIntro)
+        {
+            text += "\n\nЗдесь можно хранить дела вне учёбы: сходить в поликлинику, купить тетради, не забыть созвон.\n" +
+                    "Я могу поставить дедлайн с датой и временем.";
+        }
+
+        return text + "\n\nЧто делаем?";
+    }
+
+    private static List<string> GetHomeworkSubjects(List<ScheduleEntry> entries)
+    {
+        return entries
+            .Select(e => ScheduleCatalogService.GetHomeworkSubjectTitle(e.Subject))
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(ScheduleCatalogService.GetHomeworkSubjectSortGroup)
+            .ThenBy(s => s)
+            .ToList();
     }
 
     // ══════════════════════════════════════════════════════════
@@ -371,98 +446,13 @@ public class CommandHandler
         UserSession session,
         CancellationToken ct)
     {
-        var active = session.Tasks
-            .Where(t => !t.IsCompleted)
-            .OrderBy(t => t.Deadline ?? DateTime.MaxValue)
-            .ThenBy(t => t.CreatedAt)
-            .ToList();
-
-        var completed = session.Tasks
-            .Where(t => t.IsCompleted)
-            .OrderByDescending(t => t.CreatedAt)
-            .ToList();
-
-        if (session.Tasks.Count == 0)
-        {
-            await _bot.SendMessage(
-                chatId: chatId,
-                text: "📚 <b>Домашних заданий и задач пока нет.</b>\nДобавить ДЗ можно через /add_homework.",
-                parseMode: ParseMode.Html,
-                cancellationToken: ct);
-            return;
-        }
-
+        var view = HomeworkListView.Build(session);
         await _bot.SendMessage(
             chatId: chatId,
-            text: $"📚 <b>Домашние задания и задачи</b>\nАктивных: <b>{active.Count}</b> | Выполнено: <b>{completed.Count}</b>",
+            text: view.Text,
             parseMode: ParseMode.Html,
+            replyMarkup: view.Keyboard,
             cancellationToken: ct);
-
-        foreach (var task in active.Take(20))
-        {
-            var deadlineText = task.Deadline.HasValue
-                ? task.Deadline.Value.ToString("dd.MM.yyyy")
-                : "без дедлайна";
-
-            var keyboard = new InlineKeyboardMarkup(new[]
-            {
-                new[]
-                {
-                    InlineKeyboardButton.WithCallbackData("✅ Выполнено", $"task_done_{task.ShortId}"),
-                    InlineKeyboardButton.WithCallbackData("🗑 Удалить", $"task_del_{task.ShortId}")
-                }
-            });
-
-            await _bot.SendMessage(
-                chatId: chatId,
-                text: $"📌 <b>{Escape(task.Title)}</b>{FormatTaskUrgency(task)}\n" +
-                      $"📚 {Escape(task.Subject)}\n" +
-                      $"📅 {deadlineText}",
-                parseMode: ParseMode.Html,
-                replyMarkup: keyboard,
-                cancellationToken: ct);
-        }
-
-        if (active.Count > 20)
-            await _bot.SendMessage(chatId, $"... и ещё {active.Count - 20} задач(и).", cancellationToken: ct);
-
-        if (active.Count == 0)
-        {
-            await _bot.SendMessage(
-                chatId: chatId,
-                text: "Активных ДЗ и задач нет.",
-                cancellationToken: ct);
-        }
-
-        if (completed.Count == 0)
-            return;
-
-        var completedText = string.Join("\n", completed
-            .Take(5)
-            .Select(t => $"✅ {Escape(t.Title)} ({Escape(t.Subject)})"));
-
-        await _bot.SendMessage(
-            chatId: chatId,
-            text: $"<b>Выполнено:</b>\n{completedText}" +
-                  (completed.Count > 5 ? $"\n... и ещё {completed.Count - 5}" : string.Empty),
-            parseMode: ParseMode.Html,
-            cancellationToken: ct);
-    }
-
-    private static string FormatTaskUrgency(StudyTask task)
-    {
-        if (!task.Deadline.HasValue)
-            return string.Empty;
-
-        var days = (task.Deadline.Value.Date - DateTime.Today).Days;
-        return days switch
-        {
-            < 0 => " 🔴 <b>Просрочено!</b>",
-            0 => " 🟡 <b>Сдать сегодня!</b>",
-            1 => " 🟡 Завтра",
-            <= 3 => $" 🟠 Через {days} дня",
-            _ => $" ✅ Через {days} дней"
-        };
     }
 
     private async Task SendSelectedScheduleMenuAsync(
@@ -546,7 +536,7 @@ public class CommandHandler
         {
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("➕ Добавить задачу", "plan_add"),
+                InlineKeyboardButton.WithCallbackData("➕ Добавить дело", "plan_add"),
                 InlineKeyboardButton.WithCallbackData("📋 Показать план", "plan_list")
             }
         });

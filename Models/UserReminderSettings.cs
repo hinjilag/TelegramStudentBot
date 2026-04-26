@@ -4,6 +4,10 @@ public class UserReminderSettings
 {
     public long ChatId { get; set; }
 
+    public string Nickname { get; set; } = "Студент";
+
+    public string? Username { get; set; }
+
     public bool IsEnabled { get; set; }
 
     public bool PromptAnswered { get; set; }

@@ -1,5 +1,6 @@
 ﻿# Visual Studio
 .vs/
+.vscode/
 *.user
 *.suo
 *.userosscache
@@ -52,6 +53,8 @@ Data/user-tasks.json
 Data/user-tasks.json.tmp
 Data/user-reminders.json
 Data/user-reminders.json.tmp
+Data/bot-visits.json
+Data/bot-visits.json.tmp
 
 # JetBrains Rider
 .idea/

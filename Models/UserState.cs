@@ -15,6 +15,9 @@ public enum UserState
     /// <summary>Ожидание дедлайна новой задачи (или "пропустить")</summary>
     WaitingForTaskDeadline,
 
+    /// <summary>Ожидание времени дедлайна после выбора даты кнопкой</summary>
+    WaitingForTaskDeadlineTime,
+
     /// <summary>Ожидание текста домашнего задания после выбора предмета</summary>
     WaitingForHomeworkText,
 

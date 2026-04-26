@@ -21,6 +21,9 @@ public class UserSession
     /// <summary>Черновик задачи при пошаговом добавлении</summary>
     public StudyTask? DraftTask { get; set; }
 
+    /// <summary>Дата дедлайна личного дела, выбранная быстрой кнопкой.</summary>
+    public DateTime? PendingTaskDeadlineDate { get; set; }
+
     /// <summary>Временные варианты предметов для добавления домашнего задания</summary>
     public Dictionary<string, string> HomeworkSubjectChoices { get; set; } = new();
 
