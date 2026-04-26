@@ -31,6 +31,8 @@ const VIEW_META = {
   focus: { label: "Фокус", icon: "◎", eyebrow: "FOCUS_ENGINE" }
 };
 
+VIEW_META.reminders = { label: "Напоминания", icon: "◌", eyebrow: "ALERT_ROUTER" };
+
 boot().catch(handleFatalError);
 
 async function boot() {
@@ -157,9 +159,9 @@ function render() {
             </div>
           </div>
           <div class="status-strip">
-            <span class="tag accent">${schedule.selection ? "Расписание подключено" : "Нужно выбрать расписание"}</span>
-            <span class="tag ${reminder.isEnabled ? "success" : "warning"}">${reminder.isEnabled ? `Напоминания ${escapeHtml(reminder.timeText)}` : "Напоминания выключены"}</span>
-            <span class="tag">${timer.isActive ? `Таймер ${escapeHtml(timer.type || "")}` : "Таймер не запущен"}</span>
+            ${statusActionButton("schedule", schedule.selection ? "Расписание подключено" : "Нужно выбрать расписание", "accent")}
+            ${statusActionButton("reminders", reminder.isEnabled ? `Напоминания ${escapeHtml(reminder.timeText)}` : "Напоминания выключены", reminder.isEnabled ? "success" : "warning")}
+            ${statusActionButton("focus", timer.isActive ? `Таймер ${escapeHtml(timer.type || "")}` : "Таймер не запущен", "default")}
           </div>
           <div class="hero-stats">
             ${heroStat("Дедлайны", stats.homeworkPending, "активных")}
@@ -212,6 +214,8 @@ function renderView(context) {
       return renderPlanView(context.tasks.personal);
     case "focus":
       return renderFocusView(context.timer, context.reminder);
+    case "reminders":
+      return renderRemindersView(context.reminder);
     default:
       return renderDashboardView(context);
   }
@@ -358,6 +362,13 @@ function renderScheduleView(schedule) {
           </article>
         </div>
       </section>
+    </div>
+  `;
+}
+
+function renderRemindersView(reminder) {
+  return `
+    <div class="single-column">
       <section class="module panel">
         <div class="module-head">
           <div>
@@ -609,6 +620,38 @@ function renderFocusView(timer, reminder) {
   `;
 }
 
+function renderRemindersView(reminder) {
+  return `
+    <div class="single-column">
+      <section class="module panel">
+        <div class="module-head">
+          <div>
+            <p class="eyebrow">ALERT_ROUTER</p>
+            <h2 class="module-title">Напоминания</h2>
+          </div>
+          <span class="tag ${reminder.isEnabled ? "success" : "warning"}">${reminder.isEnabled ? reminder.timeText : "выкл"}</span>
+        </div>
+        <form id="reminders-form" class="stack">
+          <div class="field">
+            <label for="reminders-enabled">Режим</label>
+            <select id="reminders-enabled" name="isEnabled">
+              <option value="true" ${reminder.isEnabled ? "selected" : ""}>Включить</option>
+              <option value="false" ${!reminder.isEnabled ? "selected" : ""}>Выключить</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="reminders-time">Время по МСК</label>
+            <input id="reminders-time" name="time" type="time" value="${escapeHtml(reminder.timeText)}">
+          </div>
+          <button class="pixel-button" type="submit">Сохранить напоминания</button>
+        </form>
+        <div class="divider"></div>
+        <p class="muted">Чат и mini app используют одни и те же настройки, поэтому изменения сразу синхронизируются между интерфейсами.</p>
+      </section>
+    </div>
+  `;
+}
+
 function navChip(view, label) {
   return `<button class="nav-chip ${store.activeView === view ? "active" : ""}" data-view="${view}">${escapeHtml(label)}</button>`;
 }
@@ -620,6 +663,14 @@ function heroStat(label, value, hint) {
       <strong>${escapeHtml(String(value))}</strong>
       <span>${escapeHtml(hint)}</span>
     </article>
+  `;
+}
+
+function statusActionButton(view, label, tone) {
+  return `
+    <button class="status-action ${tone}" data-view="${view}">
+      <span class="status-action-title">${label}</span>
+    </button>
   `;
 }
 
