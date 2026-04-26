@@ -65,8 +65,7 @@ public class MiniAppAuthService
         var dataCheckString = string.Join(
             "\n",
             parsed
-                .Where(item => !string.Equals(item.Key, "hash", StringComparison.Ordinal) &&
-                               !string.Equals(item.Key, "signature", StringComparison.Ordinal))
+                .Where(item => !string.Equals(item.Key, "hash", StringComparison.Ordinal))
                 .OrderBy(item => item.Key, StringComparer.Ordinal)
                 .Select(item => $"{item.Key}={item.Value.ToString()}"));
 
