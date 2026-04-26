@@ -294,6 +294,35 @@ function renderDashboardView({ schedule, timer, reminder, activeHomework, active
           <p class="muted">Выполнено всего: <strong>${completedTasks.length}</strong></p>
         </section>
       </section>
+      <section class="module panel">
+        <div class="module-head">
+          <div>
+            <p class="eyebrow">LESSON_FEED</p>
+            <h2 class="module-title">Просмотр пар</h2>
+          </div>
+          <div class="actions-row">
+            <button class="nav-chip ${store.scheduleMode === "today" ? "active" : ""}" data-action="schedule-mode" data-mode="today">Сегодня</button>
+            <button class="nav-chip ${store.scheduleMode === "week" ? "active" : ""}" data-action="schedule-mode" data-mode="week">Неделя</button>
+          </div>
+        </div>
+        ${entries.length > 0 ? Object.entries(grouped).map(([day, dayEntries]) => `
+          <div class="schedule-day">
+            <div class="module-head">
+              <h3 class="schedule-day-title">${escapeHtml(day)}</h3>
+              <span class="tag">${dayEntries.length} пар</span>
+            </div>
+            ${dayEntries.map(entry => `
+              <div class="schedule-entry">
+                <div class="lesson-pill">${entry.lessonNumber}</div>
+                <div>
+                  <div><strong>${escapeHtml(entry.subject)}</strong></div>
+                  <div class="muted">${escapeHtml(entry.time || "время не указано")}</div>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        `).join("") : emptyState("Нет данных для показа. Обычно это значит, что расписание еще не выбрано или на сегодня пар нет.")}
+      </section>
     </div>
   `;
 }

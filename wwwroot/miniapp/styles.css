@@ -833,8 +833,8 @@ textarea {
 .tabbar-button {
   display: grid;
   justify-items: center;
-  gap: 6px;
-  padding: 10px 6px;
+  gap: 7px;
+  padding: 10px 6px 8px;
   min-width: 0;
   border-radius: 16px;
   border: 1px solid transparent;
@@ -851,7 +851,10 @@ textarea {
 
 .tabbar-icon {
   font-family: "IBM Plex Mono", "Courier New", monospace;
-  font-size: 16px;
+  font-size: 22px;
+  line-height: 1;
+  transform: translateY(1px);
+  text-shadow: 0 0 14px rgba(255, 255, 255, 0.12);
 }
 
 .tabbar-label {
@@ -944,6 +947,10 @@ textarea {
 
   .tabbar-button {
     padding: 9px 4px;
+  }
+
+  .tabbar-icon {
+    font-size: 20px;
   }
 
   .tabbar-label {
