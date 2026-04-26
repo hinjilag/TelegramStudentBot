@@ -18,9 +18,9 @@ const store = {
 };
 
 const THEME_LABELS = {
-  cobalt: "Cobalt Core",
-  ember: "Ember Grid",
-  matrix: "Matrix Mint"
+  cobalt: "Cobalt",
+  ember: "Ember",
+  matrix: "Matrix"
 };
 
 const VIEW_META = {
@@ -126,49 +126,54 @@ function render() {
   const activePersonal = tasks.personal.filter((task) => !task.isCompleted);
   const completedTasks = [...tasks.homework, ...tasks.personal].filter((task) => task.isCompleted);
   const activeViewMeta = VIEW_META[store.activeView];
+  const isDashboard = store.activeView === "dashboard";
 
   store.root.innerHTML = `
     <section class="app-frame">
-      <section class="topbar panel">
-        <div class="topbar-main">
-          <div class="identity">
-            <div class="avatar">${getInitials(user.displayName)}</div>
-            <div class="topbar-copy">
-              <p class="eyebrow">ASSISKENT_PANEL</p>
-              <h1>${escapeHtml(user.displayName)}</h1>
-              <p class="muted">${escapeHtml(user.username || "без username")} // ${escapeHtml(store.lastSyncLabel)}</p>
+      ${isDashboard ? `
+        <section class="topbar panel">
+          <div class="topbar-main">
+            <div class="identity">
+              <div class="avatar">${getInitials(user.displayName)}</div>
+              <div class="topbar-copy">
+                <p class="eyebrow">ASSISKENT_PANEL</p>
+                <h1>${escapeHtml(user.displayName)}</h1>
+                <p class="muted">${escapeHtml(user.username || "без username")} // ${escapeHtml(store.lastSyncLabel)}</p>
+              </div>
+            </div>
+            <div class="topbar-actions">
+              <button class="pixel-button secondary slim" data-action="refresh">Обновить</button>
             </div>
           </div>
-          <div class="topbar-actions">
-            <button class="pixel-button secondary slim" data-action="refresh">Обновить</button>
+          <div class="theme-panel">
+            <span class="theme-label">Тема интерфейса</span>
+            <div class="theme-switcher compact">
+              ${Object.entries(THEME_LABELS).map(([key, label]) => `
+                <button class="theme-chip ${store.selectedTheme === key ? "active" : ""}" data-theme="${key}" aria-label="Тема ${escapeHtml(label)}">
+                  <span class="theme-chip-dot theme-${key}"></span>
+                  <span>${escapeHtml(label)}</span>
+                </button>
+              `).join("")}
+            </div>
           </div>
-        </div>
-        <div class="theme-switcher compact">
-          ${Object.entries(THEME_LABELS).map(([key, label]) => `
-            <button class="theme-chip ${store.selectedTheme === key ? "active" : ""}" data-theme="${key}">
-              ${escapeHtml(label)}
-            </button>
-          `).join("")}
-        </div>
-        <div class="status-strip">
-          <span class="tag accent">${schedule.selection ? "Расписание подключено" : "Нужно выбрать расписание"}</span>
-          <span class="tag ${reminder.isEnabled ? "success" : "warning"}">${reminder.isEnabled ? `Напоминания ${escapeHtml(reminder.timeText)}` : "Напоминания выключены"}</span>
-          <span class="tag">${timer.isActive ? `Таймер ${escapeHtml(timer.type || "")}` : "Таймер не запущен"}</span>
-        </div>
-        <div class="hero-stats">
-          ${heroStat("Дедлайны", stats.homeworkPending, "активных")}
-          ${heroStat("План", stats.personalPending, "задач")}
-          ${heroStat("Неделя", schedule.currentWeekType, schedule.currentWeekLabel)}
-        </div>
-        ${store.activeView === "dashboard" ? `
+          <div class="status-strip">
+            <span class="tag accent">${schedule.selection ? "Расписание подключено" : "Нужно выбрать расписание"}</span>
+            <span class="tag ${reminder.isEnabled ? "success" : "warning"}">${reminder.isEnabled ? `Напоминания ${escapeHtml(reminder.timeText)}` : "Напоминания выключены"}</span>
+            <span class="tag">${timer.isActive ? `Таймер ${escapeHtml(timer.type || "")}` : "Таймер не запущен"}</span>
+          </div>
+          <div class="hero-stats">
+            ${heroStat("Дедлайны", stats.homeworkPending, "активных")}
+            ${heroStat("План", stats.personalPending, "задач")}
+            ${heroStat("Неделя", schedule.currentWeekType, schedule.currentWeekLabel)}
+          </div>
           <div class="shortcut-grid">
             ${shortcutCard("schedule", "Открыть пары и сменить группу")}
             ${shortcutCard("homework", "Посмотреть и добавить ДЗ")}
             ${shortcutCard("plan", "Быстрый доступ к личным делам")}
             ${shortcutCard("focus", "Запустить таймер учебы")}
           </div>
-        ` : ""}
-      </section>
+        </section>
+      ` : ""}
       <section class="screen-shell">
         <div class="screen-meta">
           <div>

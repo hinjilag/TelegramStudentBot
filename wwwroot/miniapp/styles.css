@@ -192,6 +192,8 @@ textarea {
   font-size: clamp(22px, 4vw, 34px);
   line-height: 0.95;
   font-weight: 700;
+  font-family: "Silkscreen", "IBM Plex Mono", "Courier New", monospace;
+  letter-spacing: 0.04em;
 }
 
 .hero p {
@@ -205,6 +207,7 @@ textarea {
 .subject-title,
 .schedule-day-title {
   font-weight: 700;
+  font-family: "Silkscreen", "IBM Plex Mono", "Courier New", monospace;
 }
 
 .theme-switcher {
@@ -216,6 +219,19 @@ textarea {
 
 .theme-switcher.compact {
   justify-content: flex-start;
+}
+
+.theme-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.theme-label {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: "IBM Plex Mono", "Courier New", monospace;
 }
 
 .theme-chip,
@@ -253,6 +269,37 @@ textarea {
 .nav-chip {
   padding: 10px 14px;
   font-weight: 700;
+}
+
+.theme-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  font-size: 11px;
+  line-height: 1;
+  font-family: "Silkscreen", "IBM Plex Mono", "Courier New", monospace;
+  letter-spacing: 0.03em;
+}
+
+.theme-chip-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+}
+
+.theme-chip-dot.theme-cobalt {
+  background: #5ef2ff;
+}
+
+.theme-chip-dot.theme-ember {
+  background: #ff9b54;
+}
+
+.theme-chip-dot.theme-matrix {
+  background: #8cffb7;
 }
 
 .stats-grid,
@@ -460,6 +507,8 @@ textarea {
     linear-gradient(135deg, var(--accent-soft), rgba(255, 255, 255, 0.05));
   box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.2);
   font-weight: 700;
+  font-family: "Silkscreen", "IBM Plex Mono", "Courier New", monospace;
+  letter-spacing: 0.03em;
 }
 
 .pixel-button.secondary {
@@ -548,6 +597,7 @@ textarea {
   gap: 8px;
   padding: 7px 11px;
   font-size: 12px;
+  font-family: "IBM Plex Mono", "Courier New", monospace;
 }
 
 .tag.success {
@@ -760,6 +810,7 @@ textarea {
 .tabbar-label {
   font-size: 12px;
   font-weight: 700;
+  font-family: "Silkscreen", "IBM Plex Mono", "Courier New", monospace;
 }
 
 @media (max-width: 980px) {
