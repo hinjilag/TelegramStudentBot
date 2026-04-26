@@ -563,6 +563,7 @@ textarea {
 .full-span {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
 .full-span {
@@ -580,12 +581,14 @@ input,
 select,
 textarea {
   width: 100%;
+  max-width: 100%;
   padding: 13px 14px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 14px;
   background: rgba(6, 8, 19, 0.85);
   color: var(--text);
   outline: none;
+  box-sizing: border-box;
 }
 
 input:focus,
@@ -870,21 +873,39 @@ textarea {
   background: linear-gradient(180deg, rgba(94, 242, 255, 0.14), rgba(255, 255, 255, 0.03));
 }
 
-.time-field input[type="time"] {
+.native-input-field input[type="date"],
+.native-input-field input[type="time"],
+.timer-inline-form input {
+  width: 100%;
+  max-width: 100%;
   min-height: 52px;
-  padding-right: 12px;
+  min-width: 0;
+  padding-right: 10px;
+  padding-left: 12px;
   box-sizing: border-box;
   overflow: hidden;
 }
 
-.time-field input[type="time"]::-webkit-calendar-picker-indicator {
+.native-input-field input[type="date"]::-webkit-calendar-picker-indicator,
+.native-input-field input[type="time"]::-webkit-calendar-picker-indicator {
   margin: 0;
   opacity: 0.88;
 }
 
-.time-field input[type="time"]::-webkit-datetime-edit,
-.time-field input[type="time"]::-webkit-datetime-edit-fields-wrapper {
+.native-input-field input[type="date"]::-webkit-datetime-edit,
+.native-input-field input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+.native-input-field input[type="time"]::-webkit-datetime-edit,
+.native-input-field input[type="time"]::-webkit-datetime-edit-fields-wrapper {
   padding: 0;
+}
+
+.native-form-grid > * {
+  min-width: 0;
+}
+
+.timer-inline-form > * {
+  flex: 1 1 160px;
+  min-width: 0;
 }
 
 .toast {
@@ -958,10 +979,10 @@ textarea {
 
 .tabbar-icon {
   font-family: "IBM Plex Mono", "Courier New", monospace;
-  font-size: 28px;
+  font-size: 40px;
   line-height: 1;
   transform: translateY(1px);
-  text-shadow: 0 0 18px rgba(255, 255, 255, 0.18);
+  text-shadow: 0 0 24px rgba(255, 255, 255, 0.28);
 }
 
 .tabbar-label {
@@ -1057,7 +1078,7 @@ textarea {
   }
 
   .tabbar-icon {
-    font-size: 24px;
+    font-size: 34px;
   }
 
   .tabbar-label {
@@ -1066,5 +1087,9 @@ textarea {
 
   .sound-grid {
     grid-template-columns: 1fr;
+  }
+
+  .timer-inline-form {
+    flex-direction: column;
   }
 }

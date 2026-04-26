@@ -16,7 +16,7 @@ const store = {
   lastSyncLabel: "Синхронизация...",
   timerTick: null,
   refreshTick: null,
-  audioContext: null,
+  activeAudioElement: null,
   activeSoundCleanup: null,
   activeSoundMode: "off"
 };
@@ -39,10 +39,16 @@ VIEW_META.reminders = { label: "Напоминания", shortLabel: "Напом
 
 const TIMER_SOUND_META = {
   off: { label: "Тишина", hint: "без фонового звука" },
-  pulse: { label: "Pulse", hint: "мягкий ритм для фокуса" },
-  rain: { label: "Rain", hint: "шум дождя и воздуха" },
-  arcade: { label: "Arcade", hint: "пиксельный синт-луп" }
+  track1: { label: "Трек 1", hint: "файл track-1.mp3", path: "/miniapp/audio/track-1.mp3" },
+  track2: { label: "Трек 2", hint: "файл track-2.mp3", path: "/miniapp/audio/track-2.mp3" },
+  track3: { label: "Трек 3", hint: "файл track-3.mp3", path: "/miniapp/audio/track-3.mp3" },
+  track4: { label: "Трек 4", hint: "файл track-4.mp3", path: "/miniapp/audio/track-4.mp3" }
 };
+
+if (!TIMER_SOUND_META[store.selectedTimerSound]) {
+  store.selectedTimerSound = "off";
+  localStorage.setItem("assistKentTimerSound", "off");
+}
 
 boot().catch(handleFatalError);
 
@@ -585,12 +591,12 @@ function renderPlanView(personalTasks) {
             <label for="plan-title">Название</label>
             <input id="plan-title" name="title" placeholder="Например: записаться к врачу">
           </div>
-          <div class="two-column">
-            <div class="field">
+          <div class="two-column native-form-grid">
+            <div class="field native-input-field">
               <label for="plan-date">Дата</label>
               <input id="plan-date" name="date" type="date">
             </div>
-            <div class="field">
+            <div class="field native-input-field">
               <label for="plan-time">Время</label>
               <input id="plan-time" name="time" type="time">
             </div>
@@ -655,6 +661,7 @@ function renderFocusView(timer, reminder) {
               </button>
             `).join("")}
           </div>
+          <p class="muted">Подложи свои 4 файла в папку <code>/wwwroot/miniapp/audio</code>, и таймер будет играть именно их.</p>
         </div>
         <div class="divider"></div>
         <div class="stack">
@@ -664,7 +671,7 @@ function renderFocusView(timer, reminder) {
               ${[25, 30, 45, 60].map((minutes) => `<button class="pixel-button secondary" data-action="start-timer" data-type="work" data-minutes="${minutes}">${minutes} мин</button>`).join("")}
             </div>
           </div>
-          <form id="custom-work-form" class="actions-row">
+          <form id="custom-work-form" class="actions-row timer-inline-form">
             <input name="minutes" type="number" min="1" max="300" placeholder="своё время">
             <button class="pixel-button" type="submit">Старт учёбы</button>
           </form>
@@ -674,7 +681,7 @@ function renderFocusView(timer, reminder) {
               ${[5, 15, 30].map((minutes) => `<button class="pixel-button secondary" data-action="start-timer" data-type="rest" data-minutes="${minutes}">${minutes} мин</button>`).join("")}
             </div>
           </div>
-          <form id="custom-rest-form" class="actions-row">
+          <form id="custom-rest-form" class="actions-row timer-inline-form">
             <input name="minutes" type="number" min="1" max="300" placeholder="свой перерыв">
             <button class="pixel-button" type="submit">Старт отдыха</button>
           </form>
@@ -696,7 +703,7 @@ function renderFocusView(timer, reminder) {
               <option value="false" ${!reminder.isEnabled ? "selected" : ""}>Выключить</option>
             </select>
           </div>
-          <div class="field time-field">
+          <div class="field time-field native-input-field">
             <label for="reminders-time">Время по МСК</label>
             <input id="reminders-time" name="time" type="time" value="${escapeHtml(reminder.timeText)}">
           </div>
@@ -728,7 +735,7 @@ function renderRemindersView(reminder) {
               <option value="false" ${!reminder.isEnabled ? "selected" : ""}>Выключить</option>
             </select>
           </div>
-          <div class="field time-field">
+          <div class="field time-field native-input-field">
             <label for="reminders-time">Время по МСК</label>
             <input id="reminders-time" name="time" type="time" value="${escapeHtml(reminder.timeText)}">
           </div>
@@ -1094,24 +1101,13 @@ function restartTimerTicker() {
   }, 1000);
 }
 
-async function resumeAudioContext() {
-  const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContextCtor) {
-    return null;
-  }
-
-  if (!store.audioContext) {
-    store.audioContext = new AudioContextCtor();
-  }
-
-  if (store.audioContext.state === "suspended") {
-    await store.audioContext.resume();
-  }
-
-  return store.audioContext;
-}
-
 function stopTimerAudio() {
+  if (store.activeAudioElement) {
+    store.activeAudioElement.pause();
+    store.activeAudioElement.currentTime = 0;
+    store.activeAudioElement = null;
+  }
+
   if (typeof store.activeSoundCleanup === "function") {
     store.activeSoundCleanup();
   }
@@ -1126,172 +1122,41 @@ async function syncTimerAudio({ allowResume = false, forceRestart = false } = {}
     return;
   }
 
-  const context = allowResume ? await resumeAudioContext() : store.audioContext;
-  if (!context || context.state !== "running") {
-    return;
-  }
-
   if (!forceRestart && store.activeSoundMode === store.selectedTimerSound && store.activeSoundCleanup) {
     return;
   }
 
   stopTimerAudio();
-  store.activeSoundCleanup = startTimerSound(context, store.selectedTimerSound);
+  store.activeSoundCleanup = startTimerSound(store.selectedTimerSound);
   store.activeSoundMode = store.selectedTimerSound;
 }
 
-function startTimerSound(context, mode) {
-  switch (mode) {
-    case "pulse":
-      return createPulseSound(context);
-    case "rain":
-      return createRainSound(context);
-    case "arcade":
-      return createArcadeSound(context);
-    default:
-      return null;
-  }
-}
-
-function createPulseSound(context) {
-  const master = context.createGain();
-  master.gain.value = 0.028;
-  master.connect(context.destination);
-
-  const drone = context.createOscillator();
-  drone.type = "sine";
-  drone.frequency.value = 174;
-
-  const droneGain = context.createGain();
-  droneGain.gain.value = 0.7;
-  drone.connect(droneGain);
-  droneGain.connect(master);
-  drone.start();
-
-  const pulse = context.createOscillator();
-  pulse.type = "triangle";
-  pulse.frequency.value = 522;
-
-  const pulseGain = context.createGain();
-  pulseGain.gain.value = 0.0001;
-  pulse.connect(pulseGain);
-  pulseGain.connect(master);
-  pulse.start();
-
-  let disposed = false;
-  const runPulse = () => {
-    if (disposed) {
-      return;
-    }
-
-    const now = context.currentTime;
-    pulseGain.gain.cancelScheduledValues(now);
-    pulseGain.gain.setValueAtTime(0.0001, now);
-    pulseGain.gain.linearRampToValueAtTime(0.18, now + 0.08);
-    pulseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
-    window.setTimeout(runPulse, 1400);
-  };
-
-  runPulse();
-
-  return () => {
-    disposed = true;
-    drone.stop();
-    pulse.stop();
-    master.disconnect();
-  };
-}
-
-function createRainSound(context) {
-  const master = context.createGain();
-  master.gain.value = 0.02;
-  master.connect(context.destination);
-
-  const duration = 2;
-  const buffer = context.createBuffer(1, context.sampleRate * duration, context.sampleRate);
-  const channel = buffer.getChannelData(0);
-  for (let index = 0; index < channel.length; index += 1) {
-    channel[index] = (Math.random() * 2 - 1) * 0.35;
+function startTimerSound(mode) {
+  const meta = TIMER_SOUND_META[mode];
+  if (!meta?.path) {
+    return null;
   }
 
-  const noise = context.createBufferSource();
-  noise.buffer = buffer;
-  noise.loop = true;
+  const audio = new Audio(meta.path);
+  audio.loop = true;
+  audio.volume = 0.72;
+  audio.preload = "auto";
+  audio.playsInline = true;
+  store.activeAudioElement = audio;
 
-  const filter = context.createBiquadFilter();
-  filter.type = "lowpass";
-  filter.frequency.value = 860;
-  filter.Q.value = 0.2;
-
-  const swell = context.createOscillator();
-  swell.type = "sine";
-  swell.frequency.value = 0.08;
-
-  const swellGain = context.createGain();
-  swellGain.gain.value = 90;
-  swell.connect(swellGain);
-  swellGain.connect(filter.frequency);
-
-  noise.connect(filter);
-  filter.connect(master);
-  noise.start();
-  swell.start();
+  const playPromise = audio.play();
+  if (playPromise && typeof playPromise.catch === "function") {
+    playPromise.catch(() => {
+      toast(`Не удалось запустить ${meta.label}. Проверь, что файл ${meta.path.split("/").pop()} добавлен в проект.`);
+    });
+  }
 
   return () => {
-    noise.stop();
-    swell.stop();
-    master.disconnect();
-  };
-}
-
-function createArcadeSound(context) {
-  const master = context.createGain();
-  master.gain.value = 0.022;
-  master.connect(context.destination);
-
-  const lead = context.createOscillator();
-  lead.type = "square";
-  const leadGain = context.createGain();
-  leadGain.gain.value = 0.0001;
-  lead.connect(leadGain);
-  leadGain.connect(master);
-  lead.start();
-
-  const bass = context.createOscillator();
-  bass.type = "triangle";
-  bass.frequency.value = 131;
-  const bassGain = context.createGain();
-  bassGain.gain.value = 0.07;
-  bass.connect(bassGain);
-  bassGain.connect(master);
-  bass.start();
-
-  const notes = [392, 523.25, 659.25, 523.25, 392, 659.25, 523.25, 329.63];
-  let step = 0;
-  let disposed = false;
-  const playStep = () => {
-    if (disposed) {
-      return;
+    audio.pause();
+    audio.currentTime = 0;
+    if (store.activeAudioElement === audio) {
+      store.activeAudioElement = null;
     }
-
-    const now = context.currentTime;
-    const note = notes[step % notes.length];
-    lead.frequency.setValueAtTime(note, now);
-    leadGain.gain.cancelScheduledValues(now);
-    leadGain.gain.setValueAtTime(0.0001, now);
-    leadGain.gain.linearRampToValueAtTime(0.16, now + 0.02);
-    leadGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
-    step += 1;
-    window.setTimeout(playStep, 360);
-  };
-
-  playStep();
-
-  return () => {
-    disposed = true;
-    lead.stop();
-    bass.stop();
-    master.disconnect();
   };
 }
 
@@ -1359,7 +1224,6 @@ function toast(message) {
 async function runAction(action) {
   try {
     tg?.HapticFeedback?.impactOccurred?.("light");
-    await resumeAudioContext();
     await action();
   } catch (error) {
     toast(error.message || "Что-то пошло не так.");
