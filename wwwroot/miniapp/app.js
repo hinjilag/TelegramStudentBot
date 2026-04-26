@@ -1,4 +1,4 @@
-const tg = window.Telegram?.WebApp;
+﻿const tg = window.Telegram?.WebApp;
 
 const store = {
   root: document.getElementById("app"),
@@ -12,9 +12,13 @@ const store = {
   groups: [],
   scheduleMode: "today",
   selectedHomeworkGroup: "",
-  lastSyncLabel: "Синхронизация...",
+  selectedTimerSound: localStorage.getItem("assistKentTimerSound") || "off",
+  lastSyncLabel: "РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ...",
   timerTick: null,
-  refreshTick: null
+  refreshTick: null,
+  audioContext: null,
+  activeSoundCleanup: null,
+  activeSoundMode: "off"
 };
 
 const THEME_LABELS = {
@@ -24,14 +28,21 @@ const THEME_LABELS = {
 };
 
 const VIEW_META = {
-  dashboard: { label: "Обзор", shortLabel: "Обзор", icon: "◫", eyebrow: "MISSION_BOARD" },
-  schedule: { label: "Расписание", shortLabel: "Пары", icon: "⌘", eyebrow: "SCHEDULE_MATRIX" },
-  homework: { label: "Домашка", shortLabel: "ДЗ", icon: "✦", eyebrow: "HOMEWORK_STACK" },
-  plan: { label: "План", shortLabel: "План", icon: "▣", eyebrow: "PERSONAL_QUEUE" },
-  focus: { label: "Фокус", shortLabel: "Фокус", icon: "◎", eyebrow: "FOCUS_ENGINE" }
+  dashboard: { label: "РћР±Р·РѕСЂ", shortLabel: "РћР±Р·РѕСЂ", icon: "в—«", eyebrow: "MISSION_BOARD" },
+  schedule: { label: "Р Р°СЃРїРёСЃР°РЅРёРµ", shortLabel: "РџР°СЂС‹", icon: "вЊ", eyebrow: "SCHEDULE_MATRIX" },
+  homework: { label: "Р”РѕРјР°С€РєР°", shortLabel: "Р”Р—", icon: "вњ¦", eyebrow: "HOMEWORK_STACK" },
+  plan: { label: "РџР»Р°РЅ", shortLabel: "РџР»Р°РЅ", icon: "в–Ј", eyebrow: "PERSONAL_QUEUE" },
+  focus: { label: "Р¤РѕРєСѓСЃ", shortLabel: "Р¤РѕРєСѓСЃ", icon: "в—Ћ", eyebrow: "FOCUS_ENGINE" }
 };
 
-VIEW_META.reminders = { label: "Напоминания", shortLabel: "Напом.", icon: "◌", eyebrow: "ALERT_ROUTER" };
+VIEW_META.reminders = { label: "РќР°РїРѕРјРёРЅР°РЅРёСЏ", shortLabel: "РќР°РїРѕРј.", icon: "в—Њ", eyebrow: "ALERT_ROUTER" };
+
+const TIMER_SOUND_META = {
+  off: { label: "РўРёС€РёРЅР°", hint: "Р±РµР· С„РѕРЅРѕРІРѕРіРѕ Р·РІСѓРєР°" },
+  pulse: { label: "Pulse", hint: "РјСЏРіРєРёР№ СЂРёС‚Рј РґР»СЏ С„РѕРєСѓСЃР°" },
+  rain: { label: "Rain", hint: "С€СѓРј РґРѕР¶РґСЏ Рё РІРѕР·РґСѓС…Р°" },
+  arcade: { label: "Arcade", hint: "РїРёРєСЃРµР»СЊРЅС‹Р№ СЃРёРЅС‚-Р»СѓРї" }
+};
 
 boot().catch(handleFatalError);
 
@@ -84,7 +95,7 @@ async function api(path, options = {}) {
 
   const data = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(data?.error || `Ошибка запроса (${response.status})`);
+    throw new Error(data?.error || `РћС€РёР±РєР° Р·Р°РїСЂРѕСЃР° (${response.status})`);
   }
 
   return data;
@@ -93,7 +104,7 @@ async function api(path, options = {}) {
 async function refreshState({ silent = false } = {}) {
   const state = await api("/api/miniapp/state");
   store.state = state;
-  store.lastSyncLabel = `Синхронизировано ${new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
+  store.lastSyncLabel = `РЎРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°РЅРѕ ${new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
 
   if (!store.selectedDirectionCode) {
     store.selectedDirectionCode = state.schedule.selectedDirectionCode || state.schedule.directions[0]?.directionCode || "";
@@ -158,18 +169,18 @@ function render() {
               <div class="topbar-copy">
                 <p class="eyebrow">ASSISKENT_PANEL</p>
                 <h1>${escapeHtml(user.displayName)}</h1>
-                <p class="muted">${escapeHtml(user.username || "без username")} // ${escapeHtml(store.lastSyncLabel)}</p>
+                <p class="muted">${escapeHtml(user.username || "Р±РµР· username")} // ${escapeHtml(store.lastSyncLabel)}</p>
               </div>
             </div>
             <div class="topbar-actions">
-              <button class="pixel-button secondary slim" data-action="refresh">Обновить</button>
+              <button class="pixel-button secondary slim" data-action="refresh">РћР±РЅРѕРІРёС‚СЊ</button>
             </div>
           </div>
           <div class="theme-panel">
-            <span class="theme-label">Тема интерфейса</span>
+            <span class="theme-label">РўРµРјР° РёРЅС‚РµСЂС„РµР№СЃР°</span>
             <div class="theme-switcher compact">
               ${Object.entries(THEME_LABELS).map(([key, label]) => `
-                <button class="theme-chip ${store.selectedTheme === key ? "active" : ""}" data-theme="${key}" aria-label="Тема ${escapeHtml(label)}">
+                <button class="theme-chip ${store.selectedTheme === key ? "active" : ""}" data-theme="${key}" aria-label="РўРµРјР° ${escapeHtml(label)}">
                   <span class="theme-chip-dot theme-${key}"></span>
                   <span>${escapeHtml(label)}</span>
                 </button>
@@ -177,20 +188,20 @@ function render() {
             </div>
           </div>
           <div class="status-strip">
-            ${statusActionButton("schedule", schedule.selection ? "Расписание подключено" : "Нужно выбрать расписание", "accent")}
-            ${statusActionButton("reminders", reminder.isEnabled ? `Напоминания ${escapeHtml(reminder.timeText)}` : "Напоминания выключены", reminder.isEnabled ? "success" : "warning")}
-            ${statusActionButton("focus", timer.isActive ? `Таймер ${escapeHtml(timer.type || "")}` : "Таймер не запущен", "default")}
+            ${statusActionButton("schedule", schedule.selection ? "Р Р°СЃРїРёСЃР°РЅРёРµ РїРѕРґРєР»СЋС‡РµРЅРѕ" : "РќСѓР¶РЅРѕ РІС‹Р±СЂР°С‚СЊ СЂР°СЃРїРёСЃР°РЅРёРµ", "accent")}
+            ${statusActionButton("reminders", reminder.isEnabled ? `РќР°РїРѕРјРёРЅР°РЅРёСЏ ${escapeHtml(reminder.timeText)}` : "РќР°РїРѕРјРёРЅР°РЅРёСЏ РІС‹РєР»СЋС‡РµРЅС‹", reminder.isEnabled ? "success" : "warning")}
+            ${statusActionButton("focus", timer.isActive ? `РўР°Р№РјРµСЂ ${escapeHtml(timer.type || "")}` : "РўР°Р№РјРµСЂ РЅРµ Р·Р°РїСѓС‰РµРЅ", "default")}
           </div>
           <div class="hero-stats">
-            ${heroStat("Дедлайны", stats.homeworkPending, "активных")}
-            ${heroStat("План", stats.personalPending, "задач")}
-            ${heroStat("Неделя", schedule.currentWeekType, schedule.currentWeekLabel)}
+            ${heroStat("Р”РµРґР»Р°Р№РЅС‹", stats.homeworkPending, "Р°РєС‚РёРІРЅС‹С…")}
+            ${heroStat("РџР»Р°РЅ", stats.personalPending, "Р·Р°РґР°С‡")}
+            ${heroStat("РќРµРґРµР»СЏ", schedule.currentWeekType, schedule.currentWeekLabel)}
           </div>
           <div class="shortcut-grid">
-            ${shortcutCard("schedule", "Открыть пары и сменить группу")}
-            ${shortcutCard("homework", "Посмотреть и добавить ДЗ")}
-            ${shortcutCard("plan", "Быстрый доступ к личным делам")}
-            ${shortcutCard("focus", "Запустить таймер учебы")}
+            ${shortcutCard("schedule", "РћС‚РєСЂС‹С‚СЊ РїР°СЂС‹ Рё СЃРјРµРЅРёС‚СЊ РіСЂСѓРїРїСѓ")}
+            ${shortcutCard("homework", "РџРѕСЃРјРѕС‚СЂРµС‚СЊ Рё РґРѕР±Р°РІРёС‚СЊ Р”Р—")}
+            ${shortcutCard("plan", "Р‘С‹СЃС‚СЂС‹Р№ РґРѕСЃС‚СѓРї Рє Р»РёС‡РЅС‹Рј РґРµР»Р°Рј")}
+            ${shortcutCard("focus", "Р—Р°РїСѓСЃС‚РёС‚СЊ С‚Р°Р№РјРµСЂ СѓС‡РµР±С‹")}
           </div>
         </section>
       ` : ""}
@@ -249,35 +260,35 @@ function renderDashboardView({ schedule, timer, reminder, activeHomework, active
         <div class="module-head">
           <div>
             <p class="eyebrow">MISSION_BOARD</p>
-            <h2 class="module-title">Текущая обстановка</h2>
+            <h2 class="module-title">РўРµРєСѓС‰Р°СЏ РѕР±СЃС‚Р°РЅРѕРІРєР°</h2>
           </div>
-          <button class="pixel-button secondary" data-action="refresh">Обновить</button>
+          <button class="pixel-button secondary" data-action="refresh">РћР±РЅРѕРІРёС‚СЊ</button>
         </div>
         <div class="overview-grid">
           <article class="info-card panel">
             <div class="module-head">
-              <h3 class="module-title">Сегодня</h3>
-              <span class="tag accent">${schedule.todayEntries.length} пар</span>
+              <h3 class="module-title">РЎРµРіРѕРґРЅСЏ</h3>
+              <span class="tag accent">${schedule.todayEntries.length} РїР°СЂ</span>
             </div>
             ${schedule.todayEntries.length > 0 ? schedule.todayEntries.slice(0, 4).map(entry => `
               <div class="schedule-entry">
                 <div class="lesson-pill">${entry.lessonNumber}</div>
                 <div>
                   <div><strong>${escapeHtml(entry.subject)}</strong></div>
-                  <div class="muted">${escapeHtml(entry.time || "время не указано")}</div>
+                  <div class="muted">${escapeHtml(entry.time || "РІСЂРµРјСЏ РЅРµ СѓРєР°Р·Р°РЅРѕ")}</div>
                 </div>
               </div>
-            `).join("") : emptyState("На сегодня пар нет или расписание ещё не выбрано.")}
+            `).join("") : emptyState("РќР° СЃРµРіРѕРґРЅСЏ РїР°СЂ РЅРµС‚ РёР»Рё СЂР°СЃРїРёСЃР°РЅРёРµ РµС‰С‘ РЅРµ РІС‹Р±СЂР°РЅРѕ.")}
           </article>
           <article class="info-card panel">
             <div class="module-head">
-              <h3 class="module-title">Активный фокус</h3>
-              <span class="tag ${timer.isActive ? "success" : "warning"}">${timer.isActive ? "в работе" : "неактивен"}</span>
+              <h3 class="module-title">РђРєС‚РёРІРЅС‹Р№ С„РѕРєСѓСЃ</h3>
+              <span class="tag ${timer.isActive ? "success" : "warning"}">${timer.isActive ? "РІ СЂР°Р±РѕС‚Рµ" : "РЅРµР°РєС‚РёРІРµРЅ"}</span>
             </div>
             <div class="focus-display">
               <p class="eyebrow">FOCUS_ENGINE</p>
               <p class="focus-clock">${escapeHtml(timerText(timer))}</p>
-              <p class="muted">${timer.isActive ? `режим ${escapeHtml(timer.type || "")}` : "Запусти рабочий или отдых-таймер в разделе Фокус."}</p>
+              <p class="muted">${timer.isActive ? `СЂРµР¶РёРј ${escapeHtml(timer.type || "")}` : "Р—Р°РїСѓСЃС‚Рё СЂР°Р±РѕС‡РёР№ РёР»Рё РѕС‚РґС‹С…-С‚Р°Р№РјРµСЂ РІ СЂР°Р·РґРµР»Рµ Р¤РѕРєСѓСЃ."}</p>
             </div>
           </article>
         </div>
@@ -285,64 +296,64 @@ function renderDashboardView({ schedule, timer, reminder, activeHomework, active
       <section class="stack">
         <section class="module panel">
           <div class="module-head">
-            <h2 class="module-title">Дедлайны</h2>
-            <span class="tag accent">${activeHomework.length} активных</span>
+            <h2 class="module-title">Р”РµРґР»Р°Р№РЅС‹</h2>
+            <span class="tag accent">${activeHomework.length} Р°РєС‚РёРІРЅС‹С…</span>
           </div>
           ${activeHomework.length > 0
             ? activeHomework.slice(0, 4).map(task => taskCard(task, "homework")).join("")
-            : emptyState("Домашние задания появятся здесь после добавления.")}
+            : emptyState("Р”РѕРјР°С€РЅРёРµ Р·Р°РґР°РЅРёСЏ РїРѕСЏРІСЏС‚СЃСЏ Р·РґРµСЃСЊ РїРѕСЃР»Рµ РґРѕР±Р°РІР»РµРЅРёСЏ.")}
         </section>
         <section class="module panel">
           <div class="module-head">
-            <h2 class="module-title">Личный план</h2>
-            <span class="tag accent">${activePersonal.length} активных</span>
+            <h2 class="module-title">Р›РёС‡РЅС‹Р№ РїР»Р°РЅ</h2>
+            <span class="tag accent">${activePersonal.length} Р°РєС‚РёРІРЅС‹С…</span>
           </div>
           ${activePersonal.length > 0
             ? activePersonal.slice(0, 4).map(task => taskCard(task, "personal")).join("")
-            : emptyState("Добавь свои дела, чтобы не держать всё в голове.")}
+            : emptyState("Р”РѕР±Р°РІСЊ СЃРІРѕРё РґРµР»Р°, С‡С‚РѕР±С‹ РЅРµ РґРµСЂР¶Р°С‚СЊ РІСЃС‘ РІ РіРѕР»РѕРІРµ.")}
         </section>
         <section class="module panel">
           <div class="module-head">
-            <h2 class="module-title">Напоминания</h2>
+            <h2 class="module-title">РќР°РїРѕРјРёРЅР°РЅРёСЏ</h2>
             <span class="tag ${reminder.isEnabled ? "success" : "warning"}">${reminder.isEnabled ? reminder.timeText : "off"}</span>
           </div>
           <p class="muted">
             ${reminder.isEnabled
-              ? `Чат получит напоминание о дедлайнах на завтра каждый день в ${escapeHtml(reminder.timeText)} по МСК.`
-              : "Напоминания выключены. Включи их во вкладке Фокус."}
+              ? `Р§Р°С‚ РїРѕР»СѓС‡РёС‚ РЅР°РїРѕРјРёРЅР°РЅРёРµ Рѕ РґРµРґР»Р°Р№РЅР°С… РЅР° Р·Р°РІС‚СЂР° РєР°Р¶РґС‹Р№ РґРµРЅСЊ РІ ${escapeHtml(reminder.timeText)} РїРѕ РњРЎРљ.`
+              : "РќР°РїРѕРјРёРЅР°РЅРёСЏ РІС‹РєР»СЋС‡РµРЅС‹. Р’РєР»СЋС‡Рё РёС… РІРѕ РІРєР»Р°РґРєРµ Р¤РѕРєСѓСЃ."}
           </p>
           <div class="divider"></div>
-          <p class="muted">Выполнено всего: <strong>${completedTasks.length}</strong></p>
+          <p class="muted">Р’С‹РїРѕР»РЅРµРЅРѕ РІСЃРµРіРѕ: <strong>${completedTasks.length}</strong></p>
         </section>
       </section>
       <section class="module panel">
         <div class="module-head">
           <div>
             <p class="eyebrow">LESSON_FEED</p>
-            <h2 class="module-title">Просмотр пар</h2>
+            <h2 class="module-title">РџСЂРѕСЃРјРѕС‚СЂ РїР°СЂ</h2>
           </div>
           <div class="actions-row">
-            <button class="nav-chip ${store.scheduleMode === "today" ? "active" : ""}" data-action="schedule-mode" data-mode="today">Сегодня</button>
-            <button class="nav-chip ${store.scheduleMode === "week" ? "active" : ""}" data-action="schedule-mode" data-mode="week">Неделя</button>
+            <button class="nav-chip ${store.scheduleMode === "today" ? "active" : ""}" data-action="schedule-mode" data-mode="today">РЎРµРіРѕРґРЅСЏ</button>
+            <button class="nav-chip ${store.scheduleMode === "week" ? "active" : ""}" data-action="schedule-mode" data-mode="week">РќРµРґРµР»СЏ</button>
           </div>
         </div>
         ${entries.length > 0 ? Object.entries(grouped).map(([day, dayEntries]) => `
           <div class="schedule-day">
             <div class="module-head">
               <h3 class="schedule-day-title">${escapeHtml(day)}</h3>
-              <span class="tag">${dayEntries.length} пар</span>
+              <span class="tag">${dayEntries.length} РїР°СЂ</span>
             </div>
             ${dayEntries.map(entry => `
               <div class="schedule-entry">
                 <div class="lesson-pill">${entry.lessonNumber}</div>
                 <div>
                   <div><strong>${escapeHtml(entry.subject)}</strong></div>
-                  <div class="muted">${escapeHtml(entry.time || "время не указано")}</div>
+                  <div class="muted">${escapeHtml(entry.time || "РІСЂРµРјСЏ РЅРµ СѓРєР°Р·Р°РЅРѕ")}</div>
                 </div>
               </div>
             `).join("")}
           </div>
-        `).join("") : emptyState("Нет данных для показа. Обычно это значит, что расписание еще не выбрано или на сегодня пар нет.")}
+        `).join("") : emptyState("РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ РїРѕРєР°Р·Р°. РћР±С‹С‡РЅРѕ СЌС‚Рѕ Р·РЅР°С‡РёС‚, С‡С‚Рѕ СЂР°СЃРїРёСЃР°РЅРёРµ РµС‰Рµ РЅРµ РІС‹Р±СЂР°РЅРѕ РёР»Рё РЅР° СЃРµРіРѕРґРЅСЏ РїР°СЂ РЅРµС‚.")}
       </section>
     </div>
   `;
@@ -360,13 +371,13 @@ function renderScheduleView(schedule) {
         <div class="module-head">
           <div>
             <p class="eyebrow">SCHEDULE_MATRIX</p>
-            <h2 class="module-title">Выбор расписания</h2>
+            <h2 class="module-title">Р’С‹Р±РѕСЂ СЂР°СЃРїРёСЃР°РЅРёСЏ</h2>
           </div>
-          ${schedule.selection ? '<button class="pixel-button danger slim" data-action="clear-schedule">Удалить</button>' : ""}
+          ${schedule.selection ? '<button class="pixel-button danger slim" data-action="clear-schedule">РЈРґР°Р»РёС‚СЊ</button>' : ""}
         </div>
         <form id="schedule-form" class="stack">
           <div class="field">
-            <label for="direction-select">Направление</label>
+            <label for="direction-select">РќР°РїСЂР°РІР»РµРЅРёРµ</label>
             <select id="direction-select" name="directionCode">
               ${schedule.directions.map(direction => `
                 <option value="${escapeHtml(direction.directionCode)}" ${store.selectedDirectionCode === direction.directionCode ? "selected" : ""}>
@@ -376,7 +387,7 @@ function renderScheduleView(schedule) {
             </select>
           </div>
           <div class="field">
-            <label for="group-select">Курс / группа</label>
+            <label for="group-select">РљСѓСЂСЃ / РіСЂСѓРїРїР°</label>
             <select id="group-select" name="scheduleId">
               ${store.groups.map(group => `
                 <option value="${escapeHtml(group.scheduleId)}" ${(schedule.selection?.scheduleId || selectedGroup?.scheduleId) === group.scheduleId ? "selected" : ""}>
@@ -387,17 +398,16 @@ function renderScheduleView(schedule) {
           </div>
           ${selectedGroup && selectedGroup.subGroups.length > 0 ? `
             <div class="field">
-              <label for="subgroup-select">Подгруппа</label>
+              <label for="subgroup-select">РџРѕРґРіСЂСѓРїРїР°</label>
               <select id="subgroup-select" name="subGroup">
                 ${selectedGroup.subGroups.map(subGroup => `
-                  <option value="${subGroup}" ${String(selectedSubgroup) === String(subGroup) ? "selected" : ""}>Подгруппа ${subGroup}</option>
+                  <option value="${subGroup}" ${String(selectedSubgroup) === String(subGroup) ? "selected" : ""}>РџРѕРґРіСЂСѓРїРїР° ${subGroup}</option>
                 `).join("")}
               </select>
             </div>
           ` : ""}
-          <button class="pixel-button" type="submit">Сохранить расписание</button>
-        </form>
-        <div class="divider"></div>
+          <button class="pixel-button" type="submit">РЎРѕС…СЂР°РЅРёС‚СЊ СЂР°СЃРїРёСЃР°РЅРёРµ</button>
+        </form>        <div class="divider"></div>
         <div class="card-stack">
           <article class="schedule-card">
             <p class="eyebrow">CURRENT_BINDING</p>
@@ -405,10 +415,10 @@ function renderScheduleView(schedule) {
               <h3 class="schedule-day-title">${escapeHtml(schedule.selection.title)}</h3>
               <div class="schedule-meta">
                 <span class="tag accent">${escapeHtml(schedule.currentWeekLabel)}</span>
-                <span class="tag">${schedule.selection.subGroup ? `подгруппа ${schedule.selection.subGroup}` : "без подгруппы"}</span>
+                <span class="tag">${schedule.selection.subGroup ? `РїРѕРґРіСЂСѓРїРїР° ${schedule.selection.subGroup}` : "Р±РµР· РїРѕРґРіСЂСѓРїРїС‹"}</span>
                 <span class="tag">${escapeHtml(schedule.semester)}</span>
               </div>
-            ` : emptyState("Пока ничего не выбрано. Подключи группу, и mini app подтянет предметы и дедлайны.")}
+            ` : emptyState("РџРѕРєР° РЅРёС‡РµРіРѕ РЅРµ РІС‹Р±СЂР°РЅРѕ. РџРѕРґРєР»СЋС‡Рё РіСЂСѓРїРїСѓ, Рё mini app РїРѕРґС‚СЏРЅРµС‚ РїСЂРµРґРјРµС‚С‹ Рё РґРµРґР»Р°Р№РЅС‹.")}
           </article>
         </div>
       </section>
@@ -416,30 +426,30 @@ function renderScheduleView(schedule) {
         <div class="module-head">
           <div>
             <p class="eyebrow">LESSON_FEED</p>
-            <h2 class="module-title">Просмотр пар</h2>
+            <h2 class="module-title">РџСЂРѕСЃРјРѕС‚СЂ РїР°СЂ</h2>
           </div>
           <div class="actions-row">
-            <button class="nav-chip ${store.scheduleMode === "today" ? "active" : ""}" data-action="schedule-mode" data-mode="today">Сегодня</button>
-            <button class="nav-chip ${store.scheduleMode === "week" ? "active" : ""}" data-action="schedule-mode" data-mode="week">Неделя</button>
+            <button class="nav-chip ${store.scheduleMode === "today" ? "active" : ""}" data-action="schedule-mode" data-mode="today">РЎРµРіРѕРґРЅСЏ</button>
+            <button class="nav-chip ${store.scheduleMode === "week" ? "active" : ""}" data-action="schedule-mode" data-mode="week">РќРµРґРµР»СЏ</button>
           </div>
         </div>
         ${entries.length > 0 ? Object.entries(grouped).map(([day, dayEntries]) => `
           <div class="schedule-day">
             <div class="module-head">
               <h3 class="schedule-day-title">${escapeHtml(day)}</h3>
-              <span class="tag">${dayEntries.length} пар</span>
+              <span class="tag">${dayEntries.length} РїР°СЂ</span>
             </div>
             ${dayEntries.map(entry => `
               <div class="schedule-entry">
                 <div class="lesson-pill">${entry.lessonNumber}</div>
                 <div>
                   <div><strong>${escapeHtml(entry.subject)}</strong></div>
-                  <div class="muted">${escapeHtml(entry.time || "время не указано")}</div>
+                  <div class="muted">${escapeHtml(entry.time || "РІСЂРµРјСЏ РЅРµ СѓРєР°Р·Р°РЅРѕ")}</div>
                 </div>
               </div>
             `).join("")}
           </div>
-        `).join("") : emptyState("Нет данных для показа. Обычно это значит, что расписание еще не выбрано или на сегодня пар нет.")}
+        `).join("") : emptyState("РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ РїРѕРєР°Р·Р°. РћР±С‹С‡РЅРѕ СЌС‚Рѕ Р·РЅР°С‡РёС‚, С‡С‚Рѕ СЂР°СЃРїРёСЃР°РЅРёРµ РµС‰Рµ РЅРµ РІС‹Р±СЂР°РЅРѕ РёР»Рё РЅР° СЃРµРіРѕРґРЅСЏ РїР°СЂ РЅРµС‚.")}
       </section>
     </div>
   `;
@@ -452,30 +462,30 @@ function renderRemindersViewDuplicate(reminder) {
         <div class="module-head">
           <div>
             <p class="eyebrow">LESSON_FEED</p>
-            <h2 class="module-title">Просмотр пар</h2>
+            <h2 class="module-title">РџСЂРѕСЃРјРѕС‚СЂ РїР°СЂ</h2>
           </div>
           <div class="actions-row">
-            <button class="nav-chip ${store.scheduleMode === "today" ? "active" : ""}" data-action="schedule-mode" data-mode="today">Сегодня</button>
-            <button class="nav-chip ${store.scheduleMode === "week" ? "active" : ""}" data-action="schedule-mode" data-mode="week">Неделя</button>
+            <button class="nav-chip ${store.scheduleMode === "today" ? "active" : ""}" data-action="schedule-mode" data-mode="today">РЎРµРіРѕРґРЅСЏ</button>
+            <button class="nav-chip ${store.scheduleMode === "week" ? "active" : ""}" data-action="schedule-mode" data-mode="week">РќРµРґРµР»СЏ</button>
           </div>
         </div>
         ${entries.length > 0 ? Object.entries(grouped).map(([day, dayEntries]) => `
           <div class="schedule-day">
             <div class="module-head">
               <h3 class="schedule-day-title">${escapeHtml(day)}</h3>
-              <span class="tag">${dayEntries.length} пар</span>
+              <span class="tag">${dayEntries.length} РїР°СЂ</span>
             </div>
             ${dayEntries.map(entry => `
               <div class="schedule-entry">
                 <div class="lesson-pill">${entry.lessonNumber}</div>
                 <div>
                   <div><strong>${escapeHtml(entry.subject)}</strong></div>
-                  <div class="muted">${escapeHtml(entry.time || "время не указано")}</div>
+                  <div class="muted">${escapeHtml(entry.time || "РІСЂРµРјСЏ РЅРµ СѓРєР°Р·Р°РЅРѕ")}</div>
                 </div>
               </div>
             `).join("")}
           </div>
-        `).join("") : emptyState("Нет данных для показа. Обычно это значит, что расписание ещё не выбрано или на сегодня пар нет.")}
+        `).join("") : emptyState("РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ РїРѕРєР°Р·Р°. РћР±С‹С‡РЅРѕ СЌС‚Рѕ Р·РЅР°С‡РёС‚, С‡С‚Рѕ СЂР°СЃРїРёСЃР°РЅРёРµ РµС‰С‘ РЅРµ РІС‹Р±СЂР°РЅРѕ РёР»Рё РЅР° СЃРµРіРѕРґРЅСЏ РїР°СЂ РЅРµС‚.")}
       </section>
     </div>
   `;
@@ -496,16 +506,16 @@ function renderHomeworkView(homeworkSubjects, homeworkTasks) {
           <div class="module-head">
             <div>
               <p class="eyebrow">HOMEWORK_COMPOSER</p>
-              <h2 class="module-title">Добавить домашку</h2>
+              <h2 class="module-title">Р”РѕР±Р°РІРёС‚СЊ РґРѕРјР°С€РєСѓ</h2>
             </div>
-            <span class="tag accent">${homeworkSubjects.length} предметов</span>
+            <span class="tag accent">${homeworkSubjects.length} РїСЂРµРґРјРµС‚РѕРІ</span>
           </div>
           ${homeworkSubjects.length === 0
-            ? emptyState("Сначала выбери расписание во вкладке Расписание. Тогда mini app подтянет предметы и ближайшие дедлайны.")
+            ? emptyState("РЎРЅР°С‡Р°Р»Р° РІС‹Р±РµСЂРё СЂР°СЃРїРёСЃР°РЅРёРµ РІРѕ РІРєР»Р°РґРєРµ Р Р°СЃРїРёСЃР°РЅРёРµ. РўРѕРіРґР° mini app РїРѕРґС‚СЏРЅРµС‚ РїСЂРµРґРјРµС‚С‹ Рё Р±Р»РёР¶Р°Р№С€РёРµ РґРµРґР»Р°Р№РЅС‹.")
             : `
               <form id="homework-form" class="stack">
                 <div class="field">
-                  <label for="homework-group">Базовый предмет</label>
+                  <label for="homework-group">Р‘Р°Р·РѕРІС‹Р№ РїСЂРµРґРјРµС‚</label>
                   <select id="homework-group" name="subjectTitle">
                     ${homeworkSubjects.map(group => `
                       <option value="${escapeHtml(group.title)}" ${subjectGroup?.title === group.title ? "selected" : ""}>
@@ -515,20 +525,20 @@ function renderHomeworkView(homeworkSubjects, homeworkTasks) {
                   </select>
                 </div>
                 <div class="field">
-                  <label for="homework-subject">Тип занятия</label>
+                  <label for="homework-subject">РўРёРї Р·Р°РЅСЏС‚РёСЏ</label>
                   <select id="homework-subject" name="subject">
                     ${(subjectGroup?.options || []).map(option => `
                       <option value="${escapeHtml(option.subject)}">
-                        ${escapeHtml(option.lessonType)}${option.nextDeadlineText ? ` // дедлайн ${escapeHtml(option.nextDeadlineText)}` : ""}
+                        ${escapeHtml(option.lessonType)}${option.nextDeadlineText ? ` // РґРµРґР»Р°Р№РЅ ${escapeHtml(option.nextDeadlineText)}` : ""}
                       </option>
                     `).join("")}
                   </select>
                 </div>
                 <div class="field">
-                  <label for="homework-title">Что задали</label>
-                  <textarea id="homework-title" name="title" placeholder="Например: решить варианты 3-6 и подготовить конспект"></textarea>
+                  <label for="homework-title">Р§С‚Рѕ Р·Р°РґР°Р»Рё</label>
+                  <textarea id="homework-title" name="title" placeholder="РќР°РїСЂРёРјРµСЂ: СЂРµС€РёС‚СЊ РІР°СЂРёР°РЅС‚С‹ 3-6 Рё РїРѕРґРіРѕС‚РѕРІРёС‚СЊ РєРѕРЅСЃРїРµРєС‚"></textarea>
                 </div>
-                <button class="pixel-button" type="submit">Добавить ДЗ</button>
+                <button class="pixel-button" type="submit">Р”РѕР±Р°РІРёС‚СЊ Р”Р—</button>
               </form>
             `}
         </section>
@@ -536,7 +546,7 @@ function renderHomeworkView(homeworkSubjects, homeworkTasks) {
           <div class="module-head">
             <div>
               <p class="eyebrow">PRIORITY_FILTER</p>
-              <h2 class="module-title">Избранные предметы</h2>
+              <h2 class="module-title">РР·Р±СЂР°РЅРЅС‹Рµ РїСЂРµРґРјРµС‚С‹</h2>
             </div>
           </div>
           ${homeworkSubjects.length > 0 ? homeworkSubjects.map(group => `
@@ -545,32 +555,32 @@ function renderHomeworkView(homeworkSubjects, homeworkTasks) {
                 <div>
                   <h3 class="subject-title">${escapeHtml(group.title)}</h3>
                   <div class="subject-meta">
-                    <span class="tag">${group.options.length} типов занятий</span>
-                    ${group.favoriteOrder ? `<span class="tag success">позиция ${group.favoriteOrder}</span>` : `<span class="tag warning">не в избранном</span>`}
+                    <span class="tag">${group.options.length} С‚РёРїРѕРІ Р·Р°РЅСЏС‚РёР№</span>
+                    ${group.favoriteOrder ? `<span class="tag success">РїРѕР·РёС†РёСЏ ${group.favoriteOrder}</span>` : `<span class="tag warning">РЅРµ РІ РёР·Р±СЂР°РЅРЅРѕРј</span>`}
                   </div>
                 </div>
                 <button class="subject-toggle ${group.isFavorite ? "active" : ""}" data-action="toggle-favorite" data-subject-title="${escapeHtml(group.title)}">
-                  ${group.isFavorite ? "★" : "☆"}
+                  ${group.isFavorite ? "в…" : "в†"}
                 </button>
               </div>
             </article>
-          `).join("") : emptyState("Избранные появятся после выбора расписания.")}
+          `).join("") : emptyState("РР·Р±СЂР°РЅРЅС‹Рµ РїРѕСЏРІСЏС‚СЃСЏ РїРѕСЃР»Рµ РІС‹Р±РѕСЂР° СЂР°СЃРїРёСЃР°РЅРёСЏ.")}
         </section>
       </section>
       <section class="stack">
         <section class="module panel">
           <div class="module-head">
-            <h2 class="module-title">Активные ДЗ</h2>
+            <h2 class="module-title">РђРєС‚РёРІРЅС‹Рµ Р”Р—</h2>
             <span class="tag accent">${activeTasks.length}</span>
           </div>
-          ${activeTasks.length > 0 ? activeTasks.map(task => taskCard(task, "homework")).join("") : emptyState("Здесь будет список актуальных домашних заданий.")}
+          ${activeTasks.length > 0 ? activeTasks.map(task => taskCard(task, "homework")).join("") : emptyState("Р—РґРµСЃСЊ Р±СѓРґРµС‚ СЃРїРёСЃРѕРє Р°РєС‚СѓР°Р»СЊРЅС‹С… РґРѕРјР°С€РЅРёС… Р·Р°РґР°РЅРёР№.")}
         </section>
         <section class="module panel">
           <div class="module-head">
-            <h2 class="module-title">Выполненные</h2>
+            <h2 class="module-title">Р’С‹РїРѕР»РЅРµРЅРЅС‹Рµ</h2>
             <span class="tag">${completedTasks.length}</span>
           </div>
-          ${completedTasks.length > 0 ? completedTasks.map(task => taskCard(task, "homework")).join("") : emptyState("Пока без выполненных задач.")}
+          ${completedTasks.length > 0 ? completedTasks.map(task => taskCard(task, "homework")).join("") : emptyState("РџРѕРєР° Р±РµР· РІС‹РїРѕР»РЅРµРЅРЅС‹С… Р·Р°РґР°С‡.")}
         </section>
       </section>
     </div>
@@ -592,47 +602,47 @@ function renderHomeworkViewV2(homeworkSubjects, homeworkTasks) {
           <div class="module-head">
             <div>
               <p class="eyebrow">HOMEWORK_COMPOSER</p>
-              <h2 class="module-title">Добавить ДЗ</h2>
+              <h2 class="module-title">Р”РѕР±Р°РІРёС‚СЊ Р”Р—</h2>
             </div>
-            <span class="tag accent">${visibleHomeworkGroups.length} ${hasPriorityGroups ? "в приоритете" : "предметов"}</span>
+            <span class="tag accent">${visibleHomeworkGroups.length} ${hasPriorityGroups ? "РІ РїСЂРёРѕСЂРёС‚РµС‚Рµ" : "РїСЂРµРґРјРµС‚РѕРІ"}</span>
           </div>
           ${homeworkSubjects.length === 0
-            ? emptyState("Сначала выбери расписание во вкладке Расписание. Тогда mini app подтянет предметы и ближайшие дедлайны.")
+            ? emptyState("РЎРЅР°С‡Р°Р»Р° РІС‹Р±РµСЂРё СЂР°СЃРїРёСЃР°РЅРёРµ РІРѕ РІРєР»Р°РґРєРµ Р Р°СЃРїРёСЃР°РЅРёРµ. РўРѕРіРґР° mini app РїРѕРґС‚СЏРЅРµС‚ РїСЂРµРґРјРµС‚С‹ Рё Р±Р»РёР¶Р°Р№С€РёРµ РґРµРґР»Р°Р№РЅС‹.")
             : `
               <div class="priority-banner ${hasPriorityGroups ? "active" : ""}">
                 <strong>${hasPriorityGroups
-                  ? "Добавление ДЗ идёт по приоритетным предметам."
-                  : "Сейчас в форме видны все предметы."}</strong>
+                  ? "Р”РѕР±Р°РІР»РµРЅРёРµ Р”Р— РёРґС‘С‚ РїРѕ РїСЂРёРѕСЂРёС‚РµС‚РЅС‹Рј РїСЂРµРґРјРµС‚Р°Рј."
+                  : "РЎРµР№С‡Р°СЃ РІ С„РѕСЂРјРµ РІРёРґРЅС‹ РІСЃРµ РїСЂРµРґРјРµС‚С‹."}</strong>
                 <p>${hasPriorityGroups
-                  ? "Ниже показываем только приоритеты, как и в чате. Остальные предметы можно вернуть в форму через блок настройки ниже."
-                  : "Отметь важные предметы ниже, и после этого в форме останутся только они."}</p>
+                  ? "РќРёР¶Рµ РїРѕРєР°Р·С‹РІР°РµРј С‚РѕР»СЊРєРѕ РїСЂРёРѕСЂРёС‚РµС‚С‹, РєР°Рє Рё РІ С‡Р°С‚Рµ. РћСЃС‚Р°Р»СЊРЅС‹Рµ РїСЂРµРґРјРµС‚С‹ РјРѕР¶РЅРѕ РІРµСЂРЅСѓС‚СЊ РІ С„РѕСЂРјСѓ С‡РµСЂРµР· Р±Р»РѕРє РЅР°СЃС‚СЂРѕР№РєРё РЅРёР¶Рµ."
+                  : "РћС‚РјРµС‚СЊ РІР°Р¶РЅС‹Рµ РїСЂРµРґРјРµС‚С‹ РЅРёР¶Рµ, Рё РїРѕСЃР»Рµ СЌС‚РѕРіРѕ РІ С„РѕСЂРјРµ РѕСЃС‚Р°РЅСѓС‚СЃСЏ С‚РѕР»СЊРєРѕ РѕРЅРё."}</p>
               </div>
               <form id="homework-form" class="stack">
                 <div class="field">
-                  <label for="homework-group">Предмет для ДЗ</label>
+                  <label for="homework-group">РџСЂРµРґРјРµС‚ РґР»СЏ Р”Р—</label>
                   <select id="homework-group" name="subjectTitle">
                     ${visibleHomeworkGroups.map((group) => `
                       <option value="${escapeHtml(group.title)}" ${subjectGroup?.title === group.title ? "selected" : ""}>
-                        ${escapeHtml(group.title)}${group.favoriteOrder ? ` // приоритет ${group.favoriteOrder}` : ""}
+                        ${escapeHtml(group.title)}${group.favoriteOrder ? ` // РїСЂРёРѕСЂРёС‚РµС‚ ${group.favoriteOrder}` : ""}
                       </option>
                     `).join("")}
                   </select>
                 </div>
                 <div class="field">
-                  <label for="homework-subject">Тип занятия</label>
+                  <label for="homework-subject">РўРёРї Р·Р°РЅСЏС‚РёСЏ</label>
                   <select id="homework-subject" name="subject">
                     ${(subjectGroup?.options || []).map((option) => `
                       <option value="${escapeHtml(option.subject)}">
-                        ${escapeHtml(option.lessonType)}${option.nextDeadlineText ? ` // дедлайн ${escapeHtml(option.nextDeadlineText)}` : ""}
+                        ${escapeHtml(option.lessonType)}${option.nextDeadlineText ? ` // РґРµРґР»Р°Р№РЅ ${escapeHtml(option.nextDeadlineText)}` : ""}
                       </option>
                     `).join("")}
                   </select>
                 </div>
                 <div class="field">
-                  <label for="homework-title">Что задали</label>
-                  <textarea id="homework-title" name="title" placeholder="Например: решить варианты 3-6 и подготовить конспект"></textarea>
+                  <label for="homework-title">Р§С‚Рѕ Р·Р°РґР°Р»Рё</label>
+                  <textarea id="homework-title" name="title" placeholder="РќР°РїСЂРёРјРµСЂ: СЂРµС€РёС‚СЊ РІР°СЂРёР°РЅС‚С‹ 3-6 Рё РїРѕРґРіРѕС‚РѕРІРёС‚СЊ РєРѕРЅСЃРїРµРєС‚"></textarea>
                 </div>
-                <button class="pixel-button" type="submit">Добавить ДЗ</button>
+                <button class="pixel-button" type="submit">Р”РѕР±Р°РІРёС‚СЊ Р”Р—</button>
               </form>
             `}
         </section>
@@ -640,12 +650,12 @@ function renderHomeworkViewV2(homeworkSubjects, homeworkTasks) {
           <div class="module-head">
             <div>
               <p class="eyebrow">PRIORITY_FILTER</p>
-              <h2 class="module-title">Приоритетные предметы</h2>
+              <h2 class="module-title">РџСЂРёРѕСЂРёС‚РµС‚РЅС‹Рµ РїСЂРµРґРјРµС‚С‹</h2>
             </div>
-            <span class="tag ${hasPriorityGroups ? "success" : "warning"}">${hasPriorityGroups ? `${priorityGroups.length} активных` : "пока не выбраны"}</span>
+            <span class="tag ${hasPriorityGroups ? "success" : "warning"}">${hasPriorityGroups ? `${priorityGroups.length} Р°РєС‚РёРІРЅС‹С…` : "РїРѕРєР° РЅРµ РІС‹Р±СЂР°РЅС‹"}</span>
           </div>
           <p class="priority-helper-text">
-            Отмеченные предметы показываются в форме добавления ДЗ в первую очередь. Это заменяет старое «избранное».
+            РћС‚РјРµС‡РµРЅРЅС‹Рµ РїСЂРµРґРјРµС‚С‹ РїРѕРєР°Р·С‹РІР°СЋС‚СЃСЏ РІ С„РѕСЂРјРµ РґРѕР±Р°РІР»РµРЅРёСЏ Р”Р— РІ РїРµСЂРІСѓСЋ РѕС‡РµСЂРµРґСЊ. Р­С‚Рѕ Р·Р°РјРµРЅСЏРµС‚ СЃС‚Р°СЂРѕРµ В«РёР·Р±СЂР°РЅРЅРѕРµВ».
           </p>
           ${homeworkSubjects.length > 0 ? homeworkSubjects.map((group) => `
             <article class="subject-card ${group.isFavorite ? "priority" : ""}">
@@ -653,35 +663,35 @@ function renderHomeworkViewV2(homeworkSubjects, homeworkTasks) {
                 <div>
                   <h3 class="subject-title">${escapeHtml(group.title)}</h3>
                   <div class="subject-meta">
-                    <span class="tag">${group.options.length} типов занятий</span>
-                    ${group.favoriteOrder ? `<span class="tag success">приоритет ${group.favoriteOrder}</span>` : `<span class="tag warning">не в приоритете</span>`}
+                    <span class="tag">${group.options.length} С‚РёРїРѕРІ Р·Р°РЅСЏС‚РёР№</span>
+                    ${group.favoriteOrder ? `<span class="tag success">РїСЂРёРѕСЂРёС‚РµС‚ ${group.favoriteOrder}</span>` : `<span class="tag warning">РЅРµ РІ РїСЂРёРѕСЂРёС‚РµС‚Рµ</span>`}
                   </div>
                   <p class="subject-note">${group.isFavorite
-                    ? "Показывается в форме добавления ДЗ."
-                    : "Скрыт из формы, пока не добавлен в приоритет."}</p>
+                    ? "РџРѕРєР°Р·С‹РІР°РµС‚СЃСЏ РІ С„РѕСЂРјРµ РґРѕР±Р°РІР»РµРЅРёСЏ Р”Р—."
+                    : "РЎРєСЂС‹С‚ РёР· С„РѕСЂРјС‹, РїРѕРєР° РЅРµ РґРѕР±Р°РІР»РµРЅ РІ РїСЂРёРѕСЂРёС‚РµС‚."}</p>
                 </div>
                 <button class="subject-toggle ${group.isFavorite ? "active" : ""}" data-action="toggle-favorite" data-subject-title="${escapeHtml(group.title)}">
-                  ${group.isFavorite ? "Убрать" : "В приоритет"}
+                  ${group.isFavorite ? "РЈР±СЂР°С‚СЊ" : "Р’ РїСЂРёРѕСЂРёС‚РµС‚"}
                 </button>
               </div>
             </article>
-          `).join("") : emptyState("Приоритеты появятся после выбора расписания.")}
+          `).join("") : emptyState("РџСЂРёРѕСЂРёС‚РµС‚С‹ РїРѕСЏРІСЏС‚СЃСЏ РїРѕСЃР»Рµ РІС‹Р±РѕСЂР° СЂР°СЃРїРёСЃР°РЅРёСЏ.")}
         </section>
       </section>
       <section class="stack">
         <section class="module panel">
           <div class="module-head">
-            <h2 class="module-title">Активные ДЗ</h2>
+            <h2 class="module-title">РђРєС‚РёРІРЅС‹Рµ Р”Р—</h2>
             <span class="tag accent">${activeTasks.length}</span>
           </div>
-          ${activeTasks.length > 0 ? activeTasks.map((task) => taskCard(task, "homework")).join("") : emptyState("Здесь будет список актуальных домашних заданий.")}
+          ${activeTasks.length > 0 ? activeTasks.map((task) => taskCard(task, "homework")).join("") : emptyState("Р—РґРµСЃСЊ Р±СѓРґРµС‚ СЃРїРёСЃРѕРє Р°РєС‚СѓР°Р»СЊРЅС‹С… РґРѕРјР°С€РЅРёС… Р·Р°РґР°РЅРёР№.")}
         </section>
         <section class="module panel">
           <div class="module-head">
-            <h2 class="module-title">Выполненные</h2>
+            <h2 class="module-title">Р’С‹РїРѕР»РЅРµРЅРЅС‹Рµ</h2>
             <span class="tag">${completedTasks.length}</span>
           </div>
-          ${completedTasks.length > 0 ? completedTasks.map((task) => taskCard(task, "homework")).join("") : emptyState("Пока без выполненных задач.")}
+          ${completedTasks.length > 0 ? completedTasks.map((task) => taskCard(task, "homework")).join("") : emptyState("РџРѕРєР° Р±РµР· РІС‹РїРѕР»РЅРµРЅРЅС‹С… Р·Р°РґР°С‡.")}
         </section>
       </section>
     </div>
@@ -698,46 +708,46 @@ function renderPlanView(personalTasks) {
         <div class="module-head">
           <div>
             <p class="eyebrow">PERSONAL_QUESTLOG</p>
-            <h2 class="module-title">Добавить личное дело</h2>
+            <h2 class="module-title">Р”РѕР±Р°РІРёС‚СЊ Р»РёС‡РЅРѕРµ РґРµР»Рѕ</h2>
           </div>
         </div>
         <form id="plan-form" class="stack">
           <div class="field">
-            <label for="plan-title">Название</label>
-            <input id="plan-title" name="title" placeholder="Например: записаться к врачу">
+            <label for="plan-title">РќР°Р·РІР°РЅРёРµ</label>
+            <input id="plan-title" name="title" placeholder="РќР°РїСЂРёРјРµСЂ: Р·Р°РїРёСЃР°С‚СЊСЃСЏ Рє РІСЂР°С‡Сѓ">
           </div>
           <div class="two-column">
             <div class="field">
-              <label for="plan-date">Дата</label>
+              <label for="plan-date">Р”Р°С‚Р°</label>
               <input id="plan-date" name="date" type="date">
             </div>
             <div class="field">
-              <label for="plan-time">Время</label>
+              <label for="plan-time">Р’СЂРµРјСЏ</label>
               <input id="plan-time" name="time" type="time">
             </div>
           </div>
           <div class="actions-row">
-            <button class="nav-chip" type="button" data-action="plan-date" data-offset="0">Сегодня</button>
-            <button class="nav-chip" type="button" data-action="plan-date" data-offset="1">Завтра</button>
-            <button class="nav-chip" type="button" data-action="plan-date" data-offset="2">Послезавтра</button>
+            <button class="nav-chip" type="button" data-action="plan-date" data-offset="0">РЎРµРіРѕРґРЅСЏ</button>
+            <button class="nav-chip" type="button" data-action="plan-date" data-offset="1">Р—Р°РІС‚СЂР°</button>
+            <button class="nav-chip" type="button" data-action="plan-date" data-offset="2">РџРѕСЃР»РµР·Р°РІС‚СЂР°</button>
           </div>
-          <button class="pixel-button" type="submit">Добавить дело</button>
+          <button class="pixel-button" type="submit">Р”РѕР±Р°РІРёС‚СЊ РґРµР»Рѕ</button>
         </form>
       </section>
       <section class="stack">
         <section class="module panel">
           <div class="module-head">
-            <h2 class="module-title">Активные дела</h2>
+            <h2 class="module-title">РђРєС‚РёРІРЅС‹Рµ РґРµР»Р°</h2>
             <span class="tag accent">${activeTasks.length}</span>
           </div>
-          ${activeTasks.length > 0 ? activeTasks.map(task => taskCard(task, "personal")).join("") : emptyState("Здесь можно держать всё личное: звонки, встречи, покупки, дедлайны вне учёбы.")}
+          ${activeTasks.length > 0 ? activeTasks.map(task => taskCard(task, "personal")).join("") : emptyState("Р—РґРµСЃСЊ РјРѕР¶РЅРѕ РґРµСЂР¶Р°С‚СЊ РІСЃС‘ Р»РёС‡РЅРѕРµ: Р·РІРѕРЅРєРё, РІСЃС‚СЂРµС‡Рё, РїРѕРєСѓРїРєРё, РґРµРґР»Р°Р№РЅС‹ РІРЅРµ СѓС‡С‘Р±С‹.")}
         </section>
         <section class="module panel">
           <div class="module-head">
-            <h2 class="module-title">Архив</h2>
+            <h2 class="module-title">РђСЂС…РёРІ</h2>
             <span class="tag">${completedTasks.length}</span>
           </div>
-          ${completedTasks.length > 0 ? completedTasks.map(task => taskCard(task, "personal")).join("") : emptyState("Выполненные личные дела появятся здесь.")}
+          ${completedTasks.length > 0 ? completedTasks.map(task => taskCard(task, "personal")).join("") : emptyState("Р’С‹РїРѕР»РЅРµРЅРЅС‹Рµ Р»РёС‡РЅС‹Рµ РґРµР»Р° РїРѕСЏРІСЏС‚СЃСЏ Р·РґРµСЃСЊ.")}
         </section>
       </section>
     </div>
@@ -760,12 +770,29 @@ function renderFocusView(timer, reminder) {
           <p class="focus-clock">${escapeHtml(timerText(timer))}</p>
           <p class="muted">${timer.isActive ? `режим: ${escapeHtml(timer.type || "")}` : "Выбери рабочий или отдых-таймер."}</p>
         </div>
+        <div class="sound-panel">
+          <div class="module-head compact">
+            <div>
+              <p class="eyebrow">SOUNDTRACK</p>
+              <h3 class="module-title small">Музыка для таймера</h3>
+            </div>
+            <span class="tag">${escapeHtml(TIMER_SOUND_META[store.selectedTimerSound]?.label || "Тишина")}</span>
+          </div>
+          <div class="sound-grid">
+            ${Object.entries(TIMER_SOUND_META).map(([soundKey, meta]) => `
+              <button class="sound-chip ${store.selectedTimerSound === soundKey ? "active" : ""}" data-action="sound-mode" data-sound="${soundKey}">
+                <strong>${escapeHtml(meta.label)}</strong>
+                <span>${escapeHtml(meta.hint)}</span>
+              </button>
+            `).join("")}
+          </div>
+        </div>
         <div class="divider"></div>
         <div class="stack">
           <div>
             <p class="eyebrow">WORK_PRESETS</p>
             <div class="actions-row">
-              ${[25, 30, 45, 60].map(minutes => `<button class="pixel-button secondary" data-action="start-timer" data-type="work" data-minutes="${minutes}">${minutes} мин</button>`).join("")}
+              ${[25, 30, 45, 60].map((minutes) => `<button class="pixel-button secondary" data-action="start-timer" data-type="work" data-minutes="${minutes}">${minutes} мин</button>`).join("")}
             </div>
           </div>
           <form id="custom-work-form" class="actions-row">
@@ -775,7 +802,7 @@ function renderFocusView(timer, reminder) {
           <div>
             <p class="eyebrow">REST_PRESETS</p>
             <div class="actions-row">
-              ${[5, 15, 30].map(minutes => `<button class="pixel-button secondary" data-action="start-timer" data-type="rest" data-minutes="${minutes}">${minutes} мин</button>`).join("")}
+              ${[5, 15, 30].map((minutes) => `<button class="pixel-button secondary" data-action="start-timer" data-type="rest" data-minutes="${minutes}">${minutes} мин</button>`).join("")}
             </div>
           </div>
           <form id="custom-rest-form" class="actions-row">
@@ -800,14 +827,14 @@ function renderFocusView(timer, reminder) {
               <option value="false" ${!reminder.isEnabled ? "selected" : ""}>Выключить</option>
             </select>
           </div>
-          <div class="field">
+          <div class="field time-field">
             <label for="reminders-time">Время по МСК</label>
             <input id="reminders-time" name="time" type="time" value="${escapeHtml(reminder.timeText)}">
           </div>
           <button class="pixel-button" type="submit">Сохранить напоминания</button>
         </form>
         <div class="divider"></div>
-        <p class="muted">Чат и miniapp используют одни и те же настройки, поэтому изменения сразу синхронизируются между интерфейсами.</p>
+        <p class="muted">Чат и mini app используют одни и те же настройки, поэтому изменения сразу синхронизируются между интерфейсами.</p>
       </section>
     </div>
   `;
@@ -820,26 +847,26 @@ function renderRemindersView(reminder) {
         <div class="module-head">
           <div>
             <p class="eyebrow">ALERT_ROUTER</p>
-            <h2 class="module-title">Напоминания</h2>
+            <h2 class="module-title">РќР°РїРѕРјРёРЅР°РЅРёСЏ</h2>
           </div>
-          <span class="tag ${reminder.isEnabled ? "success" : "warning"}">${reminder.isEnabled ? reminder.timeText : "выкл"}</span>
+          <span class="tag ${reminder.isEnabled ? "success" : "warning"}">${reminder.isEnabled ? reminder.timeText : "РІС‹РєР»"}</span>
         </div>
         <form id="reminders-form" class="stack">
           <div class="field">
-            <label for="reminders-enabled">Режим</label>
+            <label for="reminders-enabled">Р РµР¶РёРј</label>
             <select id="reminders-enabled" name="isEnabled">
-              <option value="true" ${reminder.isEnabled ? "selected" : ""}>Включить</option>
-              <option value="false" ${!reminder.isEnabled ? "selected" : ""}>Выключить</option>
+              <option value="true" ${reminder.isEnabled ? "selected" : ""}>Р’РєР»СЋС‡РёС‚СЊ</option>
+              <option value="false" ${!reminder.isEnabled ? "selected" : ""}>Р’С‹РєР»СЋС‡РёС‚СЊ</option>
             </select>
           </div>
-          <div class="field">
-            <label for="reminders-time">Время по МСК</label>
+          <div class="field time-field">
+            <label for="reminders-time">Р’СЂРµРјСЏ РїРѕ РњРЎРљ</label>
             <input id="reminders-time" name="time" type="time" value="${escapeHtml(reminder.timeText)}">
           </div>
-          <button class="pixel-button" type="submit">Сохранить напоминания</button>
+          <button class="pixel-button" type="submit">РЎРѕС…СЂР°РЅРёС‚СЊ РЅР°РїРѕРјРёРЅР°РЅРёСЏ</button>
         </form>
         <div class="divider"></div>
-        <p class="muted">Чат и mini app используют одни и те же настройки, поэтому изменения сразу синхронизируются между интерфейсами.</p>
+        <p class="muted">Р§Р°С‚ Рё mini app РёСЃРїРѕР»СЊР·СѓСЋС‚ РѕРґРЅРё Рё С‚Рµ Р¶Рµ РЅР°СЃС‚СЂРѕР№РєРё, РїРѕСЌС‚РѕРјСѓ РёР·РјРµРЅРµРЅРёСЏ СЃСЂР°Р·Сѓ СЃРёРЅС…СЂРѕРЅРёР·РёСЂСѓСЋС‚СЃСЏ РјРµР¶РґСѓ РёРЅС‚РµСЂС„РµР№СЃР°РјРё.</p>
       </section>
     </div>
   `;
@@ -908,23 +935,23 @@ function taskCard(task, scope) {
           <div class="task-meta">
             <span class="tag accent">${escapeHtml(task.subjectTitle)}</span>
             ${task.lessonType ? `<span class="tag">${escapeHtml(task.lessonType)}</span>` : ""}
-            ${task.deadlineText ? `<span class="tag ${task.isCompleted ? "" : "warning"}">${escapeHtml(task.deadlineText)}</span>` : `<span class="tag">без дедлайна</span>`}
+            ${task.deadlineText ? `<span class="tag ${task.isCompleted ? "" : "warning"}">${escapeHtml(task.deadlineText)}</span>` : `<span class="tag">Р±РµР· РґРµРґР»Р°Р№РЅР°</span>`}
           </div>
         </div>
         <span class="tag ${task.isCompleted ? "success" : "accent"}">${task.isCompleted ? "done" : "active"}</span>
       </div>
       <div class="task-actions">
         <button class="pixel-button secondary slim" data-action="toggle-task" data-scope="${scope}" data-task-id="${escapeHtml(task.id)}" data-completed="${String(!task.isCompleted)}">
-          ${task.isCompleted ? "Вернуть" : "Выполнено"}
+          ${task.isCompleted ? "Р’РµСЂРЅСѓС‚СЊ" : "Р’С‹РїРѕР»РЅРµРЅРѕ"}
         </button>
-        <button class="pixel-button ghost slim" data-action="delete-task" data-task-id="${escapeHtml(task.id)}">Удалить</button>
+        <button class="pixel-button ghost slim" data-action="delete-task" data-task-id="${escapeHtml(task.id)}">РЈРґР°Р»РёС‚СЊ</button>
       </div>
     </article>
   `;
 }
 
 function emptyState(message) {
-  return `<div class="section-empty"><strong>Пусто.</strong><br>${escapeHtml(message)}</div>`;
+  return `<div class="section-empty"><strong>РџСѓСЃС‚Рѕ.</strong><br>${escapeHtml(message)}</div>`;
 }
 
 async function handleClick(event) {
@@ -941,6 +968,15 @@ async function handleClick(event) {
 
   if (target.dataset.theme) {
     applyTheme(target.dataset.theme);
+    render();
+    return;
+  }
+
+  if (target.dataset.action === "sound-mode") {
+    store.selectedTimerSound = target.dataset.sound || "off";
+    localStorage.setItem("assistKentTimerSound", store.selectedTimerSound);
+    await syncTimerAudio({ allowResume: true, forceRestart: true });
+    toast(`Р—РІСѓРє С‚Р°Р№РјРµСЂР°: ${TIMER_SOUND_META[store.selectedTimerSound]?.label || "РўРёС€РёРЅР°"}.`);
     render();
     return;
   }
@@ -963,7 +999,7 @@ async function handleClick(event) {
         method: "POST",
         body: { subjectTitle }
       });
-      toast("Приоритеты по ДЗ обновлены.");
+      toast("РџСЂРёРѕСЂРёС‚РµС‚С‹ РїРѕ Р”Р— РѕР±РЅРѕРІР»РµРЅС‹.");
       refreshAfterMutation();
     });
     return;
@@ -977,7 +1013,7 @@ async function handleClick(event) {
         method: "PATCH",
         body: { isCompleted }
       });
-      toast(isCompleted ? "Задача отмечена выполненной." : "Задача возвращена в активные.");
+      toast(isCompleted ? "Р—Р°РґР°С‡Р° РѕС‚РјРµС‡РµРЅР° РІС‹РїРѕР»РЅРµРЅРЅРѕР№." : "Р—Р°РґР°С‡Р° РІРѕР·РІСЂР°С‰РµРЅР° РІ Р°РєС‚РёРІРЅС‹Рµ.");
       refreshAfterMutation();
     });
     return;
@@ -987,7 +1023,7 @@ async function handleClick(event) {
     const taskId = target.dataset.taskId;
     await runAction(async () => {
       store.state = await api(`/api/miniapp/tasks/${taskId}`, { method: "DELETE" });
-      toast("Задача удалена.");
+      toast("Р—Р°РґР°С‡Р° СѓРґР°Р»РµРЅР°.");
       refreshAfterMutation();
     });
     return;
@@ -1012,7 +1048,7 @@ async function handleClick(event) {
         method: "POST",
         body: { type, minutes }
       });
-      toast(type === "rest" ? "Таймер отдыха запущен." : "Рабочий таймер запущен.");
+      toast(type === "rest" ? "РўР°Р№РјРµСЂ РѕС‚РґС‹С…Р° Р·Р°РїСѓС‰РµРЅ." : "Р Р°Р±РѕС‡РёР№ С‚Р°Р№РјРµСЂ Р·Р°РїСѓС‰РµРЅ.");
       refreshAfterMutation();
     });
     return;
@@ -1021,7 +1057,7 @@ async function handleClick(event) {
   if (target.dataset.action === "stop-timer") {
     await runAction(async () => {
       store.state = await api("/api/miniapp/timers/stop", { method: "POST" });
-      toast("Таймер остановлен.");
+      toast("РўР°Р№РјРµСЂ РѕСЃС‚Р°РЅРѕРІР»РµРЅ.");
       refreshAfterMutation();
     });
     return;
@@ -1030,7 +1066,7 @@ async function handleClick(event) {
   if (target.dataset.action === "clear-schedule") {
     await runAction(async () => {
       store.state = await api("/api/miniapp/schedule", { method: "DELETE" });
-      toast("Привязка расписания удалена.");
+      toast("РџСЂРёРІСЏР·РєР° СЂР°СЃРїРёСЃР°РЅРёСЏ СѓРґР°Р»РµРЅР°.");
       refreshAfterMutation();
     });
   }
@@ -1056,7 +1092,7 @@ async function handleSubmit(event) {
           subGroup: subgroupRaw ? Number(subgroupRaw) : null
         }
       });
-      toast("Расписание сохранено.");
+      toast("Р Р°СЃРїРёСЃР°РЅРёРµ СЃРѕС…СЂР°РЅРµРЅРѕ.");
       refreshAfterMutation();
     });
     return;
@@ -1072,7 +1108,7 @@ async function handleSubmit(event) {
         body: { subject, title }
       });
       form.reset();
-      toast("Домашнее задание добавлено.");
+      toast("Р”РѕРјР°С€РЅРµРµ Р·Р°РґР°РЅРёРµ РґРѕР±Р°РІР»РµРЅРѕ.");
       refreshAfterMutation();
     });
     return;
@@ -1091,7 +1127,7 @@ async function handleSubmit(event) {
         body: { title, deadline }
       });
       form.reset();
-      toast("Личное дело добавлено.");
+      toast("Р›РёС‡РЅРѕРµ РґРµР»Рѕ РґРѕР±Р°РІР»РµРЅРѕ.");
       refreshAfterMutation();
     });
     return;
@@ -1108,7 +1144,7 @@ async function handleSubmit(event) {
         method: "PUT",
         body: { isEnabled, hour, minute }
       });
-      toast("Напоминания сохранены.");
+      toast("РќР°РїРѕРјРёРЅР°РЅРёСЏ СЃРѕС…СЂР°РЅРµРЅС‹.");
       refreshAfterMutation();
     });
     return;
@@ -1124,7 +1160,7 @@ async function handleSubmit(event) {
         body: { type, minutes }
       });
       form.reset();
-      toast(type === "rest" ? "Перерыв запущен." : "Рабочий таймер запущен.");
+      toast(type === "rest" ? "РџРµСЂРµСЂС‹РІ Р·Р°РїСѓС‰РµРЅ." : "Р Р°Р±РѕС‡РёР№ С‚Р°Р№РјРµСЂ Р·Р°РїСѓС‰РµРЅ.");
       refreshAfterMutation();
     });
   }
@@ -1162,23 +1198,232 @@ function refreshAfterMutation() {
     normalizeSelectedHomeworkGroup(store.state.homeworkSubjects);
   }
 
-  store.lastSyncLabel = `Синхронизировано ${new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
+  store.lastSyncLabel = `РЎРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°РЅРѕ ${new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
   render();
   restartTimerTicker();
+  syncTimerAudio();
 }
 
 function restartTimerTicker() {
   window.clearInterval(store.timerTick);
   if (!store.state?.timer?.isActive) {
+    stopTimerAudio();
     return;
   }
+
+  syncTimerAudio();
 
   store.timerTick = window.setInterval(() => {
     const activeClock = document.querySelector(".focus-clock");
     if (activeClock instanceof HTMLElement) {
       activeClock.textContent = timerText(store.state.timer);
     }
+
+    if (timerText(store.state.timer) === "00:00") {
+      stopTimerAudio();
+    }
   }, 1000);
+}
+
+async function resumeAudioContext() {
+  const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextCtor) {
+    return null;
+  }
+
+  if (!store.audioContext) {
+    store.audioContext = new AudioContextCtor();
+  }
+
+  if (store.audioContext.state === "suspended") {
+    await store.audioContext.resume();
+  }
+
+  return store.audioContext;
+}
+
+function stopTimerAudio() {
+  if (typeof store.activeSoundCleanup === "function") {
+    store.activeSoundCleanup();
+  }
+
+  store.activeSoundCleanup = null;
+  store.activeSoundMode = "off";
+}
+
+async function syncTimerAudio({ allowResume = false, forceRestart = false } = {}) {
+  if (!store.state?.timer?.isActive || store.selectedTimerSound === "off") {
+    stopTimerAudio();
+    return;
+  }
+
+  const context = allowResume ? await resumeAudioContext() : store.audioContext;
+  if (!context || context.state !== "running") {
+    return;
+  }
+
+  if (!forceRestart && store.activeSoundMode === store.selectedTimerSound && store.activeSoundCleanup) {
+    return;
+  }
+
+  stopTimerAudio();
+  store.activeSoundCleanup = startTimerSound(context, store.selectedTimerSound);
+  store.activeSoundMode = store.selectedTimerSound;
+}
+
+function startTimerSound(context, mode) {
+  switch (mode) {
+    case "pulse":
+      return createPulseSound(context);
+    case "rain":
+      return createRainSound(context);
+    case "arcade":
+      return createArcadeSound(context);
+    default:
+      return null;
+  }
+}
+
+function createPulseSound(context) {
+  const master = context.createGain();
+  master.gain.value = 0.028;
+  master.connect(context.destination);
+
+  const drone = context.createOscillator();
+  drone.type = "sine";
+  drone.frequency.value = 174;
+
+  const droneGain = context.createGain();
+  droneGain.gain.value = 0.7;
+  drone.connect(droneGain);
+  droneGain.connect(master);
+  drone.start();
+
+  const pulse = context.createOscillator();
+  pulse.type = "triangle";
+  pulse.frequency.value = 522;
+
+  const pulseGain = context.createGain();
+  pulseGain.gain.value = 0.0001;
+  pulse.connect(pulseGain);
+  pulseGain.connect(master);
+  pulse.start();
+
+  let disposed = false;
+  const runPulse = () => {
+    if (disposed) {
+      return;
+    }
+
+    const now = context.currentTime;
+    pulseGain.gain.cancelScheduledValues(now);
+    pulseGain.gain.setValueAtTime(0.0001, now);
+    pulseGain.gain.linearRampToValueAtTime(0.18, now + 0.08);
+    pulseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
+    window.setTimeout(runPulse, 1400);
+  };
+
+  runPulse();
+
+  return () => {
+    disposed = true;
+    drone.stop();
+    pulse.stop();
+    master.disconnect();
+  };
+}
+
+function createRainSound(context) {
+  const master = context.createGain();
+  master.gain.value = 0.02;
+  master.connect(context.destination);
+
+  const duration = 2;
+  const buffer = context.createBuffer(1, context.sampleRate * duration, context.sampleRate);
+  const channel = buffer.getChannelData(0);
+  for (let index = 0; index < channel.length; index += 1) {
+    channel[index] = (Math.random() * 2 - 1) * 0.35;
+  }
+
+  const noise = context.createBufferSource();
+  noise.buffer = buffer;
+  noise.loop = true;
+
+  const filter = context.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 860;
+  filter.Q.value = 0.2;
+
+  const swell = context.createOscillator();
+  swell.type = "sine";
+  swell.frequency.value = 0.08;
+
+  const swellGain = context.createGain();
+  swellGain.gain.value = 90;
+  swell.connect(swellGain);
+  swellGain.connect(filter.frequency);
+
+  noise.connect(filter);
+  filter.connect(master);
+  noise.start();
+  swell.start();
+
+  return () => {
+    noise.stop();
+    swell.stop();
+    master.disconnect();
+  };
+}
+
+function createArcadeSound(context) {
+  const master = context.createGain();
+  master.gain.value = 0.022;
+  master.connect(context.destination);
+
+  const lead = context.createOscillator();
+  lead.type = "square";
+  const leadGain = context.createGain();
+  leadGain.gain.value = 0.0001;
+  lead.connect(leadGain);
+  leadGain.connect(master);
+  lead.start();
+
+  const bass = context.createOscillator();
+  bass.type = "triangle";
+  bass.frequency.value = 131;
+  const bassGain = context.createGain();
+  bassGain.gain.value = 0.07;
+  bass.connect(bassGain);
+  bassGain.connect(master);
+  bass.start();
+
+  const notes = [392, 523.25, 659.25, 523.25, 392, 659.25, 523.25, 329.63];
+  let step = 0;
+  let disposed = false;
+  const playStep = () => {
+    if (disposed) {
+      return;
+    }
+
+    const now = context.currentTime;
+    const note = notes[step % notes.length];
+    lead.frequency.setValueAtTime(note, now);
+    leadGain.gain.cancelScheduledValues(now);
+    leadGain.gain.setValueAtTime(0.0001, now);
+    leadGain.gain.linearRampToValueAtTime(0.16, now + 0.02);
+    leadGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
+    step += 1;
+    window.setTimeout(playStep, 360);
+  };
+
+  playStep();
+
+  return () => {
+    disposed = true;
+    lead.stop();
+    bass.stop();
+    master.disconnect();
+  };
 }
 
 function timerText(timer) {
@@ -1245,9 +1490,10 @@ function toast(message) {
 async function runAction(action) {
   try {
     tg?.HapticFeedback?.impactOccurred?.("light");
+    await resumeAudioContext();
     await action();
   } catch (error) {
-    toast(error.message || "Что-то пошло не так.");
+    toast(error.message || "Р§С‚Рѕ-С‚Рѕ РїРѕС€Р»Рѕ РЅРµ С‚Р°Рє.");
   }
 }
 
@@ -1255,9 +1501,9 @@ function handleFatalError(error) {
   store.root.innerHTML = `
     <section class="boot-card panel">
       <p class="eyebrow">BOOT_FAILED</p>
-      <h1>Mini App недоступен</h1>
-      <p class="boot-copy">${escapeHtml(error.message || "Не удалось загрузить данные.")}</p>
-      <p class="muted">Если открываешь mini app не из Telegram, добавь <code>?devUserId=...</code> и включи <code>MiniApp:AllowDebugAuth</code>.</p>
+      <h1>Mini App РЅРµРґРѕСЃС‚СѓРїРµРЅ</h1>
+      <p class="boot-copy">${escapeHtml(error.message || "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РґР°РЅРЅС‹Рµ.")}</p>
+      <p class="muted">Р•СЃР»Рё РѕС‚РєСЂС‹РІР°РµС€СЊ mini app РЅРµ РёР· Telegram, РґРѕР±Р°РІСЊ <code>?devUserId=...</code> Рё РІРєР»СЋС‡Рё <code>MiniApp:AllowDebugAuth</code>.</p>
     </section>
   `;
 }
@@ -1273,3 +1519,6 @@ function escapeHtml(value) {
 function pad(value) {
   return String(value).padStart(2, "0");
 }
+
+
+

@@ -818,6 +818,75 @@ textarea {
   font-family: "IBM Plex Mono", "Cascadia Mono", "Courier New", monospace;
 }
 
+.sound-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.module-head.compact {
+  align-items: center;
+  gap: 10px;
+}
+
+.module-title.small {
+  font-size: 16px;
+}
+
+.sound-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sound-chip {
+  display: grid;
+  gap: 6px;
+  padding: 14px 12px;
+  text-align: left;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.sound-chip strong {
+  font-size: 12px;
+  font-family: "Silkscreen", "IBM Plex Mono", "Courier New", monospace;
+}
+
+.sound-chip span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.sound-chip.active {
+  border-color: rgba(94, 242, 255, 0.3);
+  background: linear-gradient(180deg, rgba(94, 242, 255, 0.14), rgba(255, 255, 255, 0.03));
+}
+
+.time-field input[type="time"] {
+  min-height: 52px;
+  padding-right: 12px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.time-field input[type="time"]::-webkit-calendar-picker-indicator {
+  margin: 0;
+  opacity: 0.88;
+}
+
+.time-field input[type="time"]::-webkit-datetime-edit,
+.time-field input[type="time"]::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
+}
+
 .toast {
   position: fixed;
   left: 50%;
@@ -872,7 +941,7 @@ textarea {
   display: grid;
   justify-items: center;
   gap: 7px;
-  padding: 10px 6px 8px;
+  padding: 10px 6px 9px;
   min-width: 0;
   border-radius: 16px;
   border: 1px solid transparent;
@@ -889,10 +958,10 @@ textarea {
 
 .tabbar-icon {
   font-family: "IBM Plex Mono", "Courier New", monospace;
-  font-size: 22px;
+  font-size: 28px;
   line-height: 1;
   transform: translateY(1px);
-  text-shadow: 0 0 14px rgba(255, 255, 255, 0.12);
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.18);
 }
 
 .tabbar-label {
@@ -988,10 +1057,14 @@ textarea {
   }
 
   .tabbar-icon {
-    font-size: 20px;
+    font-size: 24px;
   }
 
   .tabbar-label {
     font-size: 9px;
+  }
+
+  .sound-grid {
+    grid-template-columns: 1fr;
   }
 }
