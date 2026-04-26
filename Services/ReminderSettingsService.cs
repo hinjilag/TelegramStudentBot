@@ -148,11 +148,7 @@ public class ReminderSettingsService
 
     private static string ResolveSettingsPath()
     {
-        var contentRootData = Path.Combine(Directory.GetCurrentDirectory(), "Data");
-        if (Directory.Exists(contentRootData))
-            return Path.Combine(contentRootData, "user-reminders.json");
-
-        return Path.Combine(AppContext.BaseDirectory, "Data", "user-reminders.json");
+        return UserDataPath.ResolveFile("user-reminders.json");
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()

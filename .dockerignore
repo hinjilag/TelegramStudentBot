@@ -1,0 +1,17 @@
+.git
+.claude
+.vs
+.idea
+bin
+obj
+Debug
+Release
+*.user
+*.suo
+*.log
+*.tmp
+*.temp
+appsettings.json
+appsettings.*.json
+!appsettings.example.json
+Data/user-*.json

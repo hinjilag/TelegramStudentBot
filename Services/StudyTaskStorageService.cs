@@ -81,11 +81,7 @@ public class StudyTaskStorageService
 
     private static string ResolveTasksPath()
     {
-        var contentRootData = Path.Combine(Directory.GetCurrentDirectory(), "Data");
-        if (Directory.Exists(contentRootData))
-            return Path.Combine(contentRootData, "user-tasks.json");
-
-        return Path.Combine(AppContext.BaseDirectory, "Data", "user-tasks.json");
+        return UserDataPath.ResolveFile("user-tasks.json");
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
