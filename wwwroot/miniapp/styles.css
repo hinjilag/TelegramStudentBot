@@ -835,6 +835,7 @@ textarea {
   justify-items: center;
   gap: 6px;
   padding: 10px 6px;
+  min-width: 0;
   border-radius: 16px;
   border: 1px solid transparent;
   background: transparent;
@@ -857,6 +858,11 @@ textarea {
   font-size: 12px;
   font-weight: 700;
   font-family: "Silkscreen", "IBM Plex Mono", "Courier New", monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  line-height: 1;
 }
 
 @media (max-width: 980px) {
@@ -941,6 +947,6 @@ textarea {
   }
 
   .tabbar-label {
-    font-size: 11px;
+    font-size: 9px;
   }
 }

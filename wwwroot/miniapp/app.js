@@ -24,14 +24,14 @@ const THEME_LABELS = {
 };
 
 const VIEW_META = {
-  dashboard: { label: "Обзор", icon: "◫", eyebrow: "MISSION_BOARD" },
-  schedule: { label: "Расписание", icon: "⌘", eyebrow: "SCHEDULE_MATRIX" },
-  homework: { label: "Домашка", icon: "✦", eyebrow: "HOMEWORK_STACK" },
-  plan: { label: "План", icon: "▣", eyebrow: "PERSONAL_QUEUE" },
-  focus: { label: "Фокус", icon: "◎", eyebrow: "FOCUS_ENGINE" }
+  dashboard: { label: "Обзор", shortLabel: "Обзор", icon: "◫", eyebrow: "MISSION_BOARD" },
+  schedule: { label: "Расписание", shortLabel: "Пары", icon: "⌘", eyebrow: "SCHEDULE_MATRIX" },
+  homework: { label: "Домашка", shortLabel: "ДЗ", icon: "✦", eyebrow: "HOMEWORK_STACK" },
+  plan: { label: "План", shortLabel: "План", icon: "▣", eyebrow: "PERSONAL_QUEUE" },
+  focus: { label: "Фокус", shortLabel: "Фокус", icon: "◎", eyebrow: "FOCUS_ENGINE" }
 };
 
-VIEW_META.reminders = { label: "Напоминания", icon: "◌", eyebrow: "ALERT_ROUTER" };
+VIEW_META.reminders = { label: "Напоминания", shortLabel: "Напом.", icon: "◌", eyebrow: "ALERT_ROUTER" };
 
 boot().catch(handleFatalError);
 
@@ -691,7 +691,7 @@ function tabButton(view, meta) {
   return `
     <button class="tabbar-button ${store.activeView === view ? "active" : ""}" data-view="${view}">
       <span class="tabbar-icon">${escapeHtml(meta.icon)}</span>
-      <span class="tabbar-label">${escapeHtml(meta.label)}</span>
+      <span class="tabbar-label">${escapeHtml(meta.shortLabel || meta.label)}</span>
     </button>
   `;
 }
