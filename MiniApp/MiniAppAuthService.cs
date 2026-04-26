@@ -70,16 +70,22 @@ public class MiniAppAuthService
                 .OrderBy(item => item.Key, StringComparer.Ordinal)
                 .Select(item => $"{item.Key}={item.Value.ToString()}"));
 
-        var secretKey = HMACSHA256.HashData(
+        var providedHash = hashValues.ToString().Trim().ToLowerInvariant();
+        var primarySecretKey = HMACSHA256.HashData(
             Encoding.UTF8.GetBytes("WebAppData"),
             Encoding.UTF8.GetBytes(_botToken));
 
-        var expectedHash = Convert.ToHexString(
-                HMACSHA256.HashData(secretKey, Encoding.UTF8.GetBytes(dataCheckString)))
-            .ToLowerInvariant();
+        var alternateSecretKey = HMACSHA256.HashData(
+            Encoding.UTF8.GetBytes(_botToken),
+            Encoding.UTF8.GetBytes("WebAppData"));
 
-        var providedHash = hashValues.ToString().Trim().ToLowerInvariant();
-        if (!HashesEqual(expectedHash, providedHash))
+        var expectedHashes = new[]
+        {
+            ComputeHash(primarySecretKey, dataCheckString),
+            ComputeHash(alternateSecretKey, dataCheckString)
+        };
+
+        if (!expectedHashes.Any(expectedHash => HashesEqual(expectedHash, providedHash)))
         {
             _logger.LogWarning("Mini app auth failed due to hash mismatch.");
             error = "Telegram initData hash mismatch.";
@@ -157,6 +163,13 @@ public class MiniAppAuthService
         return CryptographicOperations.FixedTimeEquals(
             Encoding.UTF8.GetBytes(expected),
             Encoding.UTF8.GetBytes(provided));
+    }
+
+    private static string ComputeHash(byte[] secretKey, string dataCheckString)
+    {
+        return Convert.ToHexString(
+                HMACSHA256.HashData(secretKey, Encoding.UTF8.GetBytes(dataCheckString)))
+            .ToLowerInvariant();
     }
 
     private sealed class TelegramMiniAppUser
