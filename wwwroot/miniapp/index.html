@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#070816">
+  <title>assisKent Mini App</title>
+  <link rel="stylesheet" href="/miniapp/styles.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="ambient ambient-a"></div>
+    <div class="ambient ambient-b"></div>
+    <div class="scanlines" aria-hidden="true"></div>
+    <main id="app" class="app-root">
+      <section class="boot-card panel">
+        <p class="eyebrow">BOOT_SEQUENCE</p>
+        <h1>assisKent // Mini App</h1>
+        <p class="boot-copy">Загружаю расписание, дедлайны, напоминания и таймеры...</p>
+      </section>
+    </main>
+    <div id="toast" class="toast" hidden></div>
+  </div>
+  <script type="module" src="/miniapp/app.js"></script>
+</body>
+</html>

@@ -1,59 +1,76 @@
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using TelegramStudentBot.Handlers;
+using TelegramStudentBot.MiniApp;
 using TelegramStudentBot.Services;
 
 ClearBrokenProxyEnvironment();
 
-var host = Host.CreateDefaultBuilder(args)
-    .ConfigureLogging(logging =>
-    {
-        logging.ClearProviders();
-        logging.AddSimpleConsole(options =>
-        {
-            options.SingleLine = true;
-            options.TimestampFormat = "HH:mm:ss ";
-        });
-        logging.AddDebug();
-    })
-    .ConfigureServices((ctx, services) =>
-    {
-        var rawToken = ctx.Configuration["BotToken"]
-            ?? throw new InvalidOperationException(
-                "Токен бота не найден. Укажи BotToken в appsettings.json");
+var builder = WebApplication.CreateBuilder(args);
 
-        var token = string.Concat(rawToken.Where(c => !char.IsControl(c) && !char.IsWhiteSpace(c)));
+builder.Logging.ClearProviders();
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.SingleLine = true;
+    options.TimestampFormat = "HH:mm:ss ";
+});
+builder.Logging.AddDebug();
 
-        Console.WriteLine($"[DEBUG] Токен считан. Длина: {token.Length} символов. Начало: {token[..Math.Min(10, token.Length)]}...");
+var webPort = builder.Configuration.GetValue<int?>("WebAppPort") ?? 8080;
+builder.WebHost.UseUrls($"http://0.0.0.0:{webPort}");
 
-        services.AddSingleton<ITelegramBotClient>(_ => new TelegramBotClient(token));
+var rawToken = builder.Configuration["BotToken"]
+    ?? throw new InvalidOperationException(
+        "Токен бота не найден. Укажи BotToken в appsettings.json");
 
-        services.AddSingleton<BotVisitLogService>();
-        services.AddSingleton<UserProfileStorageService>();
-        services.AddSingleton<StudyTaskStorageService>();
-        services.AddSingleton<ReminderSettingsService>();
-        services.AddSingleton<HomeworkSubjectPreferencesService>();
-        services.AddSingleton<UserFeatureIntroService>();
-        services.AddSingleton<SessionService>();
-        services.AddSingleton<TimerService>();
-        services.AddSingleton<ScheduleCatalogService>();
-        services.AddSingleton<UserScheduleSelectionService>();
+var token = string.Concat(rawToken.Where(c => !char.IsControl(c) && !char.IsWhiteSpace(c)));
+Console.WriteLine($"[DEBUG] Токен считан. Длина: {token.Length} символов. Начало: {token[..Math.Min(10, token.Length)]}...");
 
-        services.AddSingleton<CommandHandler>();
-        services.AddSingleton<TextHandler>();
-        services.AddSingleton<CallbackHandler>();
-        services.AddSingleton<UpdateRouter>();
-        services.AddHostedService<BotService>();
-        services.AddHostedService<DeadlineReminderService>();
-    })
-    .Build();
+builder.Services.AddSingleton<ITelegramBotClient>(_ => new TelegramBotClient(token));
+
+builder.Services.AddSingleton<StudyTaskStorageService>();
+builder.Services.AddSingleton<ReminderSettingsService>();
+builder.Services.AddSingleton<HomeworkSubjectPreferencesService>();
+builder.Services.AddSingleton<UserProfileStorageService>();
+builder.Services.AddSingleton<UserFeatureIntroService>();
+builder.Services.AddSingleton<BotVisitLogService>();
+builder.Services.AddSingleton<SessionService>();
+builder.Services.AddSingleton<TimerService>();
+builder.Services.AddSingleton<ScheduleCatalogService>();
+builder.Services.AddSingleton<UserScheduleSelectionService>();
+
+builder.Services.AddSingleton<MiniAppAuthService>();
+builder.Services.AddSingleton<MiniAppChatSyncService>();
+builder.Services.AddSingleton<MiniAppService>();
+
+builder.Services.AddSingleton<CommandHandler>();
+builder.Services.AddSingleton<TextHandler>();
+builder.Services.AddSingleton<CallbackHandler>();
+builder.Services.AddSingleton<UpdateRouter>();
+builder.Services.AddHostedService<BotService>();
+builder.Services.AddHostedService<DeadlineReminderService>();
+
+var app = builder.Build();
+
+app.UseStaticFiles();
+
+app.MapGet("/", (IWebHostEnvironment env) =>
+    Results.File(Path.Combine(env.WebRootPath, "miniapp", "index.html"), "text/html"));
+app.MapGet("/miniapp", (IWebHostEnvironment env) =>
+    Results.File(Path.Combine(env.WebRootPath, "miniapp", "index.html"), "text/html"));
+app.MapGet("/miniapp/", (IWebHostEnvironment env) =>
+    Results.File(Path.Combine(env.WebRootPath, "miniapp", "index.html"), "text/html"));
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "ok",
+    utc = DateTimeOffset.UtcNow
+}));
+
+app.MapMiniAppEndpoints();
 
 try
 {
-    await host.RunAsync();
+    await app.RunAsync();
 }
 catch (Exception ex)
 {

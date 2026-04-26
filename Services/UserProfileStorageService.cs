@@ -21,23 +21,28 @@ public class UserProfileStorageService
         if (user is null)
             return;
 
-        var nickname = BuildNickname(user);
-        var username = BuildUsername(user.Username);
+        Upsert(user.Id, user.FirstName, user.LastName, user.Username);
+    }
+
+    public void Upsert(long userId, string? firstName, string? lastName, string? username)
+    {
+        var nickname = BuildNickname(firstName, lastName, username);
+        var normalizedUsername = BuildUsername(username);
 
         lock (_lock)
         {
-            if (_profiles.TryGetValue(user.Id, out var existing) &&
+            if (_profiles.TryGetValue(userId, out var existing) &&
                 string.Equals(existing.Nickname, nickname, StringComparison.Ordinal) &&
-                string.Equals(existing.Username, username, StringComparison.Ordinal))
+                string.Equals(existing.Username, normalizedUsername, StringComparison.Ordinal))
             {
                 return;
             }
 
-            _profiles[user.Id] = new UserProfile
+            _profiles[userId] = new UserProfile
             {
-                UserId = user.Id,
+                UserId = userId,
                 Nickname = nickname,
-                Username = username,
+                Username = normalizedUsername,
                 UpdatedAt = DateTime.Now
             };
 
@@ -88,16 +93,16 @@ public class UserProfileStorageService
         };
     }
 
-    private static string BuildNickname(User user)
+    private static string BuildNickname(string? firstName, string? lastName, string? username)
     {
-        var parts = new[] { user.FirstName, user.LastName }
+        var parts = new[] { firstName, lastName }
             .Where(part => !string.IsNullOrWhiteSpace(part))
             .ToArray();
 
         if (parts.Length > 0)
             return string.Join(" ", parts);
 
-        return BuildUsername(user.Username) ?? "Студент";
+        return BuildUsername(username) ?? "Студент";
     }
 
     private static string? BuildUsername(string? username)

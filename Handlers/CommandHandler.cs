@@ -23,6 +23,7 @@ public class CommandHandler
     private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
     private readonly UserFeatureIntroService _featureIntros;
     private readonly BotVisitLogService _visits;
+    private readonly string? _webAppUrl;
 
     public CommandHandler(
         ITelegramBotClient bot,
@@ -33,7 +34,8 @@ public class CommandHandler
         ReminderSettingsService reminders,
         HomeworkSubjectPreferencesService homeworkSubjects,
         UserFeatureIntroService featureIntros,
-        BotVisitLogService visits)
+        BotVisitLogService visits,
+        IConfiguration configuration)
     {
         _bot = bot;
         _sessions = sessions;
@@ -44,6 +46,7 @@ public class CommandHandler
         _homeworkSubjects = homeworkSubjects;
         _featureIntros = featureIntros;
         _visits = visits;
+        _webAppUrl = configuration["WebAppUrl"];
     }
 
     // ══════════════════════════════════════════════════════════
@@ -79,6 +82,7 @@ public class CommandHandler
                           "📋 /plan — личные дела с дедлайнами\n" +
                           "⏱ /timer — сфокусироваться на учёбе",
                     parseMode: ParseMode.Html,
+                    replyMarkup: BuildMiniAppLinkMarkup(),
                     cancellationToken: ct);
                 return;
             }
@@ -98,6 +102,7 @@ public class CommandHandler
                        "📋 /plan — личные дела с датой и временем\n" +
                        "⏱ /timer — таймер учёбы",
             parseMode: ParseMode.Html,
+            replyMarkup: BuildMiniAppLinkMarkup(),
             cancellationToken: ct);
     }
 
@@ -126,6 +131,7 @@ public class CommandHandler
                        "/schedule — моё расписание занятий\n\n" +
                        "❓ /help — эта справка",
             parseMode: ParseMode.Html,
+            replyMarkup: BuildMiniAppLinkMarkup(),
             cancellationToken: ct);
     }
 
@@ -540,6 +546,20 @@ public class CommandHandler
                 InlineKeyboardButton.WithCallbackData("📋 Показать план", "plan_list")
             }
         });
+
+    private InlineKeyboardMarkup? BuildMiniAppLinkMarkup()
+    {
+        if (string.IsNullOrWhiteSpace(_webAppUrl))
+            return null;
+
+        return new InlineKeyboardMarkup(new[]
+        {
+            new[]
+            {
+                InlineKeyboardButton.WithWebApp("🕹 Открыть mini app", _webAppUrl)
+            }
+        });
+    }
 
     private static InlineKeyboardMarkup BuildReminderKeyboard(bool enabled)
     {
