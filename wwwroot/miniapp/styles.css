@@ -674,6 +674,11 @@ textarea {
   background: rgba(255, 255, 255, 0.03);
 }
 
+.subject-card.priority {
+  border-color: rgba(94, 242, 255, 0.28);
+  background: linear-gradient(180deg, rgba(94, 242, 255, 0.08), rgba(255, 255, 255, 0.03));
+}
+
 .task-card.completed {
   opacity: 0.72;
 }
@@ -722,15 +727,48 @@ textarea {
   color: var(--text);
 }
 
-.subject-toggle {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+.priority-banner {
   display: grid;
-  place-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.priority-banner.active {
+  border-color: rgba(94, 242, 255, 0.28);
+  background: linear-gradient(180deg, rgba(94, 242, 255, 0.12), rgba(255, 255, 255, 0.03));
+}
+
+.priority-banner strong,
+.priority-helper-text,
+.subject-note {
+  margin: 0;
+}
+
+.priority-banner p,
+.priority-helper-text,
+.subject-note {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.subject-toggle {
+  min-width: 112px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  font-family: "Silkscreen", "IBM Plex Mono", "Courier New", monospace;
+  font-size: 11px;
+  text-align: center;
 }
 
 .subject-toggle.active {
