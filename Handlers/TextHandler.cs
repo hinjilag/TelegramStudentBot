@@ -799,6 +799,15 @@ public class TextHandler
             return;
         }
 
+        if (deadline.Date < DateTime.Today)
+        {
+            await _bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: "⚠️ Можно указать только сегодняшнюю дату или позже.",
+                cancellationToken: ct);
+            return;
+        }
+
         session.DraftTask!.Deadline = deadline;
         await SaveDraftTaskAsync(msg, session, ct);
     }

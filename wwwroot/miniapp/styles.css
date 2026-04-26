@@ -886,6 +886,14 @@ textarea {
   gap: 8px;
 }
 
+.focus-grid .timer-inline-form {
+  display: grid;
+  grid-template-columns: minmax(94px, 118px) max-content;
+  justify-content: start;
+  align-items: center;
+  gap: 8px;
+}
+
 .focus-grid .sound-chip {
   gap: 5px;
   padding: 11px 10px;
@@ -936,9 +944,17 @@ textarea {
 }
 
 .focus-grid .timer-inline-form input {
+  width: 100%;
+  max-width: 118px;
   min-height: 44px;
   padding-top: 8px;
   padding-bottom: 8px;
+}
+
+.focus-grid .timer-inline-form .pixel-button {
+  width: auto;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .toast {

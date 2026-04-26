@@ -52,6 +52,9 @@ public class ScheduleCatalogService
     public int GetCurrentWeekType(DateTime? date = null)
     {
         var currentDate = (date ?? DateTime.Today).Date;
+        if (currentDate.DayOfWeek == DayOfWeek.Sunday)
+            currentDate = currentDate.AddDays(1);
+
         var days = (currentDate - _catalog.WeekReferenceDate.Date).TotalDays;
         var weeks = (int)Math.Floor(days / 7);
         var normalized = ((weeks % 2) + 2) % 2;

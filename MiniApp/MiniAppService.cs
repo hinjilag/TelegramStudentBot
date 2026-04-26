@@ -1,4 +1,4 @@
-using TelegramStudentBot.Models;
+﻿using TelegramStudentBot.Models;
 using TelegramStudentBot.Services;
 
 namespace TelegramStudentBot.MiniApp;
@@ -111,7 +111,7 @@ public class MiniAppService
                 .Where(part => !string.IsNullOrWhiteSpace(part)));
 
         if (string.IsNullOrWhiteSpace(displayName))
-            displayName = "Студент";
+            displayName = "РЎС‚СѓРґРµРЅС‚";
 
         var activeTimer = session.ActiveTimer;
         var completedTasks = session.Tasks.Count(task => task.IsCompleted);
@@ -158,16 +158,16 @@ public class MiniAppService
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.ScheduleId))
-            throw new InvalidOperationException("Не выбрана группа расписания.");
+            throw new InvalidOperationException("РќРµ РІС‹Р±СЂР°РЅР° РіСЂСѓРїРїР° СЂР°СЃРїРёСЃР°РЅРёСЏ.");
 
         var group = _scheduleCatalog.GetGroup(request.ScheduleId)
-            ?? throw new InvalidOperationException("Выбранное расписание не найдено.");
+            ?? throw new InvalidOperationException("Р’С‹Р±СЂР°РЅРЅРѕРµ СЂР°СЃРїРёСЃР°РЅРёРµ РЅРµ РЅР°Р№РґРµРЅРѕ.");
 
         if (group.SubGroups.Count > 0 &&
             request.SubGroup.HasValue &&
             !group.SubGroups.Contains(request.SubGroup.Value))
         {
-            throw new InvalidOperationException("Выбрана неверная подгруппа.");
+            throw new InvalidOperationException("Р’С‹Р±СЂР°РЅР° РЅРµРІРµСЂРЅР°СЏ РїРѕРґРіСЂСѓРїРїР°.");
         }
 
         _scheduleSelections.Save(identity.UserId, new UserScheduleSelection
@@ -183,8 +183,8 @@ public class MiniAppService
 
         await _chatSync.NotifyAsync(
             identity.UserId,
-            $"Расписание обновлено: <b>{MiniAppChatSyncService.Escape(group.Title)}</b>" +
-            (request.SubGroup.HasValue ? $" (подгруппа {request.SubGroup.Value})." : "."),
+            $"Р Р°СЃРїРёСЃР°РЅРёРµ РѕР±РЅРѕРІР»РµРЅРѕ: <b>{MiniAppChatSyncService.Escape(group.Title)}</b>" +
+            (request.SubGroup.HasValue ? $" (РїРѕРґРіСЂСѓРїРїР° {request.SubGroup.Value})." : "."),
             cancellationToken);
     }
 
@@ -196,7 +196,7 @@ public class MiniAppService
         session.CurrentSubGroup = null;
         session.CurrentWeekType = null;
 
-        await _chatSync.NotifyAsync(identity.UserId, "Привязка расписания удалена из mini app.", cancellationToken);
+        await _chatSync.NotifyAsync(identity.UserId, "РџСЂРёРІСЏР·РєР° СЂР°СЃРїРёСЃР°РЅРёСЏ СѓРґР°Р»РµРЅР° РёР· mini app.", cancellationToken);
     }
 
     public async Task ToggleFavoriteSubjectAsync(
@@ -207,7 +207,7 @@ public class MiniAppService
         cancellationToken.ThrowIfCancellationRequested();
 
         if (string.IsNullOrWhiteSpace(request.SubjectTitle))
-            throw new InvalidOperationException("Предмет не выбран.");
+            throw new InvalidOperationException("РџСЂРµРґРјРµС‚ РЅРµ РІС‹Р±СЂР°РЅ.");
 
         var (_, allEntries) = GetScheduleEntries(identity.UserId);
         var allowedTitles = allEntries
@@ -216,7 +216,7 @@ public class MiniAppService
             .ToList();
 
         if (!allowedTitles.Contains(request.SubjectTitle, StringComparer.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Этот предмет недоступен для ДЗ.");
+            throw new InvalidOperationException("Р­С‚РѕС‚ РїСЂРµРґРјРµС‚ РЅРµРґРѕСЃС‚СѓРїРµРЅ РґР»СЏ Р”Р—.");
 
         _homeworkSubjects.ToggleFavoriteSubject(identity.UserId, request.SubjectTitle);
     }
@@ -227,20 +227,20 @@ public class MiniAppService
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Title))
-            throw new InvalidOperationException("Введите текст домашнего задания.");
+            throw new InvalidOperationException("Р’РІРµРґРёС‚Рµ С‚РµРєСЃС‚ РґРѕРјР°С€РЅРµРіРѕ Р·Р°РґР°РЅРёСЏ.");
 
         if (string.IsNullOrWhiteSpace(request.Subject))
-            throw new InvalidOperationException("Выберите предмет.");
+            throw new InvalidOperationException("Р’С‹Р±РµСЂРёС‚Рµ РїСЂРµРґРјРµС‚.");
 
         var (group, allEntries) = GetScheduleEntries(identity.UserId);
         if (group is null || allEntries.Count == 0)
-            throw new InvalidOperationException("Сначала выберите расписание.");
+            throw new InvalidOperationException("РЎРЅР°С‡Р°Р»Р° РІС‹Р±РµСЂРёС‚Рµ СЂР°СЃРїРёСЃР°РЅРёРµ.");
 
         if (!allEntries.Any(entry => string.Equals(entry.Subject, request.Subject, StringComparison.OrdinalIgnoreCase)))
-            throw new InvalidOperationException("Предмет отсутствует в выбранном расписании.");
+            throw new InvalidOperationException("РџСЂРµРґРјРµС‚ РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚ РІ РІС‹Р±СЂР°РЅРЅРѕРј СЂР°СЃРїРёСЃР°РЅРёРё.");
 
         var deadline = _scheduleCatalog.FindNextLessonDate(allEntries, request.Subject)
-            ?? throw new InvalidOperationException("Не удалось определить ближайшую пару для этого предмета.");
+            ?? throw new InvalidOperationException("РќРµ СѓРґР°Р»РѕСЃСЊ РѕРїСЂРµРґРµР»РёС‚СЊ Р±Р»РёР¶Р°Р№С€СѓСЋ РїР°СЂСѓ РґР»СЏ СЌС‚РѕРіРѕ РїСЂРµРґРјРµС‚Р°.");
 
         var session = GetOrCreateSession(identity);
         session.Tasks.Add(new StudyTask
@@ -254,9 +254,9 @@ public class MiniAppService
 
         await _chatSync.NotifyAsync(
             identity.UserId,
-            $"Добавлено ДЗ: <b>{MiniAppChatSyncService.Escape(request.Title.Trim())}</b>\n" +
-            $"Предмет: <b>{MiniAppChatSyncService.Escape(request.Subject.Trim())}</b>\n" +
-            $"Дедлайн: <b>{deadline:dd.MM.yyyy}</b>",
+            $"Р”РѕР±Р°РІР»РµРЅРѕ Р”Р—: <b>{MiniAppChatSyncService.Escape(request.Title.Trim())}</b>\n" +
+            $"РџСЂРµРґРјРµС‚: <b>{MiniAppChatSyncService.Escape(request.Subject.Trim())}</b>\n" +
+            $"Р”РµРґР»Р°Р№РЅ: <b>{deadline:dd.MM.yyyy}</b>",
             cancellationToken);
     }
 
@@ -266,7 +266,10 @@ public class MiniAppService
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Title))
-            throw new InvalidOperationException("Введите название дела.");
+            throw new InvalidOperationException("Р’РІРµРґРёС‚Рµ РЅР°Р·РІР°РЅРёРµ РґРµР»Р°.");
+
+        if (request.Deadline.HasValue && request.Deadline.Value.Date < DateTime.Today)
+            throw new InvalidOperationException("Нельзя указать дату раньше сегодняшней.");
 
         var session = GetOrCreateSession(identity);
         session.Tasks.Add(new StudyTask
@@ -280,12 +283,12 @@ public class MiniAppService
 
         var deadlineText = request.Deadline.HasValue
             ? request.Deadline.Value.ToString("dd.MM.yyyy HH:mm")
-            : "без дедлайна";
+            : "Р±РµР· РґРµРґР»Р°Р№РЅР°";
 
         await _chatSync.NotifyAsync(
             identity.UserId,
-            $"Добавлено личное дело: <b>{MiniAppChatSyncService.Escape(request.Title.Trim())}</b>\n" +
-            $"Срок: <b>{MiniAppChatSyncService.Escape(deadlineText)}</b>",
+            $"Р”РѕР±Р°РІР»РµРЅРѕ Р»РёС‡РЅРѕРµ РґРµР»Рѕ: <b>{MiniAppChatSyncService.Escape(request.Title.Trim())}</b>\n" +
+            $"РЎСЂРѕРє: <b>{MiniAppChatSyncService.Escape(deadlineText)}</b>",
             cancellationToken);
     }
 
@@ -300,10 +303,10 @@ public class MiniAppService
         task.IsCompleted = request.IsCompleted;
         _sessions.SaveTasks(session);
 
-        var action = request.IsCompleted ? "выполнена" : "возвращена в активные";
+        var action = request.IsCompleted ? "РІС‹РїРѕР»РЅРµРЅР°" : "РІРѕР·РІСЂР°С‰РµРЅР° РІ Р°РєС‚РёРІРЅС‹Рµ";
         await _chatSync.NotifyAsync(
             identity.UserId,
-            $"Задача <b>{MiniAppChatSyncService.Escape(task.Title)}</b> {action}.",
+            $"Р—Р°РґР°С‡Р° <b>{MiniAppChatSyncService.Escape(task.Title)}</b> {action}.",
             cancellationToken);
     }
 
@@ -316,7 +319,7 @@ public class MiniAppService
 
         await _chatSync.NotifyAsync(
             identity.UserId,
-            $"Удалена задача: <b>{MiniAppChatSyncService.Escape(task.Title)}</b>.",
+            $"РЈРґР°Р»РµРЅР° Р·Р°РґР°С‡Р°: <b>{MiniAppChatSyncService.Escape(task.Title)}</b>.",
             cancellationToken);
     }
 
@@ -328,7 +331,7 @@ public class MiniAppService
         if (!request.IsEnabled)
         {
             _reminders.Disable(identity.UserId, identity.UserId);
-            await _chatSync.NotifyAsync(identity.UserId, "Напоминания отключены в mini app.", cancellationToken);
+            await _chatSync.NotifyAsync(identity.UserId, "РќР°РїРѕРјРёРЅР°РЅРёСЏ РѕС‚РєР»СЋС‡РµРЅС‹ РІ mini app.", cancellationToken);
             return;
         }
 
@@ -336,13 +339,13 @@ public class MiniAppService
             request.Hour is < 0 or > 23 ||
             request.Minute is < 0 or > 59)
         {
-            throw new InvalidOperationException("Укажите корректное время напоминаний.");
+            throw new InvalidOperationException("РЈРєР°Р¶РёС‚Рµ РєРѕСЂСЂРµРєС‚РЅРѕРµ РІСЂРµРјСЏ РЅР°РїРѕРјРёРЅР°РЅРёР№.");
         }
 
         _reminders.Enable(identity.UserId, identity.UserId, request.Hour.Value, request.Minute.Value);
         await _chatSync.NotifyAsync(
             identity.UserId,
-            $"Напоминания включены: каждый день в <b>{request.Hour:00}:{request.Minute:00}</b> по МСК.",
+            $"РќР°РїРѕРјРёРЅР°РЅРёСЏ РІРєР»СЋС‡РµРЅС‹: РєР°Р¶РґС‹Р№ РґРµРЅСЊ РІ <b>{request.Hour:00}:{request.Minute:00}</b> РїРѕ РњРЎРљ.",
             cancellationToken);
     }
 
@@ -352,7 +355,7 @@ public class MiniAppService
         CancellationToken cancellationToken)
     {
         if (request.Minutes is < 1 or > 300)
-            throw new InvalidOperationException("Таймер должен быть от 1 до 300 минут.");
+            throw new InvalidOperationException("РўР°Р№РјРµСЂ РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РѕС‚ 1 РґРѕ 300 РјРёРЅСѓС‚.");
 
         if (string.Equals(request.Type, "work", StringComparison.OrdinalIgnoreCase))
         {
@@ -366,16 +369,16 @@ public class MiniAppService
             return;
         }
 
-        throw new InvalidOperationException("Неизвестный тип таймера.");
+        throw new InvalidOperationException("РќРµРёР·РІРµСЃС‚РЅС‹Р№ С‚РёРї С‚Р°Р№РјРµСЂР°.");
     }
 
     public async Task StopTimerAsync(MiniAppIdentity identity, CancellationToken cancellationToken)
     {
         var stopped = _timers.StopTimer(identity.UserId);
         if (!stopped)
-            throw new InvalidOperationException("Сейчас нет активного таймера.");
+            throw new InvalidOperationException("РЎРµР№С‡Р°СЃ РЅРµС‚ Р°РєС‚РёРІРЅРѕРіРѕ С‚Р°Р№РјРµСЂР°.");
 
-        await _chatSync.NotifyAsync(identity.UserId, "Активный таймер остановлен из mini app.", cancellationToken);
+        await _chatSync.NotifyAsync(identity.UserId, "РђРєС‚РёРІРЅС‹Р№ С‚Р°Р№РјРµСЂ РѕСЃС‚Р°РЅРѕРІР»РµРЅ РёР· mini app.", cancellationToken);
     }
 
     private UserSession GetOrCreateSession(MiniAppIdentity identity)
@@ -504,9 +507,10 @@ public class MiniAppService
     private static StudyTask FindTask(UserSession session, string taskId)
     {
         if (!Guid.TryParse(taskId, out var taskGuid))
-            throw new InvalidOperationException("Некорректный идентификатор задачи.");
+            throw new InvalidOperationException("РќРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ РёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ Р·Р°РґР°С‡Рё.");
 
         return session.Tasks.FirstOrDefault(task => task.Id == taskGuid)
-            ?? throw new InvalidOperationException("Задача не найдена.");
+            ?? throw new InvalidOperationException("Р—Р°РґР°С‡Р° РЅРµ РЅР°Р№РґРµРЅР°.");
     }
 }
+

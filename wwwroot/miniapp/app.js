@@ -576,6 +576,7 @@ function renderHomeworkViewV2(homeworkSubjects, homeworkTasks) {
 function renderPlanView(personalTasks) {
   const activeTasks = personalTasks.filter((task) => !task.isCompleted);
   const completedTasks = personalTasks.filter((task) => task.isCompleted);
+  const minDate = getTodayDateInputValue();
 
   return `
     <div class="content-grid">
@@ -594,7 +595,7 @@ function renderPlanView(personalTasks) {
           <div class="two-column native-form-grid">
             <div class="field native-input-field">
               <label for="plan-date">Дата</label>
-              <input id="plan-date" name="date" type="date">
+              <input id="plan-date" name="date" type="date" min="${minDate}">
             </div>
             <div class="field native-input-field">
               <label for="plan-time">Время</label>
@@ -911,7 +912,7 @@ async function handleClick(event) {
     if (planDate) {
       const targetDate = new Date();
       targetDate.setDate(targetDate.getDate() + offset);
-      planDate.value = targetDate.toISOString().slice(0, 10);
+      planDate.value = formatDateInputValue(targetDate);
     }
     return;
   }
@@ -995,6 +996,12 @@ async function handleSubmit(event) {
     const title = String(formData.get("title") || "").trim();
     const date = String(formData.get("date") || "");
     const time = String(formData.get("time") || "");
+
+    if (date && date < getTodayDateInputValue()) {
+      toast("Можно выбрать только сегодняшнюю дату или позже.");
+      return;
+    }
+
     const deadline = buildDeadline(date, time);
 
     await runAction(async () => {
@@ -1204,6 +1211,17 @@ function buildDeadline(date, time) {
   }
 
   return `${date}T${time || "00:00"}:00`;
+}
+
+function getTodayDateInputValue() {
+  return formatDateInputValue(new Date());
+}
+
+function formatDateInputValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function applyTheme(theme) {
