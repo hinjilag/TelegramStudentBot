@@ -288,6 +288,8 @@ public class CallbackHandler
         {
             session.State = UserState.Idle;
             session.DraftTask = null;
+            session.ContinueHomeworkAfterScheduleSelection = false;
+            session.PendingHomeworkScheduleSelectionKey = null;
             session.PendingGroupHomeworkChatId = null;
             session.PendingGroupHomeworkChatTitle = null;
             session.HomeworkSubjectChoices.Clear();
@@ -1117,6 +1119,180 @@ public class CallbackHandler
             .ToList();
     }
 
+    private async Task SendHomeworkSubjectChoiceAsync(
+        long chatId,
+        long userId,
+        UserSession session,
+        List<string> allSubjects,
+        bool showAll,
+        CancellationToken ct)
+    {
+        session.State = UserState.Idle;
+        session.DraftTask = null;
+        session.HomeworkSubjectChoices.Clear();
+        session.HomeworkLessonTypeChoices.Clear();
+
+        var preferences = _homeworkSubjects.Get(userId);
+        var favoriteSubjects = preferences.FavoriteSubjects
+            .Where(favorite => allSubjects.Contains(favorite, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+
+        var visibleSubjects = preferences.IsConfigured && !showAll
+            ? favoriteSubjects
+            : allSubjects;
+
+        var buttons = visibleSubjects
+            .Select((subject, index) =>
+            {
+                var key = index.ToString();
+                session.HomeworkSubjectChoices[key] = subject;
+                return (subject, $"hw_subject_{key}");
+            })
+            .ToList();
+
+        if (!showAll && preferences.IsConfigured)
+            buttons.Add(("👀 Показать все", "hw_show_all"));
+
+        buttons.Add(("⚙️ Настроить", "hw_config"));
+        buttons.Add(("🔴 Отмена", "hw_cancel"));
+
+        var text = BuildHomeworkSubjectChoiceText(preferences.IsConfigured, showAll, visibleSubjects.Count);
+
+        await _bot.SendMessage(
+            chatId: chatId,
+            text: text,
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: ct);
+    }
+
+    private async Task EditHomeworkSubjectChoiceAfterScheduleAsync(
+        long chatId,
+        int messageId,
+        long userId,
+        UserSession session,
+        List<string> allSubjects,
+        CancellationToken ct)
+    {
+        session.State = UserState.Idle;
+        session.DraftTask = null;
+        session.HomeworkSubjectChoices.Clear();
+        session.HomeworkLessonTypeChoices.Clear();
+
+        var preferences = _homeworkSubjects.Get(userId);
+        var favoriteSubjects = preferences.FavoriteSubjects
+            .Where(favorite => allSubjects.Contains(favorite, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+
+        var visibleSubjects = preferences.IsConfigured
+            ? favoriteSubjects
+            : allSubjects;
+
+        var buttons = visibleSubjects
+            .Select((subject, index) =>
+            {
+                var key = index.ToString();
+                session.HomeworkSubjectChoices[key] = subject;
+                return (subject, $"hw_subject_{key}");
+            })
+            .ToList();
+
+        if (preferences.IsConfigured)
+            buttons.Add(("👀 Показать все", "hw_show_all"));
+
+        buttons.Add(("⚙️ Настроить", "hw_config"));
+        buttons.Add(("🔴 Отмена", "hw_cancel"));
+
+        await _bot.EditMessageText(
+            chatId: chatId,
+            messageId: messageId,
+            text: "✅ Расписание подключено.\n\n" + BuildHomeworkSubjectChoiceText(preferences.IsConfigured, showAll: false, visibleSubjects.Count),
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: ct);
+    }
+
+    private async Task SendGroupHomeworkSubjectChoiceAsync(
+        long chatId,
+        UserSession session,
+        List<string> subjects,
+        CancellationToken ct)
+    {
+        session.State = UserState.Idle;
+        session.DraftTask = null;
+        session.PendingGroupHomeworkChatId = null;
+        session.PendingGroupHomeworkChatTitle = null;
+        session.HomeworkSubjectChoices.Clear();
+        session.HomeworkLessonTypeChoices.Clear();
+
+        var buttons = subjects
+            .Select((subject, index) =>
+            {
+                var key = index.ToString();
+                session.HomeworkSubjectChoices[key] = subject;
+                return (subject, $"hw_subject_{key}");
+            })
+            .Append(("🔴 Отмена", "hw_cancel"));
+
+        await _bot.SendMessage(
+            chatId: chatId,
+            text: "✅ Расписание группы подключено.\n\n📚 <b>Выбери предмет из расписания группы:</b>",
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: ct);
+    }
+
+    private async Task EditGroupHomeworkSubjectChoiceAsync(
+        long chatId,
+        int messageId,
+        UserSession session,
+        List<string> subjects,
+        CancellationToken ct)
+    {
+        session.State = UserState.Idle;
+        session.DraftTask = null;
+        session.PendingGroupHomeworkChatId = null;
+        session.PendingGroupHomeworkChatTitle = null;
+        session.HomeworkSubjectChoices.Clear();
+        session.HomeworkLessonTypeChoices.Clear();
+
+        var buttons = subjects
+            .Select((subject, index) =>
+            {
+                var key = index.ToString();
+                session.HomeworkSubjectChoices[key] = subject;
+                return (subject, $"hw_subject_{key}");
+            })
+            .Append(("🔴 Отмена", "hw_cancel"));
+
+        await _bot.EditMessageText(
+            chatId: chatId,
+            messageId: messageId,
+            text: "✅ Расписание группы подключено.\n\n📚 <b>Теперь выбери предмет для общего ДЗ:</b>",
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: ct);
+    }
+
+    private static string BuildHomeworkSubjectChoiceText(bool isConfigured, bool showAll, int visibleCount)
+    {
+        if (visibleCount == 0)
+            return "📚 <b>В списке ДЗ пока нет выбранных предметов.</b>\nНажми «Настроить» и отметь нужные.";
+
+        if (isConfigured || showAll)
+            return "📚 <b>Теперь выбери предмет, по которому задали ДЗ:</b>";
+
+        return "📚 <b>Теперь выбери предмет, по которому задали ДЗ:</b>\n\n" +
+               "Если тут есть лишние предметы, нажми «⚙️ Настроить» и оставь только нужные.\n\n" +
+               "Предметы будут идти в том порядке, в котором ты их отметишь.";
+    }
+
+    private static void ClearHomeworkContinuation(UserSession session)
+    {
+        session.ContinueHomeworkAfterScheduleSelection = false;
+        session.PendingHomeworkScheduleSelectionKey = null;
+    }
+
     private async Task SendCourseChoiceAsync(long chatId, string directionCode, CancellationToken ct)
     {
         var groups = _scheduleCatalog.GetGroupsByDirection(directionCode);
@@ -1192,6 +1368,13 @@ public class CallbackHandler
         });
 
         ApplySelectionToSession(session, group, subGroup);
+
+        if (session.ContinueHomeworkAfterScheduleSelection &&
+            session.PendingHomeworkScheduleSelectionKey == userId)
+        {
+            await ContinueHomeworkFlowAfterScheduleSelectionAsync(chatId, userId, session, ct);
+            return;
+        }
 
         await _bot.SendMessage(
             chatId: chatId,
@@ -1417,6 +1600,14 @@ public class CallbackHandler
         });
 
         ApplySelectionToSession(session, group, subGroup);
+
+        if (session.ContinueHomeworkAfterScheduleSelection &&
+            session.PendingHomeworkScheduleSelectionKey == selectionKey)
+        {
+            await ContinueHomeworkFlowAfterScheduleSelectionAsync(chatId, messageId, selectionKey, session, ct);
+            return;
+        }
+
         await SendSelectedScheduleMenuAsync(
             chatId,
             messageId,
@@ -1424,6 +1615,81 @@ public class CallbackHandler
             subGroup,
             ct,
             selectionKey == chatId ? "✅ Готово! Расписание сохранено для этой группы." : "✅ Готово! Расписание сохранено.");
+    }
+
+    private async Task ContinueHomeworkFlowAfterScheduleSelectionAsync(
+        long chatId,
+        long selectionKey,
+        UserSession session,
+        CancellationToken ct)
+    {
+        ClearHomeworkContinuation(session);
+
+        if (!TryGetAllScheduleEntries(selectionKey, out _, out _, out var entries))
+        {
+            await _bot.SendMessage(
+                chatId,
+                "Расписание сохранилось, но я не смог сразу открыть выбор предмета. Попробуй ещё раз через /add_homework.",
+                cancellationToken: ct);
+            return;
+        }
+
+        var subjects = GetHomeworkSubjects(entries);
+        if (subjects.Count == 0)
+        {
+            await _bot.SendMessage(
+                chatId,
+                "Расписание подключено, но в нём пока не нашлось предметов для ДЗ. Можешь изменить расписание через /schedule.",
+                cancellationToken: ct);
+            return;
+        }
+
+        if (selectionKey == chatId)
+        {
+            await SendGroupHomeworkSubjectChoiceAsync(chatId, session, subjects, ct);
+            return;
+        }
+
+        await SendHomeworkSubjectChoiceAsync(chatId, selectionKey, session, subjects, showAll: false, ct);
+    }
+
+    private async Task ContinueHomeworkFlowAfterScheduleSelectionAsync(
+        long chatId,
+        int messageId,
+        long selectionKey,
+        UserSession session,
+        CancellationToken ct)
+    {
+        ClearHomeworkContinuation(session);
+
+        if (!TryGetAllScheduleEntries(selectionKey, out _, out _, out var entries))
+        {
+            await EditScheduleMessageAsync(
+                chatId: chatId,
+                messageId: messageId,
+                text: "Расписание сохранилось, но я не смог сразу открыть выбор предмета. Попробуй ещё раз через /add_homework.",
+                cancellationToken: ct);
+            return;
+        }
+
+        var subjects = GetHomeworkSubjects(entries);
+        if (subjects.Count == 0)
+        {
+            await EditScheduleMessageAsync(
+                chatId: chatId,
+                messageId: messageId,
+                text: "Расписание подключено, но в нём пока не нашлось предметов для ДЗ. Изменить расписание можно через /schedule.",
+                cancellationToken: ct);
+            return;
+        }
+
+        if (selectionKey == chatId)
+        {
+            await EditGroupHomeworkSubjectChoiceAsync(chatId, messageId, session, subjects, ct);
+            return;
+        }
+
+        await EditHomeworkSubjectChoiceAfterScheduleAsync(chatId, messageId, selectionKey, session, subjects, ct);
     }
 
     private async Task SendSelectedScheduleMenuAsync(

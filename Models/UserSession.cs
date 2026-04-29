@@ -42,6 +42,12 @@ public class UserSession
     /// <summary>Выбранная частота групповых напоминаний перед вводом времени.</summary>
     public GroupReminderFrequency? PendingGroupReminderFrequency { get; set; }
 
+    /// <summary>Нужно ли после выбора расписания сразу продолжить сценарий добавления ДЗ.</summary>
+    public bool ContinueHomeworkAfterScheduleSelection { get; set; }
+
+    /// <summary>Ключ сохранения расписания, для которого нужно продолжить добавление ДЗ.</summary>
+    public long? PendingHomeworkScheduleSelectionKey { get; set; }
+
     /// <summary>Временные варианты предметов для добавления домашнего задания</summary>
     public Dictionary<string, string> HomeworkSubjectChoices { get; set; } = new();
 

@@ -3,6 +3,7 @@ using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
 using TelegramStudentBot.Models;
+using TelegramStudentBot.MiniApp;
 using TelegramStudentBot.Services;
 using System.Net;
 
@@ -25,7 +26,9 @@ public class CommandHandler
     private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
     private readonly UserFeatureIntroService _featureIntros;
     private readonly BotVisitLogService _visits;
+    private readonly GroupMiniAppAccessService _groupMiniAppAccess;
     private readonly string? _webAppUrl;
+    private readonly string? _groupWebAppUrl;
 
     public CommandHandler(
         ITelegramBotClient bot,
@@ -39,6 +42,7 @@ public class CommandHandler
         HomeworkSubjectPreferencesService homeworkSubjects,
         UserFeatureIntroService featureIntros,
         BotVisitLogService visits,
+        GroupMiniAppAccessService groupMiniAppAccess,
         IConfiguration configuration)
     {
         _bot = bot;
@@ -52,7 +56,9 @@ public class CommandHandler
         _homeworkSubjects = homeworkSubjects;
         _featureIntros = featureIntros;
         _visits = visits;
+        _groupMiniAppAccess = groupMiniAppAccess;
         _webAppUrl = ResolveWebAppUrl(configuration);
+        _groupWebAppUrl = ResolveGroupWebAppUrl(configuration);
     }
 
     // ══════════════════════════════════════════════════════════
@@ -73,9 +79,10 @@ public class CommandHandler
                       "📅 /schedule — выбрать расписание для этой группы\n" +
                       "➕ /add_homework — добавить общее ДЗ\n" +
                       "📝 /homework — открыть общий список ДЗ\n" +
+                      "📱 /miniapp — открыть групповой mini app\n" +
                       "⏰ /reminders — настроить напоминания в этот чат\n" +
                       "❓ /help — показать команды\n\n" +
-                      "Таймеры, mini app и личный планер работают только в личке.",
+                      "Таймеры и личный планер работают только в личке.",
                 parseMode: ParseMode.Html,
                 cancellationToken: ct);
             return;
@@ -144,9 +151,10 @@ public class CommandHandler
                       "/schedule — выбрать или поменять расписание этой группы\n" +
                       "/add_homework — добавить общее ДЗ по предмету из расписания\n" +
                       "/homework — посмотреть общее ДЗ\n" +
+                      "/miniapp — открыть mini app группы\n" +
                       "/reminders — настроить напоминания в этот чат\n" +
                       "/help — эта справка\n\n" +
-                      "Сценарий простой: сначала /schedule, потом /add_homework, дальше /homework и /reminders.",
+                      "Сценарий простой: сначала /schedule, потом /add_homework, дальше /homework, /miniapp и /reminders.",
                 parseMode: ParseMode.Html,
                 cancellationToken: ct);
             return;
@@ -184,7 +192,20 @@ public class CommandHandler
     {
         if (IsGroupChat(msg.Chat.Type))
         {
-            await SendGroupModeUnavailableAsync(msg.Chat.Id, "Mini app", ct);
+            if (string.IsNullOrWhiteSpace(_groupWebAppUrl))
+            {
+                await _bot.SendMessage(
+                    chatId: msg.Chat.Id,
+                    text: "Групповой mini app пока не настроен. Укажи публичный WebAppUrl в конфигурации бота.",
+                    cancellationToken: ct);
+                return;
+            }
+
+            await _bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: "Открой mini app группы по кнопке ниже.",
+                replyMarkup: BuildGroupMiniAppLinkMarkup(msg.Chat.Id),
+                cancellationToken: ct);
             return;
         }
 
@@ -322,6 +343,8 @@ public class CommandHandler
         {
             var groupSession = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
             groupSession.State = UserState.Idle;
+            groupSession.ContinueHomeworkAfterScheduleSelection = false;
+            groupSession.PendingHomeworkScheduleSelectionKey = null;
             groupSession.PendingGroupHomeworkChatId = null;
             groupSession.PendingGroupHomeworkChatTitle = null;
             groupSession.DraftTask = null;
@@ -330,10 +353,13 @@ public class CommandHandler
 
             if (!TryGetAllScheduleEntries(msg.Chat.Id, out _, out _, out var groupEntries))
             {
-                await _bot.SendMessage(
-                    chatId: msg.Chat.Id,
-                    text: "Сначала выбери расписание именно для этой группы через /schedule. После этого я покажу предметы и смогу добавлять общее ДЗ по расписанию.",
-                    cancellationToken: ct);
+                groupSession.ContinueHomeworkAfterScheduleSelection = true;
+                groupSession.PendingHomeworkScheduleSelectionKey = msg.Chat.Id;
+                await SendDirectionChoiceAsync(
+                    msg.Chat.Id,
+                    ct,
+                    isGroup: true,
+                    prefix: "Сначала подключим расписание этой группы, а потом я сразу предложу предмет для общего ДЗ.");
                 return;
             }
 
@@ -353,6 +379,8 @@ public class CommandHandler
 
         var userId = msg.From!.Id;
         var session = _sessions.GetOrCreate(userId, msg.From.FirstName);
+        session.ContinueHomeworkAfterScheduleSelection = false;
+        session.PendingHomeworkScheduleSelectionKey = null;
 
         if (!TryGetAllScheduleEntries(userId, out _, out _, out var entries))
         {
@@ -361,10 +389,12 @@ public class CommandHandler
             session.HomeworkSubjectChoices.Clear();
             session.HomeworkLessonTypeChoices.Clear();
 
-            await _bot.SendMessage(
-                chatId: msg.Chat.Id,
-                text: "Сначала выбери своё расписание через /schedule: укажи направление, курс и подгруппу. После этого я покажу предметы и смогу добавлять ДЗ с дедлайнами.",
-                cancellationToken: ct);
+            session.ContinueHomeworkAfterScheduleSelection = true;
+            session.PendingHomeworkScheduleSelectionKey = userId;
+            await SendDirectionChoiceAsync(
+                msg.Chat.Id,
+                ct,
+                prefix: "Сначала подключим твоё расписание, а потом я сразу предложу предмет для ДЗ.");
             return;
         }
 
@@ -555,6 +585,8 @@ public class CommandHandler
         var userId = msg.From!.Id;
         var session = _sessions.GetOrCreate(userId, msg.From.FirstName);
         session.State = UserState.Idle;
+        session.ContinueHomeworkAfterScheduleSelection = false;
+        session.PendingHomeworkScheduleSelectionKey = null;
         var selectionKey = IsGroupChat(msg.Chat.Type) ? msg.Chat.Id : userId;
         var selection = _scheduleSelections.Get(selectionKey);
         if (selection is not null)
@@ -573,16 +605,20 @@ public class CommandHandler
         await SendDirectionChoiceAsync(msg.Chat.Id, ct, IsGroupChat(msg.Chat.Type));
     }
 
-    private async Task SendDirectionChoiceAsync(long chatId, CancellationToken ct, bool isGroup = false)
+    private async Task SendDirectionChoiceAsync(long chatId, CancellationToken ct, bool isGroup = false, string? prefix = null)
     {
         var buttons = _scheduleCatalog.GetDirections()
             .Select(d => ($"{d.ShortTitle} — {d.DirectionName}", $"sched_dir_{d.DirectionCode}"));
 
         await _bot.SendMessage(
             chatId: chatId,
-            text: isGroup
+            text: string.IsNullOrWhiteSpace(prefix)
+                ? (isGroup
                 ? "Настроим расписание для этой группы.\n\nШаг 1/3. Выбери направление:"
-                : "Шаг 1/3. Выбери направление:",
+                : "Шаг 1/3. Выбери направление:")
+                : $"{prefix}\n\n" + (isGroup
+                ? "Шаг 1/3. Выбери направление для этой группы:"
+                : "Шаг 1/3. Выбери направление:"),
             replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
             cancellationToken: ct);
     }
@@ -809,6 +845,21 @@ public class CommandHandler
         });
     }
 
+    private InlineKeyboardMarkup? BuildGroupMiniAppLinkMarkup(long chatId)
+    {
+        var url = BuildGroupWebAppUrl(chatId);
+        if (string.IsNullOrWhiteSpace(url))
+            return null;
+
+        return new InlineKeyboardMarkup(new[]
+        {
+            new[]
+            {
+                InlineKeyboardButton.WithWebApp("Mini app группы", url)
+            }
+        });
+    }
+
     private static InlineKeyboardMarkup BuildGroupReminderKeyboard(bool enabled)
     {
         if (!enabled)
@@ -843,6 +894,30 @@ public class CommandHandler
             return null;
 
         return $"https://{railwayDomain.TrimEnd('/')}/miniapp/";
+    }
+
+    private static string? ResolveGroupWebAppUrl(IConfiguration configuration)
+    {
+        var privateUrl = ResolveWebAppUrl(configuration);
+        if (string.IsNullOrWhiteSpace(privateUrl) || !Uri.TryCreate(privateUrl, UriKind.Absolute, out var uri))
+            return null;
+
+        var builder = new UriBuilder(uri)
+        {
+            Path = "/group-miniapp/",
+            Query = string.Empty
+        };
+
+        return builder.Uri.ToString();
+    }
+
+    private string? BuildGroupWebAppUrl(long chatId)
+    {
+        if (string.IsNullOrWhiteSpace(_groupWebAppUrl))
+            return null;
+
+        var separator = _groupWebAppUrl.Contains('?') ? "&" : "?";
+        return $"{_groupWebAppUrl}{separator}chatId={chatId}&groupToken={_groupMiniAppAccess.CreateToken(chatId)}";
     }
 
     private Task SendGroupModeUnavailableAsync(long chatId, string featureName, CancellationToken ct)

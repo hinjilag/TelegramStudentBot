@@ -45,8 +45,10 @@ builder.Services.AddSingleton<ScheduleCatalogService>();
 builder.Services.AddSingleton<UserScheduleSelectionService>();
 
 builder.Services.AddSingleton<MiniAppAuthService>();
+builder.Services.AddSingleton<GroupMiniAppAccessService>();
 builder.Services.AddSingleton<MiniAppChatSyncService>();
 builder.Services.AddSingleton<MiniAppService>();
+builder.Services.AddSingleton<GroupMiniAppService>();
 
 builder.Services.AddSingleton<CommandHandler>();
 builder.Services.AddSingleton<TextHandler>();
@@ -61,7 +63,8 @@ app.UseStaticFiles(new StaticFileOptions
 {
     OnPrepareResponse = context =>
     {
-        if (context.Context.Request.Path.StartsWithSegments("/miniapp", StringComparison.OrdinalIgnoreCase))
+        if (context.Context.Request.Path.StartsWithSegments("/miniapp", StringComparison.OrdinalIgnoreCase) ||
+            context.Context.Request.Path.StartsWithSegments("/group-miniapp", StringComparison.OrdinalIgnoreCase))
         {
             context.Context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
             context.Context.Response.Headers.Pragma = "no-cache";
@@ -79,6 +82,16 @@ app.MapGet("/miniapp", (HttpContext httpContext, IWebHostEnvironment env) =>
 {
     SetNoCacheHeaders(httpContext.Response);
     return Results.File(Path.Combine(env.WebRootPath, "miniapp", "index.html"), "text/html");
+});
+app.MapGet("/group-miniapp", (HttpContext httpContext, IWebHostEnvironment env) =>
+{
+    SetNoCacheHeaders(httpContext.Response);
+    return Results.File(Path.Combine(env.WebRootPath, "group-miniapp", "index.html"), "text/html");
+});
+app.MapGet("/group-miniapp/", (HttpContext httpContext, IWebHostEnvironment env) =>
+{
+    SetNoCacheHeaders(httpContext.Response);
+    return Results.File(Path.Combine(env.WebRootPath, "group-miniapp", "index.html"), "text/html");
 });
 app.MapGet("/health", () => Results.Ok(new
 {
