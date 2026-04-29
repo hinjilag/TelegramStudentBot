@@ -82,7 +82,7 @@ public class CommandHandler
                           "📋 /plan — личные дела с дедлайнами\n" +
                           "⏱ /timer — сфокусироваться на учёбе",
                     parseMode: ParseMode.Html,
-                    replyMarkup: BuildMiniAppLaunchMarkup(msg.Chat.Type),
+                    replyMarkup: BuildMiniAppLinkMarkup(),
                     cancellationToken: ct);
                 return;
             }
@@ -102,7 +102,7 @@ public class CommandHandler
                        "📋 /plan — личные дела с датой и временем\n" +
                        "⏱ /timer — таймер учёбы",
             parseMode: ParseMode.Html,
-            replyMarkup: BuildMiniAppLaunchMarkup(msg.Chat.Type),
+            replyMarkup: BuildMiniAppLinkMarkup(),
             cancellationToken: ct);
     }
 
@@ -131,7 +131,7 @@ public class CommandHandler
                        "/schedule — моё расписание занятий\n\n" +
                        "❓ /help — эта справка",
             parseMode: ParseMode.Html,
-            replyMarkup: BuildMiniAppLaunchMarkup(msg.Chat.Type),
+            replyMarkup: BuildMiniAppLinkMarkup(),
             cancellationToken: ct);
     }
 
@@ -149,6 +149,15 @@ public class CommandHandler
                 text: "Mini app пока не настроен. Укажи публичный WebAppUrl в конфигурации бота.",
                 cancellationToken: ct);
             return;
+        }
+
+        if (msg.Chat.Type == ChatType.Private)
+        {
+            await _bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: "Убрала нижнюю кнопку. Mini app теперь открывается аккуратной кнопкой в сообщении или через список команд.",
+                replyMarkup: new ReplyKeyboardRemove(),
+                cancellationToken: ct);
         }
 
         await _bot.SendMessage(
@@ -577,28 +586,6 @@ public class CommandHandler
                 InlineKeyboardButton.WithWebApp("Mini app", _webAppUrl)
             }
         });
-    }
-
-    private ReplyMarkup? BuildMiniAppLaunchMarkup(ChatType chatType)
-    {
-        if (string.IsNullOrWhiteSpace(_webAppUrl))
-            return null;
-
-        if (chatType != ChatType.Private)
-            return BuildMiniAppLinkMarkup();
-
-        return new ReplyKeyboardMarkup(new[]
-        {
-            new[]
-            {
-                new KeyboardButton("Mini app")
-            }
-        })
-        {
-            ResizeKeyboard = true,
-            IsPersistent = true,
-            InputFieldPlaceholder = "Нажми Mini app или напиши сообщение"
-        };
     }
 
     private static InlineKeyboardMarkup BuildReminderKeyboard(bool enabled)
