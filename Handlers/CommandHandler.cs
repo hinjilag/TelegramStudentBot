@@ -157,7 +157,7 @@ public class CommandHandler
             replyMarkup: BuildMiniAppLinkMarkup(),
             cancellationToken: ct);
 
-        await TryPinMiniAppMessageAsync(msg.Chat.Id, launchMessage.Id, ct);
+        await TryPinMiniAppMessageAsync(msg.Chat.Id, launchMessage, ct);
     }
 
     public async Task HandleTimerAsync(Message msg, CancellationToken ct)
@@ -581,13 +581,17 @@ public class CommandHandler
         });
     }
 
-    private async Task TryPinMiniAppMessageAsync(ChatId chatId, int messageId, CancellationToken ct)
+    private async Task TryPinMiniAppMessageAsync(ChatId chatId, Message launchMessage, CancellationToken ct)
     {
         try
         {
+            var chat = await _bot.GetChat(chatId, ct);
+            if (IsMiniAppPinned(chat.PinnedMessage))
+                return;
+
             await _bot.PinChatMessage(
                 chatId: chatId,
-                messageId: messageId,
+                messageId: launchMessage.Id,
                 disableNotification: true,
                 cancellationToken: ct);
         }
@@ -595,6 +599,17 @@ public class CommandHandler
         {
             // Закрепление не критично: в некоторых чатах у бота может не быть прав.
         }
+    }
+
+    private static bool IsMiniAppPinned(Message? pinnedMessage)
+    {
+        if (pinnedMessage is null)
+            return false;
+
+        return string.Equals(
+            pinnedMessage.Text?.Trim(),
+            "Открой mini app по кнопке ниже.",
+            StringComparison.Ordinal);
     }
 
     private static InlineKeyboardMarkup BuildReminderKeyboard(bool enabled)
