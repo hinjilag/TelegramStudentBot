@@ -154,7 +154,7 @@ public class CommandHandler
         await _bot.SendMessage(
             chatId: msg.Chat.Id,
             text: msg.Chat.Type == ChatType.Private
-                ? "Закрепил mini app кнопкой под полем ввода. Ещё её можно открыть через кнопку меню Telegram."
+                ? "Закрепил mini app кнопкой под полем ввода."
                 : "Открой mini app по кнопке ниже.",
             replyMarkup: BuildMiniAppLaunchMarkup(msg.Chat.Type),
             cancellationToken: ct);
@@ -576,7 +576,7 @@ public class CommandHandler
         {
             new[]
             {
-                InlineKeyboardButton.WithWebApp("🕹 Открыть mini app", _webAppUrl)
+                InlineKeyboardButton.WithWebApp("Mini app", _webAppUrl)
             }
         });
     }
@@ -593,13 +593,13 @@ public class CommandHandler
         {
             new[]
             {
-                KeyboardButton.WithWebApp("🕹 Открыть mini app", _webAppUrl)
+                KeyboardButton.WithWebApp("Mini app", _webAppUrl)
             }
         })
         {
             ResizeKeyboard = true,
             IsPersistent = true,
-            InputFieldPlaceholder = "Открой mini app или напиши сообщение"
+            InputFieldPlaceholder = "Mini app или сообщение"
         };
     }
 
