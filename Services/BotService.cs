@@ -16,14 +16,20 @@ public class BotService : IHostedService
     private readonly ITelegramBotClient _bot;
     private readonly UpdateRouter _router;
     private readonly ILogger<BotService> _logger;
+    private readonly string? _webAppUrl;
 
     private CancellationTokenSource? _cts;
 
-    public BotService(ITelegramBotClient bot, UpdateRouter router, ILogger<BotService> logger)
+    public BotService(
+        ITelegramBotClient bot,
+        UpdateRouter router,
+        ILogger<BotService> logger,
+        IConfiguration configuration)
     {
         _bot = bot;
         _router = router;
         _logger = logger;
+        _webAppUrl = ResolveWebAppUrl(configuration);
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -87,6 +93,35 @@ public class BotService : IHostedService
         {
             _logger.LogWarning(ex, "Не удалось зарегистрировать команды меню");
         }
+
+        await RegisterMiniAppMenuButtonAsync(ct);
+    }
+
+    private async Task RegisterMiniAppMenuButtonAsync(CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(_webAppUrl))
+        {
+            _logger.LogInformation("WebAppUrl не настроен, кнопку mini app в меню Telegram пропускаю");
+            return;
+        }
+
+        try
+        {
+            await _bot.SetChatMenuButton(
+                chatId: null,
+                menuButton: new MenuButtonWebApp
+                {
+                    Text = "Mini app",
+                    WebApp = new WebAppInfo(_webAppUrl)
+                },
+                cancellationToken: ct);
+
+            _logger.LogInformation("Кнопка mini app добавлена в меню Telegram");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Не удалось добавить кнопку mini app в меню Telegram");
+        }
     }
 
     private Task HandleErrorAsync(
@@ -97,5 +132,18 @@ public class BotService : IHostedService
     {
         _logger.LogError(ex, "Ошибка polling. Источник: {Source}", source);
         return Task.CompletedTask;
+    }
+
+    private static string? ResolveWebAppUrl(IConfiguration configuration)
+    {
+        var configuredUrl = configuration["WebAppUrl"];
+        if (!string.IsNullOrWhiteSpace(configuredUrl))
+            return configuredUrl;
+
+        var railwayDomain = configuration["RAILWAY_PUBLIC_DOMAIN"];
+        if (string.IsNullOrWhiteSpace(railwayDomain))
+            return null;
+
+        return $"https://{railwayDomain.TrimEnd('/')}/miniapp/";
     }
 }
