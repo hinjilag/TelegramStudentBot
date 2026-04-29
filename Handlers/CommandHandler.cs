@@ -151,20 +151,13 @@ public class CommandHandler
             return;
         }
 
-        if (msg.Chat.Type == ChatType.Private)
-        {
-            await _bot.SendMessage(
-                chatId: msg.Chat.Id,
-                text: "Убрала нижнюю кнопку. Mini app теперь открывается аккуратной кнопкой в сообщении или через список команд.",
-                replyMarkup: new ReplyKeyboardRemove(),
-                cancellationToken: ct);
-        }
-
-        await _bot.SendMessage(
+        var launchMessage = await _bot.SendMessage(
             chatId: msg.Chat.Id,
             text: "Открой mini app по кнопке ниже.",
             replyMarkup: BuildMiniAppLinkMarkup(),
             cancellationToken: ct);
+
+        await TryPinMiniAppMessageAsync(msg.Chat.Id, launchMessage.Id, ct);
     }
 
     public async Task HandleTimerAsync(Message msg, CancellationToken ct)
@@ -586,6 +579,22 @@ public class CommandHandler
                 InlineKeyboardButton.WithWebApp("Mini app", _webAppUrl)
             }
         });
+    }
+
+    private async Task TryPinMiniAppMessageAsync(ChatId chatId, int messageId, CancellationToken ct)
+    {
+        try
+        {
+            await _bot.PinChatMessage(
+                chatId: chatId,
+                messageId: messageId,
+                disableNotification: true,
+                cancellationToken: ct);
+        }
+        catch
+        {
+            // Закрепление не критично: в некоторых чатах у бота может не быть прав.
+        }
     }
 
     private static InlineKeyboardMarkup BuildReminderKeyboard(bool enabled)
