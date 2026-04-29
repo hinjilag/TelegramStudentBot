@@ -3,7 +3,7 @@
 const store = {
   root: document.getElementById("app"),
   toast: document.getElementById("toast"),
-  initData: tg?.initData || "",
+  initData: readTelegramInitData(),
   debugUserId: new URLSearchParams(window.location.search).get("devUserId") || "",
   state: null,
   activeView: "dashboard",
@@ -56,6 +56,7 @@ async function boot() {
   applyTheme(store.selectedTheme);
   tg?.ready();
   tg?.expand();
+  store.initData = readTelegramInitData();
 
   if (tg) {
     tg.setHeaderColor?.("#070816");
@@ -78,6 +79,10 @@ async function boot() {
 }
 
 async function api(path, options = {}) {
+  if (!store.initData) {
+    store.initData = readTelegramInitData();
+  }
+
   const headers = new Headers(options.headers || {});
   headers.set("Accept", "application/json");
 
@@ -1257,6 +1262,28 @@ function handleFatalError(error) {
       <p class="muted">Если открываешь mini app не из Telegram, добавь <code>?devUserId=...</code> и включи <code>MiniApp:AllowDebugAuth</code>.</p>
     </section>
   `;
+}
+
+function readTelegramInitData() {
+  if (tg?.initData) {
+    return tg.initData;
+  }
+
+  const queryInitData = new URLSearchParams(window.location.search).get("initData");
+  if (queryInitData) {
+    return queryInitData;
+  }
+
+  const hash = window.location.hash.startsWith("#")
+    ? window.location.hash.slice(1)
+    : window.location.hash;
+
+  if (!hash) {
+    return "";
+  }
+
+  const hashParams = new URLSearchParams(hash);
+  return hashParams.get("tgWebAppData") || "";
 }
 
 function escapeHtml(value) {
