@@ -20,7 +20,6 @@
   --base-font-size: 17px;
   --base-font-weight: 700;
   --font-base: "Segoe UI", -apple-system, BlinkMacSystemFont, "Roboto", sans-serif;
-  --font-pixel: "Silkscreen", "Courier New", monospace;
 }
 
 :root[data-theme="ember"] {
@@ -202,7 +201,7 @@ textarea {
   font-size: clamp(22px, 4vw, 34px);
   line-height: 0.95;
   font-weight: 700;
-  font-family: var(--font-pixel);
+  font-family: var(--font-base);
   letter-spacing: 0.04em;
 }
 
@@ -219,7 +218,7 @@ textarea {
 .subject-title,
 .schedule-day-title {
   font-weight: 700;
-  font-family: var(--font-pixel);
+  font-family: var(--font-base);
 }
 
 .theme-switcher {
@@ -290,7 +289,7 @@ textarea {
   padding: 7px 10px;
   font-size: 11px;
   line-height: 1;
-  font-family: var(--font-pixel);
+  font-family: var(--font-base);
   letter-spacing: 0.03em;
 }
 
@@ -533,7 +532,7 @@ textarea {
     linear-gradient(135deg, var(--accent-soft), rgba(255, 255, 255, 0.05));
   box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.2);
   font-weight: 700;
-  font-family: var(--font-pixel);
+  font-family: var(--font-base);
   letter-spacing: 0.03em;
 }
 
@@ -789,7 +788,7 @@ textarea {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--text);
-  font-family: var(--font-pixel);
+  font-family: var(--font-base);
   font-size: 11px;
   text-align: center;
 }
@@ -880,7 +879,7 @@ textarea {
 
 .sound-chip strong {
   font-size: 12px;
-  font-family: var(--font-pixel);
+  font-family: var(--font-base);
 }
 
 .sound-chip span {
@@ -1065,7 +1064,7 @@ textarea {
 .tabbar-label {
   font-size: 13px;
   font-weight: 700;
-  font-family: var(--font-pixel);
+  font-family: var(--font-base);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
