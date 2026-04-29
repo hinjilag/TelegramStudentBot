@@ -1094,7 +1094,7 @@ public class TextHandler
         await _bot.SendMessage(
             chatId: msg.Chat.Id,
             text: targetIsGroup
-                ? $"⏰ Готово! Буду {FormatGroupFrequencyText(groupFrequency)} в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК писать в этот чат общие дедлайны на завтра и отмечать участников, которых уже видел в группе."
+                ? $"⏰ Готово! Буду присылать напоминания {FormatGroupFrequencyText(groupFrequency)} в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК и отмечать участников, которых уже видел в группе."
                 : $"⏰ Готово! Буду каждый день в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК присылать дедлайны на завтра.\n\n" +
                   BuildBasicCommandsText(),
             parseMode: ParseMode.Html,

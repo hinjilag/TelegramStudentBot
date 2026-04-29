@@ -463,8 +463,8 @@ public class CallbackHandler
                     await _bot.EditMessageText(
                         chatId: chatId,
                         messageId: message.MessageId,
-                        text: "⏰ <b>Как часто присылать напоминания?</b>\n\n" +
-                              "Сначала выбери удобную частоту, потом я спрошу время.",
+                        text: "⏰ <b>Настроим напоминания для группы</b>\n\n" +
+                              "Как часто их присылать?",
                         parseMode: ParseMode.Html,
                         replyMarkup: BuildGroupReminderFrequencyKeyboard(),
                         cancellationToken: ct);
@@ -497,7 +497,7 @@ public class CallbackHandler
                 await _bot.EditMessageText(
                     chatId: chatId,
                     messageId: message.MessageId,
-                    text: $"⏰ <b>Во сколько удобно присылать напоминания {FormatGroupFrequencyText(session.PendingGroupReminderFrequency.Value)}?</b>\n\n" +
+                    text: $"⏰ <b>Во сколько присылать напоминания {FormatGroupFrequencyText(session.PendingGroupReminderFrequency.Value)}?</b>\n\n" +
                           "Напиши время в формате <b>ЧЧ:ММ</b>, например <b>20:00</b>.\n" +
                           "Я пришлю сообщение в этот чат и отмечу участников, которых уже видел в группе.",
                     parseMode: ParseMode.Html,
@@ -518,7 +518,7 @@ public class CallbackHandler
                     chatId: chatId,
                     messageId: message.MessageId,
                     text: isGroup
-                        ? "Хорошо, настроить напоминания для этой группы можно позже через /reminders."
+                        ? "Хорошо. Настроить напоминания для этой группы можно позже через /reminders."
                         : "Хорошо, не буду напоминать. Настроить можно в любой момент через /reminders.\n\n" +
                           BuildBasicCommandsText(),
                     cancellationToken: ct);
@@ -540,7 +540,7 @@ public class CallbackHandler
                     chatId: chatId,
                     messageId: message.MessageId,
                     text: isGroup
-                        ? "⏰ Групповые напоминания выключены. Включить снова можно через /reminders."
+                        ? "⏰ Напоминания для этой группы выключены. Включить снова можно через /reminders."
                         : "⏰ Напоминания выключены. Включить снова можно через /reminders.",
                     cancellationToken: ct);
                 return;

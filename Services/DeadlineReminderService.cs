@@ -178,7 +178,7 @@ public class DeadlineReminderService : BackgroundService
         IReadOnlyCollection<Models.GroupParticipant> participants)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"⏰ <b>Общие дедлайны на завтра ({deadlineDate:dd.MM.yyyy})</b>");
+        sb.AppendLine($"⏰ <b>Что нужно сдать завтра — {deadlineDate:dd.MM.yyyy}</b>");
         sb.AppendLine();
 
         foreach (var task in tasks)
@@ -189,6 +189,12 @@ public class DeadlineReminderService : BackgroundService
             if (!string.IsNullOrWhiteSpace(task.CreatedByName))
                 sb.AppendLine($"👤 {Escape(task.CreatedByName)}");
 
+            sb.AppendLine();
+        }
+
+        if (participants.Count == 0)
+        {
+            sb.AppendLine("Чтобы я отмечал людей в таких напоминаниях, участникам нужно хотя бы раз проявиться в чате.");
             sb.AppendLine();
         }
 
