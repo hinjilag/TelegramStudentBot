@@ -915,16 +915,17 @@ textarea {
 
 .focus-grid .sound-chip {
   gap: 5px;
-  padding: 11px 10px;
+  padding: 13px 12px;
   border-radius: 14px;
 }
 
 .focus-grid .sound-chip strong {
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .focus-grid .sound-chip span {
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .native-input-field input[type="date"],
@@ -964,10 +965,11 @@ textarea {
 
 .focus-grid .timer-inline-form input {
   width: 100%;
-  max-width: 118px;
-  min-height: 44px;
-  padding-top: 8px;
-  padding-bottom: 8px;
+  max-width: 138px;
+  min-height: 50px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  font-size: 16px;
 }
 
 .focus-grid .timer-inline-form .pixel-button {
@@ -1161,7 +1163,36 @@ textarea {
     grid-template-columns: 1fr;
   }
 
-  .timer-inline-form {
-    flex-direction: column;
+  .focus-grid .sound-chip {
+    gap: 7px;
+    padding: 15px 14px;
+  }
+
+  .focus-grid .sound-chip strong {
+    font-size: 14px;
+  }
+
+  .focus-grid .sound-chip span {
+    font-size: 13px;
+  }
+
+  .focus-grid .timer-inline-form {
+    grid-template-columns: minmax(132px, 1fr) max-content;
+    gap: 10px;
+  }
+
+  .focus-grid .timer-inline-form input {
+    max-width: 100%;
+    min-height: 54px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    padding-left: 14px;
+    font-size: 17px;
+  }
+
+  .focus-grid .timer-inline-form .pixel-button {
+    min-height: 54px;
+    padding: 10px 14px;
+    font-size: 13px;
   }
 }
