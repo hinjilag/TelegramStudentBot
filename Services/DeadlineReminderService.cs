@@ -17,6 +17,7 @@ public class DeadlineReminderService : BackgroundService
     private readonly GroupParticipantStorageService _groupParticipants;
     private readonly ILogger<DeadlineReminderService> _logger;
     private readonly TimeZoneInfo _moscowTimeZone;
+    private DateTime? _lastGroupCleanupDate;
 
     public DeadlineReminderService(
         ITelegramBotClient bot,
@@ -65,6 +66,9 @@ public class DeadlineReminderService : BackgroundService
         var allSettings = _reminders.GetAll();
         var allTasks = _tasks.GetAll();
         var allGroupSettings = _groupReminders.GetAll();
+
+        RunGroupHomeworkCleanupIfNeeded(now, today, allGroupSettings);
+
         var allGroupTasks = _groupTasks.GetAll();
 
         foreach (var (userId, settings) in allSettings)
@@ -150,6 +154,41 @@ public class DeadlineReminderService : BackgroundService
 
             _groupReminders.MarkNotificationChecked(chatId, today);
         }
+    }
+
+    private void RunGroupHomeworkCleanupIfNeeded(
+        DateTime now,
+        DateTime today,
+        IReadOnlyDictionary<long, Models.GroupReminderSettings> allGroupSettings)
+    {
+        if (now.Hour != 0 || now.Minute != 5 || _lastGroupCleanupDate?.Date == today)
+            return;
+
+        var allGroupTasks = _groupTasks.GetAll();
+
+        foreach (var (chatId, tasks) in allGroupTasks)
+        {
+            var activeTasks = tasks
+                .Where(task => !(task.Deadline.HasValue && task.Deadline.Value.Date < today))
+                .ToList();
+
+            if (activeTasks.Count == tasks.Count)
+                continue;
+
+            var chatTitle = allGroupSettings.TryGetValue(chatId, out var settings)
+                ? settings.ChatTitle
+                : null;
+
+            _groupTasks.Save(chatId, chatTitle, activeTasks);
+
+            _logger.LogInformation(
+                "Удалены просроченные групповые ДЗ в чате {ChatId}. Было: {Before}, осталось: {After}",
+                chatId,
+                tasks.Count,
+                activeTasks.Count);
+        }
+
+        _lastGroupCleanupDate = today;
     }
 
     private DateTime GetMoscowNow()

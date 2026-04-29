@@ -3,7 +3,6 @@ using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
 using TelegramStudentBot.Models;
-using TelegramStudentBot.MiniApp;
 using TelegramStudentBot.Services;
 using System.Net;
 
@@ -26,9 +25,7 @@ public class CommandHandler
     private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
     private readonly UserFeatureIntroService _featureIntros;
     private readonly BotVisitLogService _visits;
-    private readonly GroupMiniAppAccessService _groupMiniAppAccess;
     private readonly string? _webAppUrl;
-    private readonly string? _groupWebAppUrl;
 
     public CommandHandler(
         ITelegramBotClient bot,
@@ -42,7 +39,6 @@ public class CommandHandler
         HomeworkSubjectPreferencesService homeworkSubjects,
         UserFeatureIntroService featureIntros,
         BotVisitLogService visits,
-        GroupMiniAppAccessService groupMiniAppAccess,
         IConfiguration configuration)
     {
         _bot = bot;
@@ -56,9 +52,7 @@ public class CommandHandler
         _homeworkSubjects = homeworkSubjects;
         _featureIntros = featureIntros;
         _visits = visits;
-        _groupMiniAppAccess = groupMiniAppAccess;
         _webAppUrl = ResolveWebAppUrl(configuration);
-        _groupWebAppUrl = ResolveGroupWebAppUrl(configuration);
     }
 
     // ══════════════════════════════════════════════════════════
@@ -79,7 +73,7 @@ public class CommandHandler
                       "📅 /schedule — выбрать расписание для этой группы\n" +
                       "➕ /add_homework — добавить общее ДЗ\n" +
                       "📝 /homework — открыть общий список ДЗ\n" +
-                      "📱 /miniapp — открыть групповой mini app\n" +
+                      "📱 /miniapp — открыть mini app группы\n" +
                       "⏰ /reminders — настроить напоминания в этот чат\n" +
                       "❓ /help — показать команды\n\n" +
                       "Таймеры и личный планер работают только в личке.",
@@ -192,19 +186,9 @@ public class CommandHandler
     {
         if (IsGroupChat(msg.Chat.Type))
         {
-            if (string.IsNullOrWhiteSpace(_groupWebAppUrl))
-            {
-                await _bot.SendMessage(
-                    chatId: msg.Chat.Id,
-                    text: "Групповой mini app пока не настроен. Укажи публичный WebAppUrl в конфигурации бота.",
-                    cancellationToken: ct);
-                return;
-            }
-
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,
-                text: "Открой mini app группы по кнопке ниже.",
-                replyMarkup: BuildGroupMiniAppLinkMarkup(msg.Chat.Id),
+                text: "Групповой mini app пока не запускается прямо из чата: Telegram не даёт открыть такую кнопку в группе.\n\nПока используй здесь /schedule, /add_homework, /homework и /reminders.",
                 cancellationToken: ct);
             return;
         }
@@ -845,21 +829,6 @@ public class CommandHandler
         });
     }
 
-    private InlineKeyboardMarkup? BuildGroupMiniAppLinkMarkup(long chatId)
-    {
-        var url = BuildGroupWebAppUrl(chatId);
-        if (string.IsNullOrWhiteSpace(url))
-            return null;
-
-        return new InlineKeyboardMarkup(new[]
-        {
-            new[]
-            {
-                InlineKeyboardButton.WithWebApp("Mini app группы", url)
-            }
-        });
-    }
-
     private static InlineKeyboardMarkup BuildGroupReminderKeyboard(bool enabled)
     {
         if (!enabled)
@@ -894,30 +863,6 @@ public class CommandHandler
             return null;
 
         return $"https://{railwayDomain.TrimEnd('/')}/miniapp/";
-    }
-
-    private static string? ResolveGroupWebAppUrl(IConfiguration configuration)
-    {
-        var privateUrl = ResolveWebAppUrl(configuration);
-        if (string.IsNullOrWhiteSpace(privateUrl) || !Uri.TryCreate(privateUrl, UriKind.Absolute, out var uri))
-            return null;
-
-        var builder = new UriBuilder(uri)
-        {
-            Path = "/group-miniapp/",
-            Query = string.Empty
-        };
-
-        return builder.Uri.ToString();
-    }
-
-    private string? BuildGroupWebAppUrl(long chatId)
-    {
-        if (string.IsNullOrWhiteSpace(_groupWebAppUrl))
-            return null;
-
-        var separator = _groupWebAppUrl.Contains('?') ? "&" : "?";
-        return $"{_groupWebAppUrl}{separator}chatId={chatId}&groupToken={_groupMiniAppAccess.CreateToken(chatId)}";
     }
 
     private Task SendGroupModeUnavailableAsync(long chatId, string featureName, CancellationToken ct)

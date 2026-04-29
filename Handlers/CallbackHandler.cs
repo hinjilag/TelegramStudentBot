@@ -16,6 +16,7 @@ public class CallbackHandler
     private readonly ScheduleCatalogService _scheduleCatalog;
     private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly ReminderSettingsService _reminders;
+    private readonly GroupStudyTaskStorageService _groupTasks;
     private readonly GroupReminderSettingsService _groupReminders;
     private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
 
@@ -26,6 +27,7 @@ public class CallbackHandler
         ScheduleCatalogService scheduleCatalog,
         UserScheduleSelectionService scheduleSelections,
         ReminderSettingsService reminders,
+        GroupStudyTaskStorageService groupTasks,
         GroupReminderSettingsService groupReminders,
         HomeworkSubjectPreferencesService homeworkSubjects)
     {
@@ -35,6 +37,7 @@ public class CallbackHandler
         _scheduleCatalog = scheduleCatalog;
         _scheduleSelections = scheduleSelections;
         _reminders = reminders;
+        _groupTasks = groupTasks;
         _groupReminders = groupReminders;
         _homeworkSubjects = homeworkSubjects;
     }
@@ -891,6 +894,12 @@ public class CallbackHandler
         var message = query.Message!;
         var chatId = message.Chat.Id;
 
+        if (IsGroupChat(message.Chat.Type))
+        {
+            await HandleGroupTaskAsync(message, data, ct);
+            return;
+        }
+
         if (data == "task_back")
         {
             await RefreshTaskListMessageAsync(message, session, ct);
@@ -965,6 +974,76 @@ public class CallbackHandler
     private async Task RefreshTaskListMessageAsync(Message message, UserSession session, CancellationToken ct)
     {
         var view = HomeworkListView.Build(session);
+        await _bot.EditMessageText(
+            chatId: message.Chat.Id,
+            messageId: message.MessageId,
+            text: view.Text,
+            parseMode: ParseMode.Html,
+            replyMarkup: view.Keyboard,
+            cancellationToken: ct);
+    }
+
+    private async Task HandleGroupTaskAsync(Message message, string data, CancellationToken ct)
+    {
+        var chatId = message.Chat.Id;
+        var chatTitle = message.Chat.Title ?? "Group";
+
+        if (data == "task_group_back")
+        {
+            await RefreshGroupTaskListMessageAsync(message, ct);
+            return;
+        }
+
+        if (data == "task_group_choose_del")
+        {
+            var choiceView = HomeworkListView.BuildGroupDeleteChoice(chatTitle, _groupTasks.Get(chatId));
+            await _bot.EditMessageText(
+                chatId: chatId,
+                messageId: message.MessageId,
+                text: choiceView.Text,
+                parseMode: ParseMode.Html,
+                replyMarkup: choiceView.Keyboard,
+                cancellationToken: ct);
+            return;
+        }
+
+        if (data.StartsWith("task_group_del_"))
+        {
+            var shortId = data["task_group_del_".Length..];
+            var task = _groupTasks.Get(chatId).FirstOrDefault(t => t.ShortId == shortId);
+            if (task is null)
+            {
+                await RefreshGroupTaskListMessageAsync(message, ct);
+                return;
+            }
+
+            var confirmation = HomeworkListView.BuildGroupDeleteConfirmation(task);
+            await _bot.EditMessageText(
+                chatId: chatId,
+                messageId: message.MessageId,
+                text: confirmation.Text,
+                parseMode: ParseMode.Html,
+                replyMarkup: confirmation.Keyboard,
+                cancellationToken: ct);
+            return;
+        }
+
+        if (data.StartsWith("task_group_confirmdel_"))
+        {
+            var shortId = data["task_group_confirmdel_".Length..];
+            var tasks = _groupTasks.Get(chatId);
+            var removed = tasks.RemoveAll(t => t.ShortId == shortId) > 0;
+
+            if (removed)
+                _groupTasks.Save(chatId, message.Chat.Title, tasks);
+
+            await RefreshGroupTaskListMessageAsync(message, ct);
+        }
+    }
+
+    private async Task RefreshGroupTaskListMessageAsync(Message message, CancellationToken ct)
+    {
+        var view = HomeworkListView.BuildGroup(message.Chat.Title ?? "Group", _groupTasks.Get(message.Chat.Id));
         await _bot.EditMessageText(
             chatId: message.Chat.Id,
             messageId: message.MessageId,

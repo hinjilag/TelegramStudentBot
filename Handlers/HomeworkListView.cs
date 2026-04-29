@@ -61,7 +61,67 @@ internal static class HomeworkListView
 
         var sb = new StringBuilder();
         BuildTaskSummary(sb, active, completed, $"📚 <b>Общие домашние задания</b>\nЧат: <b>{Escape(chatTitle)}</b>", includeAuthor: true);
-        return (sb.ToString().TrimEnd(), null);
+        return (sb.ToString().TrimEnd(), BuildGroupKeyboard(active.Count));
+    }
+
+    internal static (string Text, InlineKeyboardMarkup? Keyboard) BuildGroupDeleteChoice(
+        string chatTitle,
+        IReadOnlyCollection<StudyTask> tasks)
+    {
+        var active = tasks
+            .Where(t => !t.IsCompleted && !TaskSubjects.IsPersonal(t.Subject))
+            .OrderBy(t => t.Deadline ?? DateTime.MaxValue)
+            .ThenBy(t => t.CreatedAt)
+            .ToList();
+
+        if (active.Count == 0)
+            return BuildGroup(chatTitle, tasks);
+
+        var rows = active
+            .Take(ActiveLimit)
+            .Select((task, index) => new[]
+            {
+                InlineKeyboardButton.WithCallbackData(
+                    $"🗑 {index + 1}. {TrimButtonText(task.Title)}",
+                    $"task_group_del_{task.ShortId}")
+            })
+            .Append(new[]
+            {
+                InlineKeyboardButton.WithCallbackData("⬅️ Назад", "task_group_back")
+            });
+
+        var text = new StringBuilder();
+        text.AppendLine("🗑 <b>Удаление общего ДЗ</b>");
+        text.AppendLine($"Чат: <b>{Escape(chatTitle)}</b>");
+        text.AppendLine();
+        text.AppendLine("Выбери задание, которое нужно удалить:");
+        text.AppendLine();
+
+        for (var i = 0; i < Math.Min(active.Count, ActiveLimit); i++)
+        {
+            var task = active[i];
+            var deadlineText = task.Deadline.HasValue
+                ? task.Deadline.Value.ToString("dd.MM.yyyy")
+                : "без дедлайна";
+
+            text.AppendLine($"{i + 1}. <b>{Escape(task.Title)}</b>");
+            text.AppendLine($"   📚 {Escape(task.Subject)}");
+            text.AppendLine($"   📅 {deadlineText}");
+
+            if (!string.IsNullOrWhiteSpace(task.CreatedByName))
+                text.AppendLine($"   👤 {Escape(task.CreatedByName)}");
+
+            if (i < Math.Min(active.Count, ActiveLimit) - 1)
+                text.AppendLine();
+        }
+
+        if (active.Count > ActiveLimit)
+        {
+            text.AppendLine();
+            text.AppendLine($"Показаны первые {ActiveLimit}. Ещё: {active.Count - ActiveLimit}.");
+        }
+
+        return (text.ToString().TrimEnd(), new InlineKeyboardMarkup(rows));
     }
 
     internal static (string Text, InlineKeyboardMarkup Keyboard) BuildCompleted(UserSession session)
@@ -165,6 +225,35 @@ internal static class HomeworkListView
             }));
     }
 
+    internal static (string Text, InlineKeyboardMarkup Keyboard) BuildGroupDeleteConfirmation(StudyTask task)
+    {
+        var deadlineText = task.Deadline.HasValue
+            ? task.Deadline.Value.ToString("dd.MM.yyyy")
+            : "без дедлайна";
+
+        var authorLine = string.IsNullOrWhiteSpace(task.CreatedByName)
+            ? string.Empty
+            : $"\n👤 {Escape(task.CreatedByName)}";
+
+        return (
+            "Точно удалить это общее ДЗ?\n\n" +
+            $"<b>{Escape(task.Title)}</b>\n" +
+            $"📚 {Escape(task.Subject)}\n" +
+            $"📅 {deadlineText}" +
+            authorLine,
+            new InlineKeyboardMarkup(new[]
+            {
+                new[]
+                {
+                    InlineKeyboardButton.WithCallbackData("🗑 Да, удалить", $"task_group_confirmdel_{task.ShortId}")
+                },
+                new[]
+                {
+                    InlineKeyboardButton.WithCallbackData("⬅️ Назад", "task_group_choose_del")
+                }
+            }));
+    }
+
     private static InlineKeyboardMarkup? BuildKeyboard(List<StudyTask> active, int completedCount)
     {
         if (active.Count == 0 && completedCount == 0)
@@ -193,6 +282,20 @@ internal static class HomeworkListView
         }
 
         return new InlineKeyboardMarkup(rows);
+    }
+
+    private static InlineKeyboardMarkup? BuildGroupKeyboard(int activeCount)
+    {
+        if (activeCount == 0)
+            return null;
+
+        return new InlineKeyboardMarkup(new[]
+        {
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("🗑 Удалить ДЗ", "task_group_choose_del")
+            }
+        });
     }
 
     private static List<StudyTask> GetActiveTasks(UserSession session)
