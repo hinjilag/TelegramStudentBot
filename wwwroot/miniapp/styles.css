@@ -19,6 +19,8 @@
   --radius: 18px;
   --base-font-size: 17px;
   --base-font-weight: 700;
+  --font-base: "Segoe UI", -apple-system, BlinkMacSystemFont, "Roboto", sans-serif;
+  --font-pixel: "Silkscreen", "Courier New", monospace;
 }
 
 :root[data-theme="ember"] {
@@ -45,7 +47,7 @@ html,
 body {
   margin: 0;
   min-height: 100%;
-  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  font-family: var(--font-base);
   font-size: var(--base-font-size);
   font-weight: var(--base-font-weight);
   line-height: 1.45;
@@ -138,7 +140,7 @@ textarea {
   color: var(--accent);
   letter-spacing: 0.14em;
   font-size: 12px;
-  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  font-family: var(--font-base);
 }
 
 .boot-copy,
@@ -200,7 +202,7 @@ textarea {
   font-size: clamp(22px, 4vw, 34px);
   line-height: 0.95;
   font-weight: 700;
-  font-family: "Silkscreen", "Courier New", monospace;
+  font-family: var(--font-pixel);
   letter-spacing: 0.04em;
 }
 
@@ -217,7 +219,7 @@ textarea {
 .subject-title,
 .schedule-day-title {
   font-weight: 700;
-  font-family: "Silkscreen", "Courier New", monospace;
+  font-family: var(--font-pixel);
 }
 
 .theme-switcher {
@@ -241,7 +243,7 @@ textarea {
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  font-family: var(--font-base);
 }
 
 .theme-chip,
@@ -288,7 +290,7 @@ textarea {
   padding: 7px 10px;
   font-size: 11px;
   line-height: 1;
-  font-family: "Silkscreen", "Courier New", monospace;
+  font-family: var(--font-pixel);
   letter-spacing: 0.03em;
 }
 
@@ -469,7 +471,7 @@ textarea {
   place-items: center;
   background: linear-gradient(135deg, var(--accent-soft), rgba(255, 255, 255, 0.08));
   color: var(--accent);
-  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  font-family: var(--font-base);
   font-weight: 700;
 }
 
@@ -531,7 +533,7 @@ textarea {
     linear-gradient(135deg, var(--accent-soft), rgba(255, 255, 255, 0.05));
   box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.2);
   font-weight: 700;
-  font-family: "Silkscreen", "Courier New", monospace;
+  font-family: var(--font-pixel);
   letter-spacing: 0.03em;
 }
 
@@ -626,7 +628,7 @@ textarea {
   gap: 8px;
   padding: 7px 11px;
   font-size: 12px;
-  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  font-family: var(--font-base);
 }
 
 .status-action {
@@ -663,7 +665,7 @@ textarea {
 .status-action-title {
   font-size: 14px;
   line-height: 1.3;
-  font-family: "Silkscreen", "Courier New", monospace;
+  font-family: var(--font-pixel);
 }
 
 .tag.success {
@@ -787,7 +789,7 @@ textarea {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--text);
-  font-family: "Silkscreen", "Courier New", monospace;
+  font-family: var(--font-pixel);
   font-size: 11px;
   text-align: center;
 }
@@ -837,7 +839,7 @@ textarea {
   margin: 8px 0 0;
   font-size: clamp(38px, 7vw, 62px);
   letter-spacing: 0.08em;
-  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  font-family: var(--font-base);
 }
 
 .sound-panel {
@@ -878,7 +880,7 @@ textarea {
 
 .sound-chip strong {
   font-size: 12px;
-  font-family: "Silkscreen", "Courier New", monospace;
+  font-family: var(--font-pixel);
 }
 
 .sound-chip span {
@@ -1048,7 +1050,7 @@ textarea {
 }
 
 .tabbar-icon {
-  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  font-family: var(--font-base);
   font-size: 40px;
   line-height: 1;
   transform: translateY(1px);
@@ -1058,7 +1060,7 @@ textarea {
 .tabbar-label {
   font-size: 13px;
   font-weight: 700;
-  font-family: "Silkscreen", "Courier New", monospace;
+  font-family: var(--font-pixel);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
