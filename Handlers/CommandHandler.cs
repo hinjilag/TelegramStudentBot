@@ -2,6 +2,7 @@ using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
+using TelegramStudentBot.MiniApp;
 using TelegramStudentBot.Models;
 using TelegramStudentBot.Services;
 using System.Net;
@@ -25,7 +26,10 @@ public class CommandHandler
     private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
     private readonly UserFeatureIntroService _featureIntros;
     private readonly BotVisitLogService _visits;
+    private readonly BotIdentityService _botIdentity;
+    private readonly GroupMiniAppAccessService _groupMiniAppAccess;
     private readonly string? _webAppUrl;
+    private readonly string? _groupMiniAppShortName;
 
     public CommandHandler(
         ITelegramBotClient bot,
@@ -39,6 +43,8 @@ public class CommandHandler
         HomeworkSubjectPreferencesService homeworkSubjects,
         UserFeatureIntroService featureIntros,
         BotVisitLogService visits,
+        BotIdentityService botIdentity,
+        GroupMiniAppAccessService groupMiniAppAccess,
         IConfiguration configuration)
     {
         _bot = bot;
@@ -52,7 +58,10 @@ public class CommandHandler
         _homeworkSubjects = homeworkSubjects;
         _featureIntros = featureIntros;
         _visits = visits;
+        _botIdentity = botIdentity;
+        _groupMiniAppAccess = groupMiniAppAccess;
         _webAppUrl = ResolveWebAppUrl(configuration);
+        _groupMiniAppShortName = configuration["GroupMiniAppShortName"];
     }
 
     // ══════════════════════════════════════════════════════════
@@ -186,9 +195,20 @@ public class CommandHandler
     {
         if (IsGroupChat(msg.Chat.Type))
         {
+            var groupMarkup = BuildGroupMiniAppLinkMarkup(msg.Chat.Id);
+            if (groupMarkup is null)
+            {
+                await _bot.SendMessage(
+                    chatId: msg.Chat.Id,
+                    text: "Групповой mini app пока не настроен до конца. Нужен short name mini app в конфиге бота, чтобы открыть его через Telegram direct link.",
+                    cancellationToken: ct);
+                return;
+            }
+
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,
-                text: "Групповой mini app пока не запускается прямо из чата: Telegram не даёт открыть такую кнопку в группе.\n\nПока используй здесь /schedule, /add_homework, /homework и /reminders.",
+                text: "Открой mini app группы по кнопке ниже.",
+                replyMarkup: groupMarkup,
                 cancellationToken: ct);
             return;
         }
@@ -743,6 +763,34 @@ public class CommandHandler
                 InlineKeyboardButton.WithWebApp("Mini app", _webAppUrl)
             }
         });
+    }
+
+    private InlineKeyboardMarkup? BuildGroupMiniAppLinkMarkup(long chatId)
+    {
+        var groupUrl = BuildGroupMiniAppUrl(chatId);
+        if (string.IsNullOrWhiteSpace(groupUrl))
+            return null;
+
+        return new InlineKeyboardMarkup(new[]
+        {
+            new[]
+            {
+                InlineKeyboardButton.WithUrl("Mini app", groupUrl)
+            }
+        });
+    }
+
+    private string? BuildGroupMiniAppUrl(long chatId)
+    {
+        if (string.IsNullOrWhiteSpace(_botIdentity.Username) ||
+            string.IsNullOrWhiteSpace(_groupMiniAppShortName))
+        {
+            return null;
+        }
+
+        var token = _groupMiniAppAccess.CreateToken(chatId);
+        var startParam = $"chat-{chatId}-{token}";
+        return $"https://t.me/{_botIdentity.Username}/{_groupMiniAppShortName}?startapp={startParam}&mode=compact";
     }
 
     private async Task SendGroupHomeworkSubjectChoiceAsync(

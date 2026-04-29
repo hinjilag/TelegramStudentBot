@@ -333,6 +333,30 @@ public static class MiniAppEndpointExtensions
             }
         });
 
+        groupMiniApp.MapDelete("/homework/{taskId}", async (
+            HttpContext httpContext,
+            MiniAppAuthService auth,
+            GroupMiniAppAccessService access,
+            GroupMiniAppService miniAppService,
+            string taskId) =>
+        {
+            if (!auth.TryAuthenticate(httpContext, out var identity, out var authError))
+                return Results.Json(new { error = authError }, statusCode: StatusCodes.Status401Unauthorized);
+
+            if (!access.TryResolveChatAccess(httpContext, identity!, out var chatId, out var accessError))
+                return Results.Json(new { error = accessError }, statusCode: StatusCodes.Status403Forbidden);
+
+            try
+            {
+                miniAppService.DeleteHomework(chatId, taskId);
+                return Results.Ok(miniAppService.GetState(identity!, chatId));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.Json(new { error = ex.Message }, statusCode: StatusCodes.Status400BadRequest);
+            }
+        });
+
         groupMiniApp.MapPut("/reminders", async (
             HttpContext httpContext,
             MiniAppAuthService auth,

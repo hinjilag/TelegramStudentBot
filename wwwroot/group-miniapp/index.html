@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#070816">
+  <title>assisKent Group Mini App</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/miniapp/styles.css?v=20260429h">
+  <link rel="stylesheet" href="/group-miniapp/styles.css?v=20260429a">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="ambient ambient-a"></div>
+    <div class="ambient ambient-b"></div>
+    <div class="scanlines" aria-hidden="true"></div>
+    <main id="app" class="app-root">
+      <section class="boot-card panel">
+        <p class="eyebrow">GROUP_MODE</p>
+        <h1>assisKent // Group Mini App</h1>
+        <p class="boot-copy">Загружаю расписание группы, общее ДЗ и напоминания...</p>
+      </section>
+    </main>
+    <div id="toast" class="toast" hidden></div>
+  </div>
+  <script type="module" src="/group-miniapp/app.js?v=20260429a"></script>
+</body>
+</html>

@@ -15,6 +15,7 @@ public class BotService : IHostedService
 {
     private readonly ITelegramBotClient _bot;
     private readonly UpdateRouter _router;
+    private readonly BotIdentityService _identity;
     private readonly ILogger<BotService> _logger;
 
     private CancellationTokenSource? _cts;
@@ -22,16 +23,19 @@ public class BotService : IHostedService
     public BotService(
         ITelegramBotClient bot,
         UpdateRouter router,
+        BotIdentityService identity,
         ILogger<BotService> logger)
     {
         _bot = bot;
         _router = router;
+        _identity = identity;
         _logger = logger;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         var me = await _bot.GetMe(cancellationToken);
+        _identity.SetUsername(me.Username);
         _logger.LogInformation("Бот запущен: @{Username} (ID: {Id})", me.Username, me.Id);
 
         await RegisterCommandsAsync(cancellationToken);

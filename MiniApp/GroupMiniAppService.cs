@@ -165,6 +165,20 @@ public class GroupMiniAppService
         _groupTasks.Save(chatId, chatTitle, tasks);
     }
 
+    public void DeleteHomework(long chatId, string taskId)
+    {
+        if (string.IsNullOrWhiteSpace(taskId))
+            throw new InvalidOperationException("Не указано задание для удаления.");
+
+        var tasks = _groupTasks.Get(chatId);
+        var removed = tasks.RemoveAll(task => string.Equals(task.ShortId, taskId, StringComparison.OrdinalIgnoreCase)) > 0;
+        if (!removed)
+            throw new InvalidOperationException("Задание не найдено.");
+
+        var chatTitle = _groupReminders.Get(chatId).ChatTitle;
+        _groupTasks.Save(chatId, chatTitle, tasks);
+    }
+
     public void UpdateReminder(long chatId, GroupMiniAppReminderUpdateRequest request)
     {
         if (!request.IsEnabled)
