@@ -665,7 +665,7 @@ textarea {
 .status-action-title {
   font-size: 14px;
   line-height: 1.3;
-  font-family: var(--font-pixel);
+  font-family: var(--font-base);
 }
 
 .tag.success {
@@ -1057,6 +1057,11 @@ textarea {
   text-shadow: 0 0 24px rgba(255, 255, 255, 0.28);
 }
 
+.tabbar-button[data-view="reminders"] .tabbar-icon {
+  font-size: 44px;
+  transform: translateY(0);
+}
+
 .tabbar-label {
   font-size: 13px;
   font-weight: 700;
@@ -1155,6 +1160,10 @@ textarea {
 
   .tabbar-icon {
     font-size: 34px;
+  }
+
+  .tabbar-button[data-view="reminders"] .tabbar-icon {
+    font-size: 38px;
   }
 
   .tabbar-label {

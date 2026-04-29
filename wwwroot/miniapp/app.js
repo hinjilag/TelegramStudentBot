@@ -35,7 +35,7 @@ const VIEW_META = {
   focus: { label: "Фокус", shortLabel: "Фокус", icon: "◎", eyebrow: "ТАЙМЕР" }
 };
 
-VIEW_META.reminders = { label: "Напоминания", shortLabel: "Напом.", icon: "◌", eyebrow: "НАПОМИНАНИЯ" };
+VIEW_META.reminders = { label: "Напоминания", shortLabel: "Напом.", icon: "◷", eyebrow: "НАПОМИНАНИЯ" };
 
 const TIMER_SOUND_META = {
   off: { label: "Тишина", hint: "без фонового звука" },
