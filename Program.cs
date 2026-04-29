@@ -31,7 +31,9 @@ Console.WriteLine($"[DEBUG] Токен считан. Длина: {token.Length} 
 builder.Services.AddSingleton<ITelegramBotClient>(_ => new TelegramBotClient(token));
 
 builder.Services.AddSingleton<StudyTaskStorageService>();
+builder.Services.AddSingleton<GroupStudyTaskStorageService>();
 builder.Services.AddSingleton<ReminderSettingsService>();
+builder.Services.AddSingleton<GroupReminderSettingsService>();
 builder.Services.AddSingleton<HomeworkSubjectPreferencesService>();
 builder.Services.AddSingleton<UserProfileStorageService>();
 builder.Services.AddSingleton<UserFeatureIntroService>();

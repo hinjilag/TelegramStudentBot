@@ -11,7 +11,9 @@ public class DeadlineReminderService : BackgroundService
 {
     private readonly ITelegramBotClient _bot;
     private readonly StudyTaskStorageService _tasks;
+    private readonly GroupStudyTaskStorageService _groupTasks;
     private readonly ReminderSettingsService _reminders;
+    private readonly GroupReminderSettingsService _groupReminders;
     private readonly ILogger<DeadlineReminderService> _logger;
     private readonly TimeZoneInfo _moscowTimeZone;
 
@@ -19,11 +21,15 @@ public class DeadlineReminderService : BackgroundService
         ITelegramBotClient bot,
         StudyTaskStorageService tasks,
         ReminderSettingsService reminders,
+        GroupStudyTaskStorageService groupTasks,
+        GroupReminderSettingsService groupReminders,
         ILogger<DeadlineReminderService> logger)
     {
         _bot = bot;
         _tasks = tasks;
         _reminders = reminders;
+        _groupTasks = groupTasks;
+        _groupReminders = groupReminders;
         _logger = logger;
         _moscowTimeZone = ResolveMoscowTimeZone();
     }
@@ -55,6 +61,8 @@ public class DeadlineReminderService : BackgroundService
         var today = now.Date;
         var allSettings = _reminders.GetAll();
         var allTasks = _tasks.GetAll();
+        var allGroupSettings = _groupReminders.GetAll();
+        var allGroupTasks = _groupTasks.GetAll();
 
         foreach (var (userId, settings) in allSettings)
         {
@@ -94,6 +102,44 @@ public class DeadlineReminderService : BackgroundService
 
             _reminders.MarkNotificationChecked(userId, today);
         }
+
+        foreach (var (chatId, settings) in allGroupSettings)
+        {
+            if (!settings.IsEnabled ||
+                settings.Hour != now.Hour ||
+                settings.Minute != now.Minute ||
+                settings.LastNotificationDate?.Date == today)
+            {
+                continue;
+            }
+
+            var tomorrow = today.AddDays(1);
+            var dueTomorrow = allGroupTasks.TryGetValue(chatId, out var groupTasks)
+                ? groupTasks
+                    .Where(task => !task.IsCompleted &&
+                                   task.Deadline.HasValue &&
+                                   task.Deadline.Value.Date == tomorrow)
+                    .OrderBy(task => task.Subject)
+                    .ThenBy(task => task.Title)
+                    .ToList()
+                : new();
+
+            if (dueTomorrow.Count > 0)
+            {
+                await _bot.SendMessage(
+                    chatId: settings.ChatId,
+                    text: BuildGroupReminderText(dueTomorrow, tomorrow),
+                    parseMode: ParseMode.Html,
+                    cancellationToken: ct);
+
+                _logger.LogInformation(
+                    "Отправлено групповое напоминание о {Count} дедлайнах в чат {ChatId}",
+                    dueTomorrow.Count,
+                    chatId);
+            }
+
+            _groupReminders.MarkNotificationChecked(chatId, today);
+        }
     }
 
     private DateTime GetMoscowNow()
@@ -113,6 +159,27 @@ public class DeadlineReminderService : BackgroundService
         }
 
         sb.Append("Открыть список: /homework");
+        return sb.ToString();
+    }
+
+    private static string BuildGroupReminderText(IEnumerable<Models.StudyTask> tasks, DateTime deadlineDate)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"⏰ <b>Общие дедлайны на завтра ({deadlineDate:dd.MM.yyyy})</b>");
+        sb.AppendLine();
+
+        foreach (var task in tasks)
+        {
+            sb.AppendLine($"📌 <b>{Escape(task.Title)}</b>");
+            sb.AppendLine($"📚 {Escape(task.Subject)}");
+
+            if (!string.IsNullOrWhiteSpace(task.CreatedByName))
+                sb.AppendLine($"👤 {Escape(task.CreatedByName)}");
+
+            sb.AppendLine();
+        }
+
+        sb.Append("Открыть общий список: /homework");
         return sb.ToString();
     }
 

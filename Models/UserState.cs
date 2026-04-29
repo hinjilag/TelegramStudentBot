@@ -21,6 +21,9 @@ public enum UserState
     /// <summary>Ожидание текста домашнего задания после выбора предмета</summary>
     WaitingForHomeworkText,
 
+    /// <summary>Ожидание строки общего ДЗ для группового чата.</summary>
+    WaitingForGroupHomeworkEntry,
+
     /// <summary>Ожидание произвольного времени таймера в минутах</summary>
     WaitingForTimerMinutes,
 

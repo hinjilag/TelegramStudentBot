@@ -143,7 +143,9 @@ public class StudyTaskStorageService
             Subject = task.Subject,
             Deadline = task.Deadline,
             IsCompleted = task.IsCompleted,
-            CreatedAt = task.CreatedAt
+            CreatedAt = task.CreatedAt,
+            CreatedByName = task.CreatedByName,
+            CreatedByUserId = task.CreatedByUserId
         };
     }
 

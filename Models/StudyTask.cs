@@ -23,6 +23,12 @@ public class StudyTask
     /// <summary>Время добавления задачи</summary>
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 
+    /// <summary>Кто добавил задачу. Используется для общих ДЗ в группах.</summary>
+    public string? CreatedByName { get; set; }
+
+    /// <summary>Telegram ID автора задачи, если задача добавлена в группе.</summary>
+    public long? CreatedByUserId { get; set; }
+
     /// <summary>Короткий идентификатор (8 символов) для использования в callback-данных</summary>
     [JsonIgnore]
     public string ShortId => Id.ToString("N")[..8];

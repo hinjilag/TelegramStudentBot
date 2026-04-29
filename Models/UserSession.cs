@@ -24,6 +24,21 @@ public class UserSession
     /// <summary>Дата дедлайна личного дела, выбранная быстрой кнопкой.</summary>
     public DateTime? PendingTaskDeadlineDate { get; set; }
 
+    /// <summary>Идентификатор группы, для которой пользователь сейчас вводит общее ДЗ.</summary>
+    public long? PendingGroupHomeworkChatId { get; set; }
+
+    /// <summary>Название группы, для которой пользователь сейчас вводит общее ДЗ.</summary>
+    public string? PendingGroupHomeworkChatTitle { get; set; }
+
+    /// <summary>Идентификатор чата, для которого пользователь настраивает напоминания.</summary>
+    public long ReminderTargetChatId { get; set; }
+
+    /// <summary>Название чата, для которого пользователь настраивает напоминания.</summary>
+    public string? ReminderTargetChatTitle { get; set; }
+
+    /// <summary>Признак, что напоминания настраиваются для группового чата.</summary>
+    public bool ReminderTargetIsGroup { get; set; }
+
     /// <summary>Временные варианты предметов для добавления домашнего задания</summary>
     public Dictionary<string, string> HomeworkSubjectChoices { get; set; } = new();
 

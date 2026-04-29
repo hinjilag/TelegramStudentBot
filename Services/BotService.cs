@@ -67,7 +67,7 @@ public class BotService : IHostedService
 
     private async Task RegisterCommandsAsync(CancellationToken ct)
     {
-        var commands = new[]
+        var privateCommands = new[]
         {
             new BotCommand { Command = "miniapp", Description = "Открыть mini app" },
             new BotCommand { Command = "add_homework", Description = "Добавить ДЗ" },
@@ -81,10 +81,27 @@ public class BotService : IHostedService
             new BotCommand { Command = "help", Description = "Список команд" }
         };
 
+        var groupCommands = new[]
+        {
+            new BotCommand { Command = "add_homework", Description = "Добавить общее ДЗ" },
+            new BotCommand { Command = "homework", Description = "Общий список ДЗ" },
+            new BotCommand { Command = "reminders", Description = "Напоминания в группу" },
+            new BotCommand { Command = "schedule", Description = "Расписание группы" },
+            new BotCommand { Command = "help", Description = "Список команд" }
+        };
+
         try
         {
-            await _bot.SetMyCommands(commands, cancellationToken: ct);
-            _logger.LogInformation("Команды меню зарегистрированы ({Count} шт.)", commands.Length);
+            await _bot.SetMyCommands(privateCommands, cancellationToken: ct);
+            await _bot.SetMyCommands(
+                groupCommands,
+                scope: new BotCommandScopeAllGroupChats(),
+                cancellationToken: ct);
+
+            _logger.LogInformation(
+                "Команды меню зарегистрированы: private={PrivateCount}, group={GroupCount}",
+                privateCommands.Length,
+                groupCommands.Length);
         }
         catch (Exception ex)
         {

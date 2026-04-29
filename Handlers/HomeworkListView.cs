@@ -33,41 +33,35 @@ internal static class HomeworkListView
         }
 
         var sb = new StringBuilder();
-        sb.AppendLine("📚 <b>Домашние задания и задачи</b>");
-        sb.AppendLine($"Активных: <b>{active.Count}</b> | Выполнено: <b>{completed.Count}</b>");
-
-        if (active.Count == 0)
-        {
-            sb.AppendLine();
-            sb.AppendLine("Активных ДЗ и задач нет.");
-        }
-        else
-        {
-            sb.AppendLine();
-
-            for (var i = 0; i < Math.Min(active.Count, ActiveLimit); i++)
-            {
-                var task = active[i];
-                var deadlineText = task.Deadline.HasValue
-                    ? task.Deadline.Value.ToString("dd.MM.yyyy")
-                    : "без дедлайна";
-
-                sb.AppendLine($"{i + 1}. 📌 <b>{Escape(task.Title)}</b>{FormatTaskUrgency(task)}");
-                sb.AppendLine($"   📚 {Escape(task.Subject)}");
-                sb.AppendLine($"   📅 {deadlineText}");
-
-                if (i < Math.Min(active.Count, ActiveLimit) - 1)
-                    sb.AppendLine();
-            }
-
-            if (active.Count > ActiveLimit)
-            {
-                sb.AppendLine();
-                sb.AppendLine($"... и ещё {active.Count - ActiveLimit} задач(и).");
-            }
-        }
-
+        BuildTaskSummary(sb, active, completed, "📚 <b>Домашние задания и задачи</b>", includeAuthor: false);
         return (sb.ToString().TrimEnd(), BuildKeyboard(active, completed.Count));
+    }
+
+    internal static (string Text, InlineKeyboardMarkup? Keyboard) BuildGroup(
+        string chatTitle,
+        IReadOnlyCollection<StudyTask> tasks)
+    {
+        var active = tasks
+            .Where(t => !t.IsCompleted && !TaskSubjects.IsPersonal(t.Subject))
+            .OrderBy(t => t.Deadline ?? DateTime.MaxValue)
+            .ThenBy(t => t.CreatedAt)
+            .ToList();
+
+        var completed = tasks
+            .Where(t => t.IsCompleted && !TaskSubjects.IsPersonal(t.Subject))
+            .OrderByDescending(t => t.CreatedAt)
+            .ToList();
+
+        if (active.Count == 0 && completed.Count == 0)
+        {
+            return (
+                $"📚 <b>Общие домашние задания</b>\nЧат: <b>{Escape(chatTitle)}</b>\n\nПока пусто. Добавить можно через /add_homework.",
+                null);
+        }
+
+        var sb = new StringBuilder();
+        BuildTaskSummary(sb, active, completed, $"📚 <b>Общие домашние задания</b>\nЧат: <b>{Escape(chatTitle)}</b>", includeAuthor: true);
+        return (sb.ToString().TrimEnd(), null);
     }
 
     internal static (string Text, InlineKeyboardMarkup Keyboard) BuildCompleted(UserSession session)
@@ -230,4 +224,48 @@ internal static class HomeworkListView
 
     private static string TrimButtonText(string text)
         => text.Length <= 30 ? text : text[..27] + "...";
+
+    private static void BuildTaskSummary(
+        StringBuilder sb,
+        List<StudyTask> active,
+        List<StudyTask> completed,
+        string title,
+        bool includeAuthor)
+    {
+        sb.AppendLine(title);
+        sb.AppendLine($"Активных: <b>{active.Count}</b> | Выполнено: <b>{completed.Count}</b>");
+
+        if (active.Count == 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Активных ДЗ и задач нет.");
+            return;
+        }
+
+        sb.AppendLine();
+
+        for (var i = 0; i < Math.Min(active.Count, ActiveLimit); i++)
+        {
+            var task = active[i];
+            var deadlineText = task.Deadline.HasValue
+                ? task.Deadline.Value.ToString("dd.MM.yyyy")
+                : "без дедлайна";
+
+            sb.AppendLine($"{i + 1}. 📌 <b>{Escape(task.Title)}</b>{FormatTaskUrgency(task)}");
+            sb.AppendLine($"   📚 {Escape(task.Subject)}");
+            sb.AppendLine($"   📅 {deadlineText}");
+
+            if (includeAuthor && !string.IsNullOrWhiteSpace(task.CreatedByName))
+                sb.AppendLine($"   👤 {Escape(task.CreatedByName)}");
+
+            if (i < Math.Min(active.Count, ActiveLimit) - 1)
+                sb.AppendLine();
+        }
+
+        if (active.Count > ActiveLimit)
+        {
+            sb.AppendLine();
+            sb.AppendLine($"... и ещё {active.Count - ActiveLimit} задач(и).");
+        }
+    }
 }

@@ -20,6 +20,8 @@ public class CommandHandler
     private readonly ScheduleCatalogService _scheduleCatalog;
     private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly ReminderSettingsService _reminders;
+    private readonly GroupStudyTaskStorageService _groupTasks;
+    private readonly GroupReminderSettingsService _groupReminders;
     private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
     private readonly UserFeatureIntroService _featureIntros;
     private readonly BotVisitLogService _visits;
@@ -32,6 +34,8 @@ public class CommandHandler
         ScheduleCatalogService scheduleCatalog,
         UserScheduleSelectionService scheduleSelections,
         ReminderSettingsService reminders,
+        GroupStudyTaskStorageService groupTasks,
+        GroupReminderSettingsService groupReminders,
         HomeworkSubjectPreferencesService homeworkSubjects,
         UserFeatureIntroService featureIntros,
         BotVisitLogService visits,
@@ -43,6 +47,8 @@ public class CommandHandler
         _scheduleCatalog = scheduleCatalog;
         _scheduleSelections = scheduleSelections;
         _reminders = reminders;
+        _groupTasks = groupTasks;
+        _groupReminders = groupReminders;
         _homeworkSubjects = homeworkSubjects;
         _featureIntros = featureIntros;
         _visits = visits;
@@ -57,6 +63,22 @@ public class CommandHandler
     public async Task HandleStartAsync(Message msg, CancellationToken ct)
     {
         _visits.RecordVisit(msg.From!);
+
+        if (IsGroupChat(msg.Chat.Type))
+        {
+            await _bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: "👋 <b>Привет! В группе я работаю только с общим расписанием и домашними заданиями.</b>\n\n" +
+                      "Что здесь можно делать:\n" +
+                      "📅 /schedule — выбрать расписание для этого чата\n" +
+                      "➕ /add_homework — добавить общее ДЗ по расписанию группы\n" +
+                      "📝 /homework — посмотреть общий список ДЗ\n" +
+                      "⏰ /reminders — включить напоминания для всей группы\n\n" +
+                      "Личные функции вроде таймеров и mini app в группах отключены.",
+                parseMode: ParseMode.Html,
+                cancellationToken: ct);
+            return;
+        }
 
         var userId = msg.From!.Id;
         var session = _sessions.GetOrCreate(userId, msg.From.FirstName);
@@ -113,6 +135,22 @@ public class CommandHandler
     /// <summary>Справка по всем командам</summary>
     public async Task HandleHelpAsync(Message msg, CancellationToken ct)
     {
+        if (IsGroupChat(msg.Chat.Type))
+        {
+            await _bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: "📖 <b>Команды для группы:</b>\n\n" +
+                      "/schedule — выбрать или поменять расписание этой группы\n" +
+                      "/add_homework — добавить общее ДЗ по предмету из расписания\n" +
+                      "/homework — посмотреть общее ДЗ\n" +
+                      "/reminders — настроить напоминания в этот чат\n" +
+                      "/help — эта справка\n\n" +
+                      "В группе нет таймеров, планера и mini app.",
+                parseMode: ParseMode.Html,
+                cancellationToken: ct);
+            return;
+        }
+
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
             text:      "📖 <b>Список команд:</b>\n\n" +
@@ -122,9 +160,11 @@ public class CommandHandler
                        "☕ <b>Отдых:</b>\n" +
                        "/rest — запустить таймер отдыха\n\n" +
                        "📚 <b>Домашние задания:</b>\n" +
-                       "/add_homework — добавить ДЗ по предмету из расписания\n" +
-                       "/homework — посмотреть ДЗ и задачи\n" +
-                       "/reminders — настроить напоминания\n\n" +
+                       "/add_homework — в личке добавить ДЗ по расписанию, в группе — общее ДЗ\n" +
+                       "/homework — посмотреть свои или общие ДЗ\n" +
+                       "/reminders — настроить личные или групповые напоминания\n" +
+                       "В группе можно сразу так:\n" +
+                       "<code>/add_homework Математика | решить варианты 1-3 | 30.04.2026</code>\n\n" +
                        "📋 <b>Планирование:</b>\n" +
                        "/plan — управление задачами\n\n" +
                        "📅 <b>Расписание:</b>\n" +
@@ -142,6 +182,12 @@ public class CommandHandler
     /// <summary>Показать меню выбора длительности рабочего таймера</summary>
     public async Task HandleMiniAppAsync(Message msg, CancellationToken ct)
     {
+        if (IsGroupChat(msg.Chat.Type))
+        {
+            await SendGroupModeUnavailableAsync(msg.Chat.Id, "Mini app", ct);
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(_webAppUrl))
         {
             await _bot.SendMessage(
@@ -162,6 +208,12 @@ public class CommandHandler
 
     public async Task HandleTimerAsync(Message msg, CancellationToken ct)
     {
+        if (IsGroupChat(msg.Chat.Type))
+        {
+            await SendGroupModeUnavailableAsync(msg.Chat.Id, "Таймер", ct);
+            return;
+        }
+
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
 
         // Если уже идёт таймер — сообщаем пользователю
@@ -190,6 +242,12 @@ public class CommandHandler
     /// <summary>Показать меню выбора длительности отдыха</summary>
     public async Task HandleRestAsync(Message msg, CancellationToken ct)
     {
+        if (IsGroupChat(msg.Chat.Type))
+        {
+            await SendGroupModeUnavailableAsync(msg.Chat.Id, "Таймер отдыха", ct);
+            return;
+        }
+
         await _bot.SendMessage(
             chatId:      msg.Chat.Id,
             text:        "☕ <b>Выбери длительность перерыва:</b>",
@@ -205,6 +263,12 @@ public class CommandHandler
     /// <summary>Досрочно остановить активный таймер</summary>
     public async Task HandleStopAsync(Message msg, CancellationToken ct)
     {
+        if (IsGroupChat(msg.Chat.Type))
+        {
+            await SendGroupModeUnavailableAsync(msg.Chat.Id, "Остановка таймера", ct);
+            return;
+        }
+
         var stopped = _timers.StopTimer(msg.From!.Id);
 
         var text = stopped
@@ -225,6 +289,12 @@ public class CommandHandler
     /// <summary>Меню управления личными делами.</summary>
     public async Task HandlePlanAsync(Message msg, CancellationToken ct)
     {
+        if (IsGroupChat(msg.Chat.Type))
+        {
+            await SendGroupModeUnavailableAsync(msg.Chat.Id, "Планирование", ct);
+            return;
+        }
+
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
         var userId = msg.From!.Id;
         var pending = session.Tasks.Count(t => !t.IsCompleted && TaskSubjects.IsPersonal(t.Subject));
@@ -248,10 +318,43 @@ public class CommandHandler
 
     public async Task HandleAddHomeworkAsync(Message msg, CancellationToken ct)
     {
+        if (IsGroupChat(msg.Chat.Type))
+        {
+            var groupSession = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
+            groupSession.State = UserState.Idle;
+            groupSession.PendingGroupHomeworkChatId = null;
+            groupSession.PendingGroupHomeworkChatTitle = null;
+            groupSession.DraftTask = null;
+            groupSession.HomeworkSubjectChoices.Clear();
+            groupSession.HomeworkLessonTypeChoices.Clear();
+
+            if (!TryGetAllScheduleEntries(msg.Chat.Id, out _, out _, out var groupEntries))
+            {
+                await _bot.SendMessage(
+                    chatId: msg.Chat.Id,
+                    text: "Сначала выбери расписание именно для этой группы через /schedule. После этого я покажу предметы и смогу добавлять общее ДЗ по расписанию.",
+                    cancellationToken: ct);
+                return;
+            }
+
+            var groupSubjects = GetHomeworkSubjects(groupEntries);
+            if (groupSubjects.Count == 0)
+            {
+                await _bot.SendMessage(
+                    chatId: msg.Chat.Id,
+                    text: "В расписании этой группы пока не нашлось предметов для выбора.",
+                    cancellationToken: ct);
+                return;
+            }
+
+            await SendGroupHomeworkSubjectChoiceAsync(msg.Chat.Id, groupSession, groupSubjects, ct);
+            return;
+        }
+
         var userId = msg.From!.Id;
         var session = _sessions.GetOrCreate(userId, msg.From.FirstName);
 
-        if (!TryGetAllScheduleEntriesForUser(userId, out _, out _, out var entries))
+        if (!TryGetAllScheduleEntries(userId, out _, out _, out var entries))
         {
             session.State = UserState.Idle;
             session.DraftTask = null;
@@ -369,6 +472,19 @@ public class CommandHandler
 
     public async Task HandleHomeworkAsync(Message msg, CancellationToken ct)
     {
+        if (IsGroupChat(msg.Chat.Type))
+        {
+            var tasks = _groupTasks.Get(msg.Chat.Id);
+            var view = HomeworkListView.BuildGroup(msg.Chat.Title ?? "Группа", tasks);
+            await _bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: view.Text,
+                parseMode: ParseMode.Html,
+                replyMarkup: view.Keyboard,
+                cancellationToken: ct);
+            return;
+        }
+
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
         await SendHomeworkListAsync(msg.Chat.Id, session, ct);
     }
@@ -382,6 +498,29 @@ public class CommandHandler
         var userId = msg.From!.Id;
         var session = _sessions.GetOrCreate(userId, msg.From.FirstName);
         session.State = UserState.Idle;
+
+        session.ReminderTargetChatId = msg.Chat.Id;
+        session.ReminderTargetChatTitle = msg.Chat.Title;
+        session.ReminderTargetIsGroup = IsGroupChat(msg.Chat.Type);
+
+        if (IsGroupChat(msg.Chat.Type))
+        {
+            var groupSettings = _groupReminders.Get(msg.Chat.Id);
+
+            var groupText = groupSettings.IsEnabled
+                ? $"⏰ <b>Групповые напоминания включены</b>\n" +
+                  $"Каждый день в <b>{groupSettings.TimeText}</b> по МСК я буду писать в этот чат общие дедлайны на завтра."
+                : "⏰ <b>Групповые напоминания выключены</b>\n" +
+                  "Могу каждый день писать в этот чат общее ДЗ, которое нужно сдать завтра.";
+
+            await _bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: groupText,
+                parseMode: ParseMode.Html,
+                replyMarkup: BuildReminderKeyboard(groupSettings.IsEnabled),
+                cancellationToken: ct);
+            return;
+        }
 
         var settings = _reminders.Get(userId);
         settings.ChatId = msg.Chat.Id;
@@ -414,38 +553,40 @@ public class CommandHandler
         var userId = msg.From!.Id;
         var session = _sessions.GetOrCreate(userId, msg.From.FirstName);
         session.State = UserState.Idle;
-
-        var selection = _scheduleSelections.Get(userId);
+        var selectionKey = IsGroupChat(msg.Chat.Type) ? msg.Chat.Id : userId;
+        var selection = _scheduleSelections.Get(selectionKey);
         if (selection is not null)
         {
             var group = _scheduleCatalog.GetGroup(selection.ScheduleId);
             if (group is not null)
             {
                 ApplySelectionToSession(session, group, selection.SubGroup);
-                await SendSelectedScheduleMenuAsync(msg.Chat.Id, group, selection.SubGroup, ct);
+                await SendSelectedScheduleMenuAsync(msg.Chat.Id, group, selection.SubGroup, ct, IsGroupChat(msg.Chat.Type));
                 return;
             }
 
-            _scheduleSelections.Delete(userId);
+            _scheduleSelections.Delete(selectionKey);
         }
 
-        await SendDirectionChoiceAsync(msg.Chat.Id, ct);
+        await SendDirectionChoiceAsync(msg.Chat.Id, ct, IsGroupChat(msg.Chat.Type));
     }
 
-    private async Task SendDirectionChoiceAsync(long chatId, CancellationToken ct)
+    private async Task SendDirectionChoiceAsync(long chatId, CancellationToken ct, bool isGroup = false)
     {
         var buttons = _scheduleCatalog.GetDirections()
             .Select(d => ($"{d.ShortTitle} — {d.DirectionName}", $"sched_dir_{d.DirectionCode}"));
 
         await _bot.SendMessage(
             chatId: chatId,
-            text: "Шаг 1/3. Выбери направление:",
+            text: isGroup
+                ? "Настроим расписание для этой группы.\n\nШаг 1/3. Выбери направление:"
+                : "Шаг 1/3. Выбери направление:",
             replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
             cancellationToken: ct);
     }
 
-    private bool TryGetAllScheduleEntriesForUser(
-        long userId,
+    private bool TryGetAllScheduleEntries(
+        long selectionKey,
         out ScheduleGroup? group,
         out int? subGroup,
         out List<ScheduleEntry> entries)
@@ -454,7 +595,7 @@ public class CommandHandler
         subGroup = null;
         entries = new List<ScheduleEntry>();
 
-        var selection = _scheduleSelections.Get(userId);
+        var selection = _scheduleSelections.Get(selectionKey);
         if (selection is null)
             return false;
 
@@ -485,13 +626,14 @@ public class CommandHandler
         long chatId,
         ScheduleGroup group,
         int? subGroup,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool isGroup)
     {
         var weekLabel = _scheduleCatalog.GetCurrentWeekLabel();
 
         await _bot.SendMessage(
             chatId: chatId,
-            text: $"📅 <b>Твоё расписание</b>\n" +
+            text: $"{(isGroup ? "📅 <b>Расписание группы</b>" : "📅 <b>Твоё расписание</b>")}\n" +
                   $"{Escape(FormatGroupTitle(group, subGroup))}\n" +
                   $"Текущая неделя: <b>{weekLabel}</b>\n\n" +
                   "Что показать?",
@@ -581,6 +723,36 @@ public class CommandHandler
         });
     }
 
+    private async Task SendGroupHomeworkSubjectChoiceAsync(
+        long chatId,
+        UserSession session,
+        List<string> subjects,
+        CancellationToken ct)
+    {
+        session.State = UserState.Idle;
+        session.DraftTask = null;
+        session.PendingGroupHomeworkChatId = null;
+        session.PendingGroupHomeworkChatTitle = null;
+        session.HomeworkSubjectChoices.Clear();
+        session.HomeworkLessonTypeChoices.Clear();
+
+        var buttons = subjects
+            .Select((subject, index) =>
+            {
+                var key = index.ToString();
+                session.HomeworkSubjectChoices[key] = subject;
+                return (subject, $"hw_subject_{key}");
+            })
+            .Append(("🔴 Отмена", "hw_cancel"));
+
+        await _bot.SendMessage(
+            chatId: chatId,
+            text: "📚 <b>Выбери предмет из расписания группы:</b>",
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: ct);
+    }
+
     private async Task TryPinMiniAppMessageAsync(ChatId chatId, Message launchMessage, CancellationToken ct)
     {
         try
@@ -647,4 +819,13 @@ public class CommandHandler
 
         return $"https://{railwayDomain.TrimEnd('/')}/miniapp/";
     }
+
+    private Task SendGroupModeUnavailableAsync(long chatId, string featureName, CancellationToken ct)
+        => _bot.SendMessage(
+            chatId: chatId,
+            text: $"{featureName} доступен только в личном чате. В группах я работаю только с расписанием и общим ДЗ.",
+            cancellationToken: ct);
+
+    private static bool IsGroupChat(ChatType chatType)
+        => chatType is ChatType.Group or ChatType.Supergroup;
 }

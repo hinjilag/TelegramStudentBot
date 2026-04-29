@@ -25,17 +25,23 @@ public class TextHandler
     private readonly SessionService     _sessions;
     private readonly TimerService       _timers;
     private readonly ReminderSettingsService _reminders;
+    private readonly GroupStudyTaskStorageService _groupTasks;
+    private readonly GroupReminderSettingsService _groupReminders;
 
     public TextHandler(
         ITelegramBotClient bot,
         SessionService     sessions,
         TimerService       timers,
-        ReminderSettingsService reminders)
+        ReminderSettingsService reminders,
+        GroupStudyTaskStorageService groupTasks,
+        GroupReminderSettingsService groupReminders)
     {
         _bot      = bot;
         _sessions = sessions;
         _timers   = timers;
         _reminders = reminders;
+        _groupTasks = groupTasks;
+        _groupReminders = groupReminders;
     }
 
     // Текстовые сообщения.
@@ -65,6 +71,10 @@ public class TextHandler
 
             case UserState.WaitingForHomeworkText:
                 await HandleHomeworkTextAsync(msg, session, text, ct);
+                break;
+
+            case UserState.WaitingForGroupHomeworkEntry:
+                await HandleGroupHomeworkEntryAsync(msg, session, text, ct);
                 break;
 
             case UserState.WaitingForTimerMinutes:
@@ -872,7 +882,7 @@ public class TextHandler
             cancellationToken: ct);
     }
 
-    private static bool TryParseTaskDeadline(string text, out DateTime deadline)
+    internal static bool TryParseTaskDeadline(string text, out DateTime deadline)
     {
         return DateTime.TryParseExact(
             text,
@@ -914,6 +924,66 @@ public class TextHandler
             await _bot.SendMessage(
                 msg.Chat.Id,
                 "⚠️ Текст ДЗ не может быть пустым. Напиши, что задали:",
+                cancellationToken: ct);
+            return;
+        }
+
+        if (session.PendingGroupHomeworkChatId.HasValue)
+        {
+            if (session.PendingGroupHomeworkChatId.Value != msg.Chat.Id)
+            {
+                await _bot.SendMessage(
+                    msg.Chat.Id,
+                    "Продолжи добавление общего ДЗ в том групповом чате, где начал /add_homework.",
+                    cancellationToken: ct);
+                return;
+            }
+
+            if (session.DraftTask is null || string.IsNullOrWhiteSpace(session.DraftTask.Subject))
+            {
+                session.State = UserState.Idle;
+                session.DraftTask = null;
+                session.PendingGroupHomeworkChatId = null;
+                session.PendingGroupHomeworkChatTitle = null;
+                session.HomeworkSubjectChoices.Clear();
+                session.HomeworkLessonTypeChoices.Clear();
+
+                await _bot.SendMessage(
+                    msg.Chat.Id,
+                    "Выбор предмета для группы устарел. Начни заново через /add_homework.",
+                    cancellationToken: ct);
+                return;
+            }
+
+            var groupTask = session.DraftTask;
+            groupTask.Title = text;
+            groupTask.CreatedByName = BuildAuthorName(msg.From);
+            groupTask.CreatedByUserId = msg.From?.Id;
+
+            var groupTasks = _groupTasks.Get(msg.Chat.Id);
+            groupTasks.Add(groupTask);
+            _groupTasks.Save(msg.Chat.Id, msg.Chat.Title, groupTasks);
+
+            session.DraftTask = null;
+            session.PendingGroupHomeworkChatId = null;
+            session.PendingGroupHomeworkChatTitle = null;
+            session.HomeworkSubjectChoices.Clear();
+            session.HomeworkLessonTypeChoices.Clear();
+            session.State = UserState.Idle;
+
+            var groupDeadlineText = groupTask.Deadline.HasValue
+                ? groupTask.Deadline.Value.ToString("dd.MM.yyyy")
+                : "не найден";
+
+            await _bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: $"🎉 <b>Общее ДЗ добавлено!</b>\n\n" +
+                      $"📌 <b>{Escape(groupTask.Title)}</b>\n" +
+                      $"📚 {Escape(groupTask.Subject)}\n" +
+                      $"📅 {groupDeadlineText}\n" +
+                      $"👤 {Escape(groupTask.CreatedByName ?? "Участник")}\n\n" +
+                      "Посмотреть общий список можно через /homework.",
+                parseMode: ParseMode.Html,
                 cancellationToken: ct);
             return;
         }
@@ -973,6 +1043,15 @@ public class TextHandler
     private async Task HandleReminderTimeAsync(
         Message msg, UserSession session, string text, CancellationToken ct)
     {
+        if (session.ReminderTargetIsGroup && session.ReminderTargetChatId != msg.Chat.Id)
+        {
+            await _bot.SendMessage(
+                msg.Chat.Id,
+                "Продолжи настройку напоминаний в том групповом чате, где нажал /reminders.",
+                cancellationToken: ct);
+            return;
+        }
+
         if (!TimeSpan.TryParseExact(
                 text,
                 new[] { "h\\:mm", "hh\\:mm" },
@@ -989,14 +1068,49 @@ public class TextHandler
             return;
         }
 
-        _reminders.Enable(session.UserId, msg.Chat.Id, time.Hours, time.Minutes);
+        var targetIsGroup = session.ReminderTargetIsGroup;
+
+        if (targetIsGroup)
+        {
+            _groupReminders.Enable(
+                session.ReminderTargetChatId,
+                session.ReminderTargetChatTitle ?? msg.Chat.Title,
+                time.Hours,
+                time.Minutes);
+        }
+        else
+        {
+            _reminders.Enable(session.UserId, msg.Chat.Id, time.Hours, time.Minutes);
+        }
+
         session.State = UserState.Idle;
+        session.ReminderTargetChatId = 0;
+        session.ReminderTargetChatTitle = null;
+        session.ReminderTargetIsGroup = false;
 
         await _bot.SendMessage(
             chatId: msg.Chat.Id,
-            text: $"⏰ Готово! Буду каждый день в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК присылать дедлайны на завтра.\n\n" +
+            text: targetIsGroup
+                ? $"⏰ Готово! Буду каждый день в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК писать в этот чат общие дедлайны на завтра."
+                : $"⏰ Готово! Буду каждый день в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК присылать дедлайны на завтра.\n\n" +
                   BuildBasicCommandsText(),
             parseMode: ParseMode.Html,
+            cancellationToken: ct);
+    }
+
+    private async Task HandleGroupHomeworkEntryAsync(
+        Message msg,
+        UserSession session,
+        string text,
+        CancellationToken ct)
+    {
+        session.State = UserState.Idle;
+        session.PendingGroupHomeworkChatId = null;
+        session.PendingGroupHomeworkChatTitle = null;
+
+        await _bot.SendMessage(
+            chatId: msg.Chat.Id,
+            text: "В группе ручной ввод общего ДЗ больше не используется.\nИспользуй /add_homework, выбери предмет из расписания и потом напиши само задание.",
             cancellationToken: ct);
     }
 
@@ -1036,6 +1150,69 @@ public class TextHandler
 
     private static string Escape(string text)
         => WebUtility.HtmlEncode(text);
+
+    internal static bool TryParseGroupHomeworkEntry(
+        string text,
+        out string subject,
+        out string title,
+        out DateTime? deadline,
+        out string? error)
+    {
+        subject = string.Empty;
+        title = string.Empty;
+        deadline = null;
+        error = null;
+
+        var parts = text
+            .Split('|', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length < 2 || parts.Length > 3)
+        {
+            error = "Нужен формат:\n<code>Предмет | Что задали | 30.04.2026</code>\n\n" +
+                    "или без даты:\n<code>Предмет | Что задали</code>";
+            return false;
+        }
+
+        subject = parts[0].Trim();
+        title = parts[1].Trim();
+
+        if (string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(title))
+        {
+            error = "И предмет, и текст ДЗ должны быть заполнены.";
+            return false;
+        }
+
+        if (parts.Length == 3)
+        {
+            if (!TryParseTaskDeadline(parts[2].Trim(), out var parsedDeadline))
+            {
+                error = "Не понял дату. Напиши, например: <code>30.04.2026</code> или <code>30.04.2026 18:00</code>.";
+                return false;
+            }
+
+            deadline = parsedDeadline;
+        }
+
+        return true;
+    }
+
+    internal static string BuildAuthorName(User? user)
+    {
+        if (user is null)
+            return "Участник";
+
+        var parts = new[] { user.FirstName, user.LastName }
+            .Where(part => !string.IsNullOrWhiteSpace(part))
+            .ToArray();
+
+        if (parts.Length > 0)
+            return string.Join(" ", parts);
+
+        if (!string.IsNullOrWhiteSpace(user.Username))
+            return user.Username.StartsWith('@') ? user.Username : $"@{user.Username}";
+
+        return "Участник";
+    }
 
     private static string BuildBasicCommandsText()
         => "Базовая настройка готова.\n\n" +
