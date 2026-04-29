@@ -103,6 +103,12 @@ public class UpdateRouter
             return;
         }
 
+        if (IsMiniAppShortcut(text))
+        {
+            await _commands.HandleMiniAppAsync(msg, ct);
+            return;
+        }
+
         await _text.HandleAsync(msg, ct);
     }
 
@@ -164,5 +170,11 @@ public class UpdateRouter
                 await _text.HandleAsync(msg, ct);
                 break;
         }
+    }
+
+    private static bool IsMiniAppShortcut(string text)
+    {
+        var normalized = text.Trim().ToLowerInvariant();
+        return normalized is "mini app" or "miniapp";
     }
 }

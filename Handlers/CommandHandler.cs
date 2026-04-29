@@ -153,10 +153,8 @@ public class CommandHandler
 
         await _bot.SendMessage(
             chatId: msg.Chat.Id,
-            text: msg.Chat.Type == ChatType.Private
-                ? "Закрепил mini app кнопкой под полем ввода."
-                : "Открой mini app по кнопке ниже.",
-            replyMarkup: BuildMiniAppLaunchMarkup(msg.Chat.Type),
+            text: "Открой mini app по кнопке ниже.",
+            replyMarkup: BuildMiniAppLinkMarkup(),
             cancellationToken: ct);
     }
 
@@ -593,13 +591,13 @@ public class CommandHandler
         {
             new[]
             {
-                KeyboardButton.WithWebApp("Mini app", _webAppUrl)
+                new KeyboardButton("Mini app")
             }
         })
         {
             ResizeKeyboard = true,
             IsPersistent = true,
-            InputFieldPlaceholder = "Mini app или сообщение"
+            InputFieldPlaceholder = "Нажми Mini app или напиши сообщение"
         };
     }
 
