@@ -34,6 +34,7 @@ builder.Services.AddSingleton<StudyTaskStorageService>();
 builder.Services.AddSingleton<GroupStudyTaskStorageService>();
 builder.Services.AddSingleton<ReminderSettingsService>();
 builder.Services.AddSingleton<GroupReminderSettingsService>();
+builder.Services.AddSingleton<GroupParticipantStorageService>();
 builder.Services.AddSingleton<HomeworkSubjectPreferencesService>();
 builder.Services.AddSingleton<UserProfileStorageService>();
 builder.Services.AddSingleton<UserFeatureIntroService>();

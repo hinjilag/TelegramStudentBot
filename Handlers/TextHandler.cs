@@ -1069,6 +1069,7 @@ public class TextHandler
         }
 
         var targetIsGroup = session.ReminderTargetIsGroup;
+        var groupFrequency = session.PendingGroupReminderFrequency ?? GroupReminderFrequency.Daily;
 
         if (targetIsGroup)
         {
@@ -1076,7 +1077,8 @@ public class TextHandler
                 session.ReminderTargetChatId,
                 session.ReminderTargetChatTitle ?? msg.Chat.Title,
                 time.Hours,
-                time.Minutes);
+                time.Minutes,
+                groupFrequency);
         }
         else
         {
@@ -1087,11 +1089,12 @@ public class TextHandler
         session.ReminderTargetChatId = 0;
         session.ReminderTargetChatTitle = null;
         session.ReminderTargetIsGroup = false;
+        session.PendingGroupReminderFrequency = null;
 
         await _bot.SendMessage(
             chatId: msg.Chat.Id,
             text: targetIsGroup
-                ? $"⏰ Готово! Буду каждый день в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК писать в этот чат общие дедлайны на завтра."
+                ? $"⏰ Готово! Буду {FormatGroupFrequencyText(groupFrequency)} в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК писать в этот чат общие дедлайны на завтра и отмечать участников, которых уже видел в группе."
                 : $"⏰ Готово! Буду каждый день в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК присылать дедлайны на завтра.\n\n" +
                   BuildBasicCommandsText(),
             parseMode: ParseMode.Html,
@@ -1222,6 +1225,9 @@ public class TextHandler
            "/homework — список заданий\n" +
            "/timer — таймер для учёбы\n" +
            "/help — все команды";
+
+    private static string FormatGroupFrequencyText(GroupReminderFrequency frequency)
+        => frequency == GroupReminderFrequency.Weekdays ? "по будням" : "каждый день";
 
 }
 

@@ -14,6 +14,7 @@ public class DeadlineReminderService : BackgroundService
     private readonly GroupStudyTaskStorageService _groupTasks;
     private readonly ReminderSettingsService _reminders;
     private readonly GroupReminderSettingsService _groupReminders;
+    private readonly GroupParticipantStorageService _groupParticipants;
     private readonly ILogger<DeadlineReminderService> _logger;
     private readonly TimeZoneInfo _moscowTimeZone;
 
@@ -23,6 +24,7 @@ public class DeadlineReminderService : BackgroundService
         ReminderSettingsService reminders,
         GroupStudyTaskStorageService groupTasks,
         GroupReminderSettingsService groupReminders,
+        GroupParticipantStorageService groupParticipants,
         ILogger<DeadlineReminderService> logger)
     {
         _bot = bot;
@@ -30,6 +32,7 @@ public class DeadlineReminderService : BackgroundService
         _reminders = reminders;
         _groupTasks = groupTasks;
         _groupReminders = groupReminders;
+        _groupParticipants = groupParticipants;
         _logger = logger;
         _moscowTimeZone = ResolveMoscowTimeZone();
     }
@@ -106,6 +109,8 @@ public class DeadlineReminderService : BackgroundService
         foreach (var (chatId, settings) in allGroupSettings)
         {
             if (!settings.IsEnabled ||
+                (settings.Frequency == Models.GroupReminderFrequency.Weekdays &&
+                 (today.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)) ||
                 settings.Hour != now.Hour ||
                 settings.Minute != now.Minute ||
                 settings.LastNotificationDate?.Date == today)
@@ -126,9 +131,14 @@ public class DeadlineReminderService : BackgroundService
 
             if (dueTomorrow.Count > 0)
             {
+                var participants = _groupParticipants.Get(chatId);
+                var participantMentions = participants.Count > 0
+                    ? string.Join(" ", participants.Select(BuildMention)) + "\n\n"
+                    : string.Empty;
+
                 await _bot.SendMessage(
                     chatId: settings.ChatId,
-                    text: BuildGroupReminderText(dueTomorrow, tomorrow),
+                    text: participantMentions + BuildGroupReminderText(dueTomorrow, tomorrow, participants),
                     parseMode: ParseMode.Html,
                     cancellationToken: ct);
 
@@ -162,7 +172,10 @@ public class DeadlineReminderService : BackgroundService
         return sb.ToString();
     }
 
-    private static string BuildGroupReminderText(IEnumerable<Models.StudyTask> tasks, DateTime deadlineDate)
+    private static string BuildGroupReminderText(
+        IEnumerable<Models.StudyTask> tasks,
+        DateTime deadlineDate,
+        IReadOnlyCollection<Models.GroupParticipant> participants)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"⏰ <b>Общие дедлайны на завтра ({deadlineDate:dd.MM.yyyy})</b>");
@@ -181,6 +194,15 @@ public class DeadlineReminderService : BackgroundService
 
         sb.Append("Открыть общий список: /homework");
         return sb.ToString();
+    }
+
+    private static string BuildMention(Models.GroupParticipant participant)
+    {
+        var label = string.IsNullOrWhiteSpace(participant.Username)
+            ? participant.Nickname
+            : participant.Username!;
+
+        return $"<a href=\"tg://user?id={participant.UserId}\">{Escape(label)}</a>";
     }
 
     private static string Escape(string text)

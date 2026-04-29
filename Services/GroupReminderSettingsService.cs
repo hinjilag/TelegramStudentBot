@@ -35,7 +35,7 @@ public class GroupReminderSettingsService
         }
     }
 
-    public void Enable(long chatId, string? chatTitle, int hour, int minute)
+    public void Enable(long chatId, string? chatTitle, int hour, int minute, GroupReminderFrequency frequency)
     {
         lock (_lock)
         {
@@ -46,6 +46,7 @@ public class GroupReminderSettingsService
             settings.ChatId = chatId;
             settings.ChatTitle = string.IsNullOrWhiteSpace(chatTitle) ? "Группа" : chatTitle.Trim();
             settings.IsEnabled = true;
+            settings.Frequency = frequency;
             settings.Hour = hour;
             settings.Minute = minute;
             settings.UpdatedAt = DateTime.Now;
@@ -115,6 +116,7 @@ public class GroupReminderSettingsService
             ChatId = settings.ChatId,
             ChatTitle = settings.ChatTitle,
             IsEnabled = settings.IsEnabled,
+            Frequency = settings.Frequency,
             Hour = settings.Hour,
             Minute = settings.Minute,
             LastNotificationDate = settings.LastNotificationDate,

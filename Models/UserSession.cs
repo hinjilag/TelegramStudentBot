@@ -39,6 +39,9 @@ public class UserSession
     /// <summary>Признак, что напоминания настраиваются для группового чата.</summary>
     public bool ReminderTargetIsGroup { get; set; }
 
+    /// <summary>Выбранная частота групповых напоминаний перед вводом времени.</summary>
+    public GroupReminderFrequency? PendingGroupReminderFrequency { get; set; }
+
     /// <summary>Временные варианты предметов для добавления домашнего задания</summary>
     public Dictionary<string, string> HomeworkSubjectChoices { get; set; } = new();
 

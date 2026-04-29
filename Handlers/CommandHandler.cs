@@ -509,15 +509,17 @@ public class CommandHandler
 
             var groupText = groupSettings.IsEnabled
                 ? $"⏰ <b>Групповые напоминания включены</b>\n" +
-                  $"Каждый день в <b>{groupSettings.TimeText}</b> по МСК я буду писать в этот чат общие дедлайны на завтра."
+                  $"Частота: <b>{groupSettings.FrequencyText}</b>\n" +
+                  $"Время: <b>{groupSettings.TimeText}</b> по МСК\n\n" +
+                  "Я пришлю напоминание в этот чат и отмечу участников, которых уже видел в группе."
                 : "⏰ <b>Групповые напоминания выключены</b>\n" +
-                  "Могу каждый день писать в этот чат общее ДЗ, которое нужно сдать завтра.";
+                  "Настроим, как часто и в какое время удобно присылать напоминания в этот чат.";
 
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,
                 text: groupText,
                 parseMode: ParseMode.Html,
-                replyMarkup: BuildReminderKeyboard(groupSettings.IsEnabled),
+                replyMarkup: BuildGroupReminderKeyboard(groupSettings.IsEnabled),
                 cancellationToken: ct);
             return;
         }
@@ -802,6 +804,29 @@ public class CommandHandler
             new[]
             {
                 InlineKeyboardButton.WithCallbackData("Изменить время", "rem_set"),
+                InlineKeyboardButton.WithCallbackData("Выключить", "rem_off")
+            }
+        });
+    }
+
+    private static InlineKeyboardMarkup BuildGroupReminderKeyboard(bool enabled)
+    {
+        if (!enabled)
+        {
+            return new InlineKeyboardMarkup(new[]
+            {
+                new[]
+                {
+                    InlineKeyboardButton.WithCallbackData("Настроить напоминания", "rem_set")
+                }
+            });
+        }
+
+        return new InlineKeyboardMarkup(new[]
+        {
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("Изменить настройки", "rem_set"),
                 InlineKeyboardButton.WithCallbackData("Выключить", "rem_off")
             }
         });

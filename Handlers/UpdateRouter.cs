@@ -14,6 +14,7 @@ public class UpdateRouter
     private readonly UserProfileStorageService _userProfiles;
     private readonly StudyTaskStorageService _taskStorage;
     private readonly ReminderSettingsService _reminders;
+    private readonly GroupParticipantStorageService _groupParticipants;
     private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
     private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly ILogger<UpdateRouter> _logger;
@@ -25,6 +26,7 @@ public class UpdateRouter
         UserProfileStorageService userProfiles,
         StudyTaskStorageService taskStorage,
         ReminderSettingsService reminders,
+        GroupParticipantStorageService groupParticipants,
         HomeworkSubjectPreferencesService homeworkSubjects,
         UserScheduleSelectionService scheduleSelections,
         ILogger<UpdateRouter> logger)
@@ -35,6 +37,7 @@ public class UpdateRouter
         _userProfiles = userProfiles;
         _taskStorage = taskStorage;
         _reminders = reminders;
+        _groupParticipants = groupParticipants;
         _homeworkSubjects = homeworkSubjects;
         _scheduleSelections = scheduleSelections;
         _logger = logger;
@@ -90,6 +93,10 @@ public class UpdateRouter
         _reminders.SyncUserMetadata(user.Id);
         _homeworkSubjects.SyncUserMetadata(user.Id);
         _scheduleSelections.SyncUserMetadata(user.Id);
+
+        var chat = update.Message?.Chat ?? update.CallbackQuery?.Message?.Chat;
+        if (chat?.Type is ChatType.Group or ChatType.Supergroup)
+            _groupParticipants.Upsert(chat.Id, chat.Title, user);
     }
 
     private async Task HandleMessageAsync(Message msg, CancellationToken ct)

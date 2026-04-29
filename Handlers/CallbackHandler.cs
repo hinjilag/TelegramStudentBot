@@ -56,7 +56,7 @@ public class CallbackHandler
         if (data.StartsWith("rest_")) { await HandleRestAsync(chatId, userId, data, ct); return; }
         if (data.StartsWith("plan_")) { await HandlePlanAsync(query, session, data, ct); return; }
         if (data.StartsWith("hw_")) { await HandleHomeworkAsync(query, userId, session, data, ct); return; }
-        if (data.StartsWith("rem_")) { await HandleReminderAsync(query, session, data, ct); return; }
+        if (data.StartsWith("rem_")) { await HandleReminderFlowAsync(query, session, data, ct); return; }
         if (data.StartsWith("task_")) { await HandleTaskAsync(query, session, data, ct); return; }
         if (data.StartsWith("sched_")) { await HandleScheduleAsync(query, userId, session, data, ct); return; }
         if (data.StartsWith("review_")) { await HandleReviewActionAsync(chatId, session, data, ct); return; }
@@ -437,6 +437,134 @@ public class CallbackHandler
                 break;
         }
     }
+
+    private async Task HandleReminderFlowAsync(
+        CallbackQuery query,
+        UserSession session,
+        string data,
+        CancellationToken ct)
+    {
+        var message = query.Message!;
+        var chatId = message.Chat.Id;
+        var isGroup = message.Chat.Type is ChatType.Group or ChatType.Supergroup;
+
+        switch (data)
+        {
+            case "rem_set":
+                session.ReminderTargetChatId = chatId;
+                session.ReminderTargetChatTitle = message.Chat.Title;
+                session.ReminderTargetIsGroup = isGroup;
+
+                if (isGroup)
+                {
+                    session.State = UserState.Idle;
+                    session.PendingGroupReminderFrequency = null;
+
+                    await _bot.EditMessageText(
+                        chatId: chatId,
+                        messageId: message.MessageId,
+                        text: "⏰ <b>Как часто присылать напоминания?</b>\n\n" +
+                              "Сначала выбери удобную частоту, потом я спрошу время.",
+                        parseMode: ParseMode.Html,
+                        replyMarkup: BuildGroupReminderFrequencyKeyboard(),
+                        cancellationToken: ct);
+                    return;
+                }
+
+                session.State = UserState.WaitingForReminderTime;
+                _reminders.MarkPromptAnswered(session.UserId, chatId);
+
+                await _bot.EditMessageText(
+                    chatId: chatId,
+                    messageId: message.MessageId,
+                    text: "⏰ Во сколько напоминать о дедлайнах на завтра?\n\n" +
+                          "Напиши время в формате <b>ЧЧ:ММ</b>, например <b>20:00</b>.\n" +
+                          "Время по МСК.",
+                    parseMode: ParseMode.Html,
+                    cancellationToken: ct);
+                return;
+
+            case "rem_freq_daily":
+            case "rem_freq_weekdays":
+                session.State = UserState.WaitingForReminderTime;
+                session.ReminderTargetChatId = chatId;
+                session.ReminderTargetChatTitle = message.Chat.Title;
+                session.ReminderTargetIsGroup = true;
+                session.PendingGroupReminderFrequency = data == "rem_freq_weekdays"
+                    ? Models.GroupReminderFrequency.Weekdays
+                    : Models.GroupReminderFrequency.Daily;
+
+                await _bot.EditMessageText(
+                    chatId: chatId,
+                    messageId: message.MessageId,
+                    text: $"⏰ <b>Во сколько удобно присылать напоминания {FormatGroupFrequencyText(session.PendingGroupReminderFrequency.Value)}?</b>\n\n" +
+                          "Напиши время в формате <b>ЧЧ:ММ</b>, например <b>20:00</b>.\n" +
+                          "Я пришлю сообщение в этот чат и отмечу участников, которых уже видел в группе.",
+                    parseMode: ParseMode.Html,
+                    cancellationToken: ct);
+                return;
+
+            case "rem_later":
+                session.State = UserState.Idle;
+                session.ReminderTargetChatId = 0;
+                session.ReminderTargetChatTitle = null;
+                session.ReminderTargetIsGroup = false;
+                session.PendingGroupReminderFrequency = null;
+
+                if (!isGroup)
+                    _reminders.Disable(session.UserId, chatId);
+
+                await _bot.EditMessageText(
+                    chatId: chatId,
+                    messageId: message.MessageId,
+                    text: isGroup
+                        ? "Хорошо, настроить напоминания для этой группы можно позже через /reminders."
+                        : "Хорошо, не буду напоминать. Настроить можно в любой момент через /reminders.\n\n" +
+                          BuildBasicCommandsText(),
+                    cancellationToken: ct);
+                return;
+
+            case "rem_off":
+                session.State = UserState.Idle;
+                session.ReminderTargetChatId = 0;
+                session.ReminderTargetChatTitle = null;
+                session.ReminderTargetIsGroup = false;
+                session.PendingGroupReminderFrequency = null;
+
+                if (isGroup)
+                    _groupReminders.Disable(chatId, message.Chat.Title);
+                else
+                    _reminders.Disable(session.UserId, chatId);
+
+                await _bot.EditMessageText(
+                    chatId: chatId,
+                    messageId: message.MessageId,
+                    text: isGroup
+                        ? "⏰ Групповые напоминания выключены. Включить снова можно через /reminders."
+                        : "⏰ Напоминания выключены. Включить снова можно через /reminders.",
+                    cancellationToken: ct);
+                return;
+        }
+    }
+
+    private static InlineKeyboardMarkup BuildGroupReminderFrequencyKeyboard()
+    {
+        return new InlineKeyboardMarkup(new[]
+        {
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("Каждый день", "rem_freq_daily"),
+                InlineKeyboardButton.WithCallbackData("По будням", "rem_freq_weekdays")
+            },
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("Не сейчас", "rem_later")
+            }
+        });
+    }
+
+    private static string FormatGroupFrequencyText(Models.GroupReminderFrequency frequency)
+        => frequency == Models.GroupReminderFrequency.Weekdays ? "по будням" : "каждый день";
 
     private async Task EditHomeworkSubjectChoiceAsync(
         CallbackQuery query,
