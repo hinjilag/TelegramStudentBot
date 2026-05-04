@@ -26,6 +26,10 @@ appsettings*.json
 # Local bot/runtime data
 Data/user-*.json
 Data/user-*.json.tmp
+Data/group-*.json
+Data/group-*.json.tmp
+Data/group-participants.json
+Data/group-participants.json.tmp
 Data/bot-visits.json
 Data/bot-visits.json.tmp
 

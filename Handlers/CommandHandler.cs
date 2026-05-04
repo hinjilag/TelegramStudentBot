@@ -15,6 +15,15 @@ namespace TelegramStudentBot.Handlers;
 public class CommandHandler
 {
     private const string MiniAppLaunchMessageText = "Открой mini app по кнопке ниже.";
+    private const string GroupWelcomeText =
+        "👋 <b>Привет! В группе я помогаю вести общее расписание и домашние задания.</b>\n\n" +
+        "Доступные команды:\n" +
+        "📅 /schedule — выбрать расписание для этой группы\n" +
+        "➕ /add_homework — добавить общее ДЗ\n" +
+        "📝 /homework — открыть общий список ДЗ\n" +
+        "⏰ /reminders — настроить напоминания в этот чат\n" +
+        "❓ /help — показать команды\n\n" +
+        "Обычную переписку в группе я не трогаю. Таймеры и личный планер работают только в личке.";
 
     private readonly ITelegramBotClient _bot;
     private readonly SessionService _sessions;
@@ -68,18 +77,7 @@ public class CommandHandler
 
         if (IsGroupChat(msg.Chat.Type))
         {
-            await _bot.SendMessage(
-                chatId: msg.Chat.Id,
-                text: "👋 <b>Привет! В группе я помогаю вести общее расписание и домашние задания.</b>\n\n" +
-                      "Доступные команды:\n" +
-                      "📅 /schedule — выбрать расписание для этой группы\n" +
-                      "➕ /add_homework — добавить общее ДЗ\n" +
-                      "📝 /homework — открыть общий список ДЗ\n" +
-                      "⏰ /reminders — настроить напоминания в этот чат\n" +
-                      "❓ /help — показать команды\n\n" +
-                      "Таймеры и личный планер работают только в личке.",
-                parseMode: ParseMode.Html,
-                cancellationToken: ct);
+            await SendGroupWelcomeAsync(msg.Chat.Id, ct);
             return;
         }
 
@@ -240,6 +238,13 @@ public class CommandHandler
             replyMarkup: BuildTimerKeyboard(),
             cancellationToken: ct);
     }
+
+    public Task SendGroupWelcomeAsync(long chatId, CancellationToken ct)
+        => _bot.SendMessage(
+            chatId: chatId,
+            text: GroupWelcomeText,
+            parseMode: ParseMode.Html,
+            cancellationToken: ct);
 
     // ══════════════════════════════════════════════════════════
     //  /rest

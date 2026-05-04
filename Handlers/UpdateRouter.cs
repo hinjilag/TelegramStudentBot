@@ -14,6 +14,7 @@ public class UpdateRouter
     private readonly CallbackHandler _callbacks;
     private readonly SessionService _sessions;
     private readonly BotIdentityService _botIdentity;
+    private readonly GroupVisitLogService _groupVisits;
     private readonly UserProfileStorageService _userProfiles;
     private readonly StudyTaskStorageService _taskStorage;
     private readonly ReminderSettingsService _reminders;
@@ -28,6 +29,7 @@ public class UpdateRouter
         CallbackHandler callbacks,
         SessionService sessions,
         BotIdentityService botIdentity,
+        GroupVisitLogService groupVisits,
         UserProfileStorageService userProfiles,
         StudyTaskStorageService taskStorage,
         ReminderSettingsService reminders,
@@ -41,6 +43,7 @@ public class UpdateRouter
         _callbacks = callbacks;
         _sessions = sessions;
         _botIdentity = botIdentity;
+        _groupVisits = groupVisits;
         _userProfiles = userProfiles;
         _taskStorage = taskStorage;
         _reminders = reminders;
@@ -117,6 +120,13 @@ public class UpdateRouter
         var text = msg.Text!.Trim();
         if (TryGetCommand(msg, text, out var commandPart))
         {
+            if (IsGroupChat(msg.Chat.Type))
+            {
+                var isFirstGroupVisit = _groupVisits.RegisterVisit(msg.Chat.Id, msg.Chat.Title);
+                if (isFirstGroupVisit && commandPart != "/start")
+                    await _commands.SendGroupWelcomeAsync(msg.Chat.Id, ct);
+            }
+
             await RouteCommandAsync(msg, commandPart, ct);
             return;
         }
