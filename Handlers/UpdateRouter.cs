@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using TelegramStudentBot.Models;
 using TelegramStudentBot.Services;
 
 namespace TelegramStudentBot.Handlers;
@@ -11,6 +12,8 @@ public class UpdateRouter
     private readonly CommandHandler _commands;
     private readonly TextHandler _text;
     private readonly CallbackHandler _callbacks;
+    private readonly SessionService _sessions;
+    private readonly BotIdentityService _botIdentity;
     private readonly UserProfileStorageService _userProfiles;
     private readonly StudyTaskStorageService _taskStorage;
     private readonly ReminderSettingsService _reminders;
@@ -23,6 +26,8 @@ public class UpdateRouter
         CommandHandler commands,
         TextHandler text,
         CallbackHandler callbacks,
+        SessionService sessions,
+        BotIdentityService botIdentity,
         UserProfileStorageService userProfiles,
         StudyTaskStorageService taskStorage,
         ReminderSettingsService reminders,
@@ -34,6 +39,8 @@ public class UpdateRouter
         _commands = commands;
         _text = text;
         _callbacks = callbacks;
+        _sessions = sessions;
+        _botIdentity = botIdentity;
         _userProfiles = userProfiles;
         _taskStorage = taskStorage;
         _reminders = reminders;
@@ -63,12 +70,18 @@ public class UpdateRouter
 
             if (update.Type == UpdateType.Message && update.Message?.Photo is not null)
             {
+                if (IsGroupChat(update.Message.Chat.Type))
+                    return;
+
                 await _text.HandlePhotoAsync(update.Message, ct);
                 return;
             }
 
             if (update.Type == UpdateType.Message && update.Message?.Document is not null)
             {
+                if (IsGroupChat(update.Message.Chat.Type))
+                    return;
+
                 var mime = update.Message.Document.MimeType ?? string.Empty;
                 if (mime.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
                 {
@@ -102,16 +115,64 @@ public class UpdateRouter
     private async Task HandleMessageAsync(Message msg, CancellationToken ct)
     {
         var text = msg.Text!.Trim();
-        var commandPart = text.Split(' ')[0].Split('@')[0].ToLowerInvariant();
-
-        if (commandPart.StartsWith('/'))
+        if (TryGetCommand(msg, text, out var commandPart))
         {
             await RouteCommandAsync(msg, commandPart, ct);
             return;
         }
 
+        if (IsGroupChat(msg.Chat.Type) && !ShouldHandleGroupText(msg))
+            return;
+
         await _text.HandleAsync(msg, ct);
     }
+
+    private bool TryGetCommand(Message msg, string text, out string command)
+    {
+        command = string.Empty;
+        if (!text.StartsWith('/'))
+            return false;
+
+        var rawCommand = text.Split(' ')[0].Trim();
+        if (string.IsNullOrWhiteSpace(rawCommand))
+            return false;
+
+        var mentionIndex = rawCommand.IndexOf('@');
+        if (mentionIndex < 0)
+        {
+            command = rawCommand.ToLowerInvariant();
+            return true;
+        }
+
+        var targetUsername = rawCommand[(mentionIndex + 1)..].TrimStart('@');
+        var botUsername = _botIdentity.Username;
+        if (string.IsNullOrWhiteSpace(botUsername) ||
+            !string.Equals(targetUsername, botUsername, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        command = rawCommand[..mentionIndex].ToLowerInvariant();
+        return true;
+    }
+
+    private bool ShouldHandleGroupText(Message msg)
+    {
+        var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
+
+        return session.State switch
+        {
+            UserState.WaitingForHomeworkText => session.PendingGroupHomeworkChatId == msg.Chat.Id,
+            UserState.WaitingForGroupHomeworkEntry => session.PendingGroupHomeworkChatId == msg.Chat.Id,
+            UserState.WaitingForReminderTime => session.ReminderTargetIsGroup && session.ReminderTargetChatId == msg.Chat.Id,
+            UserState.WaitingForScheduleCorrection => true,
+            UserState.WaitingForReviewSlotCorrection => true,
+            _ => false
+        };
+    }
+
+    private static bool IsGroupChat(ChatType chatType)
+        => chatType is ChatType.Group or ChatType.Supergroup;
 
     private async Task RouteCommandAsync(Message msg, string command, CancellationToken ct)
     {

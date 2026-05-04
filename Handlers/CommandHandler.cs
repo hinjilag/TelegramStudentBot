@@ -2,7 +2,6 @@ using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
-using TelegramStudentBot.MiniApp;
 using TelegramStudentBot.Models;
 using TelegramStudentBot.Services;
 using System.Net;
@@ -28,10 +27,7 @@ public class CommandHandler
     private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
     private readonly UserFeatureIntroService _featureIntros;
     private readonly BotVisitLogService _visits;
-    private readonly BotIdentityService _botIdentity;
-    private readonly GroupMiniAppAccessService _groupMiniAppAccess;
     private readonly string? _webAppUrl;
-    private readonly string? _groupMiniAppShortName;
 
     public CommandHandler(
         ITelegramBotClient bot,
@@ -45,8 +41,6 @@ public class CommandHandler
         HomeworkSubjectPreferencesService homeworkSubjects,
         UserFeatureIntroService featureIntros,
         BotVisitLogService visits,
-        BotIdentityService botIdentity,
-        GroupMiniAppAccessService groupMiniAppAccess,
         IConfiguration configuration)
     {
         _bot = bot;
@@ -60,10 +54,7 @@ public class CommandHandler
         _homeworkSubjects = homeworkSubjects;
         _featureIntros = featureIntros;
         _visits = visits;
-        _botIdentity = botIdentity;
-        _groupMiniAppAccess = groupMiniAppAccess;
         _webAppUrl = ResolveWebAppUrl(configuration);
-        _groupMiniAppShortName = configuration["GroupMiniAppShortName"];
     }
 
     // ══════════════════════════════════════════════════════════
@@ -84,7 +75,6 @@ public class CommandHandler
                       "📅 /schedule — выбрать расписание для этой группы\n" +
                       "➕ /add_homework — добавить общее ДЗ\n" +
                       "📝 /homework — открыть общий список ДЗ\n" +
-                      "📱 /miniapp — открыть mini app группы\n" +
                       "⏰ /reminders — настроить напоминания в этот чат\n" +
                       "❓ /help — показать команды\n\n" +
                       "Таймеры и личный планер работают только в личке.",
@@ -160,10 +150,9 @@ public class CommandHandler
                       "/schedule — выбрать или поменять расписание этой группы\n" +
                       "/add_homework — добавить общее ДЗ по предмету из расписания\n" +
                       "/homework — посмотреть общее ДЗ\n" +
-                      "/miniapp — открыть mini app группы\n" +
                       "/reminders — настроить напоминания в этот чат\n" +
                       "/help — эта справка\n\n" +
-                      "Сценарий простой: сначала /schedule, потом /add_homework, дальше /homework, /miniapp и /reminders.",
+                      "Сценарий простой: сначала /schedule, потом /add_homework, дальше /homework и /reminders.",
                 parseMode: ParseMode.Html,
                 cancellationToken: ct);
             return;
@@ -201,21 +190,7 @@ public class CommandHandler
     {
         if (IsGroupChat(msg.Chat.Type))
         {
-            var groupMarkup = BuildGroupMiniAppLinkMarkup(msg.Chat.Id);
-            if (groupMarkup is null)
-            {
-                await _bot.SendMessage(
-                    chatId: msg.Chat.Id,
-                    text: "Групповой mini app пока не настроен до конца. Нужен short name mini app в конфиге бота, чтобы открыть его через Telegram direct link.",
-                    cancellationToken: ct);
-                return;
-            }
-
-            await _bot.SendMessage(
-                chatId: msg.Chat.Id,
-                text: "Открой mini app группы по кнопке ниже.",
-                replyMarkup: groupMarkup,
-                cancellationToken: ct);
+            await SendGroupModeUnavailableAsync(msg.Chat.Id, "Mini app", ct);
             return;
         }
 
@@ -769,34 +744,6 @@ public class CommandHandler
                 InlineKeyboardButton.WithWebApp("Mini app", _webAppUrl)
             }
         });
-    }
-
-    private InlineKeyboardMarkup? BuildGroupMiniAppLinkMarkup(long chatId)
-    {
-        var groupUrl = BuildGroupMiniAppUrl(chatId);
-        if (string.IsNullOrWhiteSpace(groupUrl))
-            return null;
-
-        return new InlineKeyboardMarkup(new[]
-        {
-            new[]
-            {
-                InlineKeyboardButton.WithUrl("Mini app", groupUrl)
-            }
-        });
-    }
-
-    private string? BuildGroupMiniAppUrl(long chatId)
-    {
-        if (string.IsNullOrWhiteSpace(_botIdentity.Username) ||
-            string.IsNullOrWhiteSpace(_groupMiniAppShortName))
-        {
-            return null;
-        }
-
-        var token = _groupMiniAppAccess.CreateToken(chatId);
-        var startParam = $"chat-{chatId}-{token}";
-        return $"https://t.me/{_botIdentity.Username}/{_groupMiniAppShortName}?startapp={startParam}&mode=compact";
     }
 
     private async Task SendGroupHomeworkSubjectChoiceAsync(
