@@ -33,7 +33,9 @@ public class CommandHandler
     private readonly ReminderSettingsService _reminders;
     private readonly GroupStudyTaskStorageService _groupTasks;
     private readonly GroupReminderSettingsService _groupReminders;
+    private readonly GroupHomeworkSubjectPreferencesService _groupHomeworkSubjects;
     private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
+    private readonly InlineMessageCleanupService _inlineCleanup;
     private readonly UserFeatureIntroService _featureIntros;
     private readonly BotVisitLogService _visits;
     private readonly string? _webAppUrl;
@@ -47,7 +49,9 @@ public class CommandHandler
         ReminderSettingsService reminders,
         GroupStudyTaskStorageService groupTasks,
         GroupReminderSettingsService groupReminders,
+        GroupHomeworkSubjectPreferencesService groupHomeworkSubjects,
         HomeworkSubjectPreferencesService homeworkSubjects,
+        InlineMessageCleanupService inlineCleanup,
         UserFeatureIntroService featureIntros,
         BotVisitLogService visits,
         IConfiguration configuration)
@@ -60,7 +64,9 @@ public class CommandHandler
         _reminders = reminders;
         _groupTasks = groupTasks;
         _groupReminders = groupReminders;
+        _groupHomeworkSubjects = groupHomeworkSubjects;
         _homeworkSubjects = homeworkSubjects;
+        _inlineCleanup = inlineCleanup;
         _featureIntros = featureIntros;
         _visits = visits;
         _webAppUrl = ResolveWebAppUrl(configuration);
@@ -407,6 +413,46 @@ public class CommandHandler
         await SendHomeworkSubjectChoiceAsync(msg.Chat.Id, userId, session, subjects, showAll: false, ct);
     }
 
+    public async Task HandleHomeworkSettingsAsync(Message msg, CancellationToken ct)
+    {
+        var userId = msg.From!.Id;
+        var session = _sessions.GetOrCreate(userId, msg.From.FirstName);
+        session.State = UserState.Idle;
+        session.DraftTask = null;
+        session.HomeworkSubjectChoices.Clear();
+        session.HomeworkLessonTypeChoices.Clear();
+
+        var selectionKey = IsGroupChat(msg.Chat.Type) ? msg.Chat.Id : userId;
+        if (!TryGetAllScheduleEntries(selectionKey, out _, out _, out var entries))
+        {
+            await _bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: IsGroupChat(msg.Chat.Type)
+                    ? "Сначала подключи расписание группы через /schedule, потом я смогу настроить предметы для общего ДЗ."
+                    : "Сначала выбери своё расписание через /schedule, потом я смогу настроить предметы для ДЗ.",
+                cancellationToken: ct);
+            return;
+        }
+
+        var subjects = GetHomeworkSubjects(entries);
+        if (subjects.Count == 0)
+        {
+            await _bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: "В расписании пока не нашлось предметов для настройки ДЗ.",
+                cancellationToken: ct);
+            return;
+        }
+
+        if (IsGroupChat(msg.Chat.Type))
+        {
+            await SendGroupHomeworkSubjectSettingsAsync(msg.Chat.Id, msg.Chat.Title, session, subjects, ct);
+            return;
+        }
+
+        await SendHomeworkSubjectSettingsAsync(msg.Chat.Id, userId, session, subjects, ct);
+    }
+
     private async Task SendHomeworkSubjectChoiceAsync(
         long chatId,
         long userId,
@@ -439,27 +485,63 @@ public class CommandHandler
             .ToList();
 
         if (!showAll && preferences.IsConfigured)
-            buttons.Add(("рџ‘Ђ РџРѕРєР°Р·Р°С‚СЊ РІСЃРµ", "hw_show_all"));
+            buttons.Add(("Показать все", "hw_show_all"));
 
-        buttons.Add(("вљ™пёЏ РќР°СЃС‚СЂРѕРёС‚СЊ", "hw_config"));
-        buttons.Add(("рџ”ґ РћС‚РјРµРЅР°", "hw_cancel"));
+        buttons.Add(("Настроить", "hw_config"));
 
         var text = visibleSubjects.Count == 0
-            ? "рџ“љ <b>Р’ СЃРїРёСЃРєРµ Р”Р— РїРѕРєР° РЅРµС‚ РІС‹Р±СЂР°РЅРЅС‹С… РїСЂРµРґРјРµС‚РѕРІ.</b>\nРќР°Р¶РјРё В«РќР°СЃС‚СЂРѕРёС‚СЊВ» Рё РѕС‚РјРµС‚СЊ РЅСѓР¶РЅС‹Рµ."
+            ? "<b>В списке ДЗ пока нет выбранных предметов.</b>\nНажми «Настроить» и отметь нужные."
             : preferences.IsConfigured || showAll
-                ? "рџ“љ <b>Р’С‹Р±РµСЂРё РїСЂРµРґРјРµС‚, РїРѕ РєРѕС‚РѕСЂРѕРјСѓ Р·Р°РґР°Р»Рё Р”Р—:</b>"
-                : "рџ“љ <b>Р’С‹Р±РµСЂРё РїСЂРµРґРјРµС‚, РїРѕ РєРѕС‚РѕСЂРѕРјСѓ Р·Р°РґР°Р»Рё Р”Р—:</b>\n\n" +
-                  "Р•СЃР»Рё С‚СѓС‚ РµСЃС‚СЊ Р»РёС€РЅРёРµ РїСЂРµРґРјРµС‚С‹, РЅР°Р¶РјРё В«вљ™пёЏ РќР°СЃС‚СЂРѕРёС‚СЊВ» Рё РѕСЃС‚Р°РІСЊ С‚РѕР»СЊРєРѕ РЅСѓР¶РЅС‹Рµ.\n\n" +
-                  "РџСЂРµРґРјРµС‚С‹ Р±СѓРґСѓС‚ РёРґС‚Рё РІ С‚РѕРј РїРѕСЂСЏРґРєРµ, РІ РєРѕС‚РѕСЂРѕРј С‚С‹ РёС… РѕС‚РјРµС‚РёС€СЊ.";
+                ? "<b>Выбери предмет, по которому задали ДЗ:</b>"
+                : "<b>Выбери предмет, по которому задали ДЗ:</b>\n\n" +
+                  "Если тут есть лишние предметы, нажми «Настроить» и оставь только нужные.\n\n" +
+                  "Предметы будут идти в том порядке, в котором ты их отметишь.";
 
-        await _bot.SendMessage(
+        var message = await _bot.SendMessage(
             chatId: chatId,
             text: text,
             parseMode: ParseMode.Html,
             replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
             cancellationToken: ct);
+
+        _inlineCleanup.Track(chatId, message.MessageId, message.ReplyMarkup);
     }
 
+    private async Task SendHomeworkSubjectSettingsAsync(
+        long chatId,
+        long userId,
+        UserSession session,
+        List<string> subjects,
+        CancellationToken ct)
+    {
+        var preferences = _homeworkSubjects.Get(userId);
+        session.HomeworkSubjectChoices.Clear();
+        session.HomeworkLessonTypeChoices.Clear();
+
+        var buttons = subjects
+            .Select((subject, index) =>
+            {
+                var key = index.ToString();
+                session.HomeworkSubjectChoices[key] = subject;
+                var priority = preferences.FavoriteSubjects.FindIndex(favorite =>
+                    string.Equals(favorite, subject, StringComparison.OrdinalIgnoreCase));
+                var label = priority >= 0
+                    ? $"{priority + 1}. {subject}"
+                    : $"{subject}";
+                return (label, $"hw_fav_{key}");
+            })
+            .Append(("Готово", "hw_done"));
+
+        var message = await _bot.SendMessage(
+            chatId: chatId,
+            text: "<b>Предметы для ДЗ</b>\n" +
+                  "Отмечай предметы в нужном порядке: первый выбранный будет выше всех в /add_homework.",
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: ct);
+
+        _inlineCleanup.Track(chatId, message.MessageId, message.ReplyMarkup);
+    }
     private static string BuildPlanMenuText(int pending, bool includeIntro)
     {
         var text = pending > 0
@@ -764,23 +846,83 @@ public class CommandHandler
         session.HomeworkSubjectChoices.Clear();
         session.HomeworkLessonTypeChoices.Clear();
 
-        var buttons = subjects
+        var preferences = _groupHomeworkSubjects.Get(chatId);
+        var favoriteSubjects = preferences.FavoriteSubjects
+            .Where(favorite => subjects.Contains(favorite, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+
+        var visibleSubjects = preferences.IsConfigured
+            ? favoriteSubjects
+            : subjects;
+
+        var buttons = visibleSubjects
             .Select((subject, index) =>
             {
                 var key = index.ToString();
                 session.HomeworkSubjectChoices[key] = subject;
                 return (subject, $"hw_subject_{key}");
             })
-            .Append(("рџ”ґ РћС‚РјРµРЅР°", "hw_cancel"));
+            .ToList();
 
-        await _bot.SendMessage(
+        if (preferences.IsConfigured)
+            buttons.Add(("Показать все", "hw_show_all"));
+
+        buttons.Add(("Настроить", "hw_config"));
+
+        var text = visibleSubjects.Count == 0
+            ? "<b>Для общего ДЗ пока не выбраны предметы.</b>\nНажми «Настроить» и отметь нужные."
+            : "<b>Выбери предмет из расписания группы:</b>";
+
+        var message = await _bot.SendMessage(
             chatId: chatId,
-            text: "рџ“љ <b>Р’С‹Р±РµСЂРё РїСЂРµРґРјРµС‚ РёР· СЂР°СЃРїРёСЃР°РЅРёСЏ РіСЂСѓРїРїС‹:</b>",
+            text: text,
             parseMode: ParseMode.Html,
             replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
             cancellationToken: ct);
+
+        _inlineCleanup.Track(chatId, message.MessageId, message.ReplyMarkup);
     }
 
+    private async Task SendGroupHomeworkSubjectSettingsAsync(
+        long chatId,
+        string? chatTitle,
+        UserSession session,
+        List<string> subjects,
+        CancellationToken ct)
+    {
+        var preferences = _groupHomeworkSubjects.Get(chatId);
+        session.HomeworkSubjectChoices.Clear();
+        session.HomeworkLessonTypeChoices.Clear();
+
+        var buttons = subjects
+            .Select((subject, index) =>
+            {
+                var key = index.ToString();
+                session.HomeworkSubjectChoices[key] = subject;
+                var priority = preferences.FavoriteSubjects.FindIndex(favorite =>
+                    string.Equals(favorite, subject, StringComparison.OrdinalIgnoreCase));
+                var label = priority >= 0
+                    ? $"{priority + 1}. {subject}"
+                    : $"{subject}";
+                return (label, $"hw_fav_{key}");
+            })
+            .Append(("Готово", "hw_done"));
+
+        var titlePrefix = string.IsNullOrWhiteSpace(chatTitle)
+            ? string.Empty
+            : $"Чат: <b>{Escape(chatTitle)}</b>\n";
+
+        var message = await _bot.SendMessage(
+            chatId: chatId,
+            text: "<b>Предметы для общего ДЗ</b>\n" +
+                  titlePrefix +
+                  "Отмечай предметы в нужном порядке: первый выбранный будет выше всех в /add_homework.",
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: ct);
+
+        _inlineCleanup.Track(chatId, message.MessageId, message.ReplyMarkup);
+    }
     private async Task TryPinMiniAppMessageAsync(ChatId chatId, Message launchMessage, CancellationToken ct)
     {
         try
@@ -919,3 +1061,8 @@ public class CommandHandler
     private static bool IsGroupChat(ChatType chatType)
         => chatType is ChatType.Group or ChatType.Supergroup;
 }
+
+
+
+
+

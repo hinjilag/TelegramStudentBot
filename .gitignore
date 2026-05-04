@@ -28,6 +28,8 @@ Data/user-*.json
 Data/user-*.json.tmp
 Data/group-*.json
 Data/group-*.json.tmp
+Data/group-homework-subjects.json
+Data/group-homework-subjects.json.tmp
 Data/group-participants.json
 Data/group-participants.json.tmp
 Data/bot-visits.json

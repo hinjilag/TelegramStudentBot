@@ -222,6 +222,10 @@ public class UpdateRouter
                 await _commands.HandleAddHomeworkAsync(msg, ct);
                 break;
 
+            case "/homework_settings":
+                await _commands.HandleHomeworkSettingsAsync(msg, ct);
+                break;
+
             case "/homework":
                 await _commands.HandleHomeworkAsync(msg, ct);
                 break;
