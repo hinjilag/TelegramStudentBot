@@ -14,6 +14,8 @@ namespace TelegramStudentBot.Handlers;
 /// </summary>
 public class CommandHandler
 {
+    private const string MiniAppLaunchMessageText = "Открой mini app по кнопке ниже.";
+
     private readonly ITelegramBotClient _bot;
     private readonly SessionService _sessions;
     private readonly TimerService _timers;
@@ -84,6 +86,8 @@ public class CommandHandler
                     parseMode: ParseMode.Html,
                     replyMarkup: BuildMiniAppLinkMarkup(),
                     cancellationToken: ct);
+
+                await EnsureMiniAppPinnedAsync(msg.Chat.Id, ct);
                 return;
             }
 
@@ -104,6 +108,8 @@ public class CommandHandler
             parseMode: ParseMode.Html,
             replyMarkup: BuildMiniAppLinkMarkup(),
             cancellationToken: ct);
+
+        await EnsureMiniAppPinnedAsync(msg.Chat.Id, ct);
     }
 
     // ══════════════════════════════════════════════════════════
@@ -153,7 +159,7 @@ public class CommandHandler
 
         var launchMessage = await _bot.SendMessage(
             chatId: msg.Chat.Id,
-            text: "Открой mini app по кнопке ниже.",
+            text: MiniAppLaunchMessageText,
             replyMarkup: BuildMiniAppLinkMarkup(),
             cancellationToken: ct);
 
@@ -601,15 +607,54 @@ public class CommandHandler
         }
     }
 
-    private static bool IsMiniAppPinned(Message? pinnedMessage)
+    private async Task EnsureMiniAppPinnedAsync(ChatId chatId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(_webAppUrl))
+            return;
+
+        try
+        {
+            var chat = await _bot.GetChat(chatId, ct);
+            if (IsMiniAppPinned(chat.PinnedMessage))
+                return;
+
+            var launchMessage = await _bot.SendMessage(
+                chatId: chatId,
+                text: MiniAppLaunchMessageText,
+                replyMarkup: BuildMiniAppLinkMarkup(),
+                cancellationToken: ct);
+
+            await _bot.PinChatMessage(
+                chatId: chatId,
+                messageId: launchMessage.Id,
+                disableNotification: true,
+                cancellationToken: ct);
+        }
+        catch
+        {
+            // Закрепление не критично: в некоторых чатах у бота может не быть прав.
+        }
+    }
+
+    private bool IsMiniAppPinned(Message? pinnedMessage)
     {
         if (pinnedMessage is null)
             return false;
 
-        return string.Equals(
+        if (string.Equals(
             pinnedMessage.Text?.Trim(),
-            "Открой mini app по кнопке ниже.",
-            StringComparison.Ordinal);
+            MiniAppLaunchMessageText,
+            StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(_webAppUrl) || pinnedMessage.ReplyMarkup is not InlineKeyboardMarkup markup)
+            return false;
+
+        return markup.InlineKeyboard
+            .SelectMany(row => row)
+            .Any(button => string.Equals(button.WebApp?.Url, _webAppUrl, StringComparison.OrdinalIgnoreCase));
     }
 
     private static InlineKeyboardMarkup BuildReminderKeyboard(bool enabled)
