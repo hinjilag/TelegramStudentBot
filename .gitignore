@@ -1,10 +1,12 @@
-﻿# Visual Studio
+# Visual Studio / Rider
 .vs/
 .vscode/
+.idea/
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
+*.sln.iml
 
 # Build results
 [Dd]ebug*/
@@ -12,22 +14,27 @@
 x64/
 x86/
 build/
+build-check/
 [Bb]in/
 [Oo]bj/
+_temp_build*/
 
-# Rider
-.idea/
-*.sln.iml
-
-# ASP.NET (local secrets and environment config)
+# ASP.NET local config
 appsettings*.json
 !appsettings.example.json
 
 # Local bot/runtime data
-.claude/settings.local.json
 Data/user-*.json
+Data/user-*.json.tmp
+Data/bot-visits.json
+Data/bot-visits.json.tmp
 
-# User-specific files
+# Local assistant/tool settings
+.claude/settings.local.json
+.dotnet/
+tools/
+
+# User-specific temp files
 *.swp
 *~
 *.tmp
@@ -39,39 +46,15 @@ Data/user-*.json
 packages/
 .nuget/
 
+# Logs
+*.log
+
 # OS files
 Thumbs.db
 Desktop.ini
 
-# Logs
-*.log
-
-# Runtime user data
-Data/user-schedule-selections.json
-Data/user-schedule-selections.json.tmp
-Data/user-tasks.json
-Data/user-tasks.json.tmp
-Data/user-reminders.json
-Data/user-reminders.json.tmp
-Data/bot-visits.json
-Data/bot-visits.json.tmp
-
-# JetBrains Rider
-.idea/
-
-# Dotnet tool
-.dotnet/
-
 # Generated files
 *.generated.cs
-_temp_build*/
-build-check/
-
-# Local assistant/tool settings
-.claude/settings.local.json
-
-# Local tools downloaded for development
-tools/
 
 # Optional: recommended for EF Core migrations
 Migrations/*.Designer.cs
