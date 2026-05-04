@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
@@ -36,7 +36,7 @@ public class BotService : IHostedService
     {
         var me = await _bot.GetMe(cancellationToken);
         _identity.SetUsername(me.Username);
-        _logger.LogInformation("Р‘РѕС‚ Р·Р°РїСѓС‰РµРЅ: @{Username} (ID: {Id})", me.Username, me.Id);
+        _logger.LogInformation("Бот запущен: @{Username} (ID: {Id})", me.Username, me.Id);
 
         await RegisterCommandsAsync(cancellationToken);
 
@@ -58,12 +58,12 @@ public class BotService : IHostedService
             receiverOptions: receiverOptions,
             cancellationToken: _cts.Token);
 
-        _logger.LogInformation("Long polling Р·Р°РїСѓС‰РµРЅ. РћР¶РёРґР°СЋ СЃРѕРѕР±С‰РµРЅРёР№...");
+        _logger.LogInformation("Long polling запущен. Ожидаю сообщений...");
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("РћСЃС‚Р°РЅРѕРІРєР° Р±РѕС‚Р°...");
+        _logger.LogInformation("Остановка бота...");
         _cts?.Cancel();
         _cts?.Dispose();
         return Task.CompletedTask;
@@ -73,27 +73,27 @@ public class BotService : IHostedService
     {
         var privateCommands = new[]
         {
-            new BotCommand { Command = "miniapp", Description = "РћС‚РєСЂС‹С‚СЊ mini app" },
-            new BotCommand { Command = "add_homework", Description = "Р”РѕР±Р°РІРёС‚СЊ Р”Р—" },
-            new BotCommand { Command = "homework", Description = "Р”РѕРјР°С€РЅРёРµ Р·Р°РґР°РЅРёСЏ" },
-            new BotCommand { Command = "homework_settings", Description = "Configure homework subjects" },
-            new BotCommand { Command = "reminders", Description = "РќР°РїРѕРјРёРЅР°РЅРёСЏ" },
-            new BotCommand { Command = "plan", Description = "РЈРїСЂР°РІР»РµРЅРёРµ Р·Р°РґР°С‡Р°РјРё" },
-            new BotCommand { Command = "schedule", Description = "РњРѕРµ СЂР°СЃРїРёСЃР°РЅРёРµ Р·Р°РЅСЏС‚РёР№" },
-            new BotCommand { Command = "timer", Description = "Р—Р°РїСѓСЃС‚РёС‚СЊ С‚Р°Р№РјРµСЂ СѓС‡РµР±С‹" },
-            new BotCommand { Command = "rest", Description = "Р—Р°РїСѓСЃС‚РёС‚СЊ С‚Р°Р№РјРµСЂ РѕС‚РґС‹С…Р°" },
-            new BotCommand { Command = "stop", Description = "РћСЃС‚Р°РЅРѕРІРёС‚СЊ С‚Р°Р№РјРµСЂ" },
-            new BotCommand { Command = "help", Description = "РЎРїРёСЃРѕРє РєРѕРјР°РЅРґ" }
+            new BotCommand { Command = "miniapp", Description = "Открыть mini app" },
+            new BotCommand { Command = "add_homework", Description = "Добавить ДЗ" },
+            new BotCommand { Command = "homework", Description = "Домашние задания" },
+            new BotCommand { Command = "homework_settings", Description = "Настроить предметы ДЗ" },
+            new BotCommand { Command = "reminders", Description = "Напоминания" },
+            new BotCommand { Command = "plan", Description = "Управление задачами" },
+            new BotCommand { Command = "schedule", Description = "Моё расписание занятий" },
+            new BotCommand { Command = "timer", Description = "Запустить таймер учёбы" },
+            new BotCommand { Command = "rest", Description = "Запустить таймер отдыха" },
+            new BotCommand { Command = "stop", Description = "Остановить таймер" },
+            new BotCommand { Command = "help", Description = "Список команд" }
         };
 
         var groupCommands = new[]
         {
-            new BotCommand { Command = "add_homework", Description = "Р”РѕР±Р°РІРёС‚СЊ РѕР±С‰РµРµ Р”Р—" },
-            new BotCommand { Command = "homework", Description = "РћР±С‰РёР№ СЃРїРёСЃРѕРє Р”Р—" },
-            new BotCommand { Command = "homework_settings", Description = "Configure homework subjects" },
-            new BotCommand { Command = "reminders", Description = "РќР°РїРѕРјРёРЅР°РЅРёСЏ РІ РіСЂСѓРїРїСѓ" },
-            new BotCommand { Command = "schedule", Description = "Р Р°СЃРїРёСЃР°РЅРёРµ РіСЂСѓРїРїС‹" },
-            new BotCommand { Command = "help", Description = "РЎРїРёСЃРѕРє РєРѕРјР°РЅРґ" }
+            new BotCommand { Command = "add_homework", Description = "Добавить общее ДЗ" },
+            new BotCommand { Command = "homework", Description = "Общий список ДЗ" },
+            new BotCommand { Command = "homework_settings", Description = "Настроить предметы ДЗ" },
+            new BotCommand { Command = "reminders", Description = "Напоминания в группу" },
+            new BotCommand { Command = "schedule", Description = "Расписание группы" },
+            new BotCommand { Command = "help", Description = "Список команд" }
         };
 
         try
@@ -105,13 +105,13 @@ public class BotService : IHostedService
                 cancellationToken: ct);
 
             _logger.LogInformation(
-                "РљРѕРјР°РЅРґС‹ РјРµРЅСЋ Р·Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°РЅС‹: private={PrivateCount}, group={GroupCount}",
+                "Команды меню зарегистрированы: private={PrivateCount}, group={GroupCount}",
                 privateCommands.Length,
                 groupCommands.Length);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°С‚СЊ РєРѕРјР°РЅРґС‹ РјРµРЅСЋ");
+            _logger.LogWarning(ex, "Не удалось зарегистрировать команды меню");
         }
 
         await RestoreCommandsMenuButtonAsync(ct);
@@ -126,11 +126,11 @@ public class BotService : IHostedService
                 menuButton: new MenuButtonCommands(),
                 cancellationToken: ct);
 
-            _logger.LogInformation("РљРЅРѕРїРєР° РјРµРЅСЋ Telegram РІРѕР·РІСЂР°С‰РµРЅР° Рє СЃРїРёСЃРєСѓ РєРѕРјР°РЅРґ");
+            _logger.LogInformation("Кнопка меню Telegram возвращена к списку команд");
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "РќРµ СѓРґР°Р»РѕСЃСЊ РІРµСЂРЅСѓС‚СЊ РєРЅРѕРїРєСѓ РјРµРЅСЋ Telegram Рє СЃРїРёСЃРєСѓ РєРѕРјР°РЅРґ");
+            _logger.LogWarning(ex, "Не удалось вернуть кнопку меню Telegram к списку команд");
         }
     }
 
@@ -140,9 +140,7 @@ public class BotService : IHostedService
         HandleErrorSource source,
         CancellationToken ct)
     {
-        _logger.LogError(ex, "РћС€РёР±РєР° polling. РСЃС‚РѕС‡РЅРёРє: {Source}", source);
+        _logger.LogError(ex, "Ошибка polling. Источник: {Source}", source);
         return Task.CompletedTask;
     }
 }
-
-

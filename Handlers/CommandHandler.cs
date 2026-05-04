@@ -16,13 +16,14 @@ public class CommandHandler
 {
     private const string MiniAppLaunchMessageText = "Открой mini app по кнопке ниже.";
     private const string GroupWelcomeText =
-        "👋 <b>Привет! В группе я помогаю вести общее расписание и домашние задания.</b>\n\n" +
+        "Привет! В группе я помогаю вести общее расписание и домашние задания.\n\n" +
         "Доступные команды:\n" +
-        "📅 /schedule — выбрать расписание для этой группы\n" +
-        "➕ /add_homework — добавить общее ДЗ\n" +
-        "📝 /homework — открыть общий список ДЗ\n" +
-        "⏰ /reminders — настроить напоминания в этот чат\n" +
-        "❓ /help — показать команды\n\n" +
+        "/schedule — выбрать расписание для этой группы\n" +
+        "/add_homework — добавить общее ДЗ\n" +
+        "/homework — открыть общий список ДЗ\n" +
+        "/homework_settings — настроить предметы для общего ДЗ\n" +
+        "/reminders — настроить напоминания в этот чат\n" +
+        "/help — показать команды\n\n" +
         "Обычную переписку в группе я не трогаю. Таймеры и личный планер работают только в личке.";
 
     private readonly ITelegramBotClient _bot;
@@ -101,15 +102,16 @@ public class CommandHandler
 
                 await _bot.SendMessage(
                     chatId: msg.Chat.Id,
-                    text: "👋 <b>С возвращением!</b>\n\n" +
+                    text: "С возвращением!\n\n" +
                           "Я уже помню твоё расписание:\n" +
                           $"<b>{Escape(FormatGroupTitle(group, selection.SubGroup))}</b>.\n\n" +
-                          "Можешь сразу перейти к нужному:\n" +
-                          "📅 /schedule — пары на день\n" +
-                          "📝 /homework — домашние задания\n" +
-                          "➕ /add_homework — добавить новое ДЗ\n" +
-                          "📋 /plan — личные дела с дедлайнами\n" +
-                          "⏱ /timer — сфокусироваться на учёбе",
+                          "Можно сразу перейти к нужному:\n" +
+                          "/schedule — пары на день\n" +
+                          "/homework — домашние задания\n" +
+                          "/homework_settings — настроить предметы для ДЗ\n" +
+                          "/add_homework — добавить новое ДЗ\n" +
+                          "/plan — личные дела с дедлайнами\n" +
+                          "/timer — сфокусироваться на учёбе",
                     parseMode: ParseMode.Html,
                     replyMarkup: BuildMiniAppLinkMarkup(),
                     cancellationToken: ct);
@@ -122,16 +124,17 @@ public class CommandHandler
         }
 
         await _bot.SendMessage(
-            chatId:    msg.Chat.Id,
-            text:      "👋 <b>Привет! Я помогу тебе следить за расписанием, домашками и личными делами.</b>\n\n" +
-                       "Давай сначала настроим расписание:\n" +
-                       "1. Нажми /schedule\n" +
-                       "2. Выбери направление, курс и подгруппу\n" +
-                       "3. После этого я закреплю расписание за тобой\n\n" +
-                       "Когда расписание будет выбрано:\n" +
-                       "📚 /add_homework — ДЗ по предметам\n" +
-                       "📋 /plan — личные дела с датой и временем\n" +
-                       "⏱ /timer — таймер учёбы",
+            chatId: msg.Chat.Id,
+            text: "Привет! Я помогу тебе следить за расписанием, домашками и личными делами.\n\n" +
+                  "Давай сначала настроим расписание:\n" +
+                  "1. Нажми /schedule\n" +
+                  "2. Выбери направление, курс и подгруппу\n" +
+                  "3. После этого я закреплю расписание за тобой\n\n" +
+                  "Когда расписание будет выбрано:\n" +
+                  "/add_homework — ДЗ по предметам\n" +
+                  "/homework_settings — настроить порядок предметов\n" +
+                  "/plan — личные дела с датой и временем\n" +
+                  "/timer — таймер учёбы",
             parseMode: ParseMode.Html,
             replyMarkup: BuildMiniAppLinkMarkup(),
             cancellationToken: ct);
@@ -139,21 +142,17 @@ public class CommandHandler
         await EnsureMiniAppPinnedAsync(msg.Chat.Id, ct);
     }
 
-    // ══════════════════════════════════════════════════════════
-    //  /help
-    // ══════════════════════════════════════════════════════════
-
-    /// <summary>Справка по всем командам</summary>
     public async Task HandleHelpAsync(Message msg, CancellationToken ct)
     {
         if (IsGroupChat(msg.Chat.Type))
         {
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,
-                text: "📖 <b>Что я умею в группе:</b>\n\n" +
+                text: "Что я умею в группе:\n\n" +
                       "/schedule — выбрать или поменять расписание этой группы\n" +
                       "/add_homework — добавить общее ДЗ по предмету из расписания\n" +
                       "/homework — посмотреть общее ДЗ\n" +
+                      "/homework_settings — настроить предметы и их порядок для общего ДЗ\n" +
                       "/reminders — настроить напоминания в этот чат\n" +
                       "/help — эта справка\n\n" +
                       "Сценарий простой: сначала /schedule, потом /add_homework, дальше /homework и /reminders.",
@@ -163,33 +162,28 @@ public class CommandHandler
         }
 
         await _bot.SendMessage(
-            chatId:    msg.Chat.Id,
-            text:      "📖 <b>Список команд:</b>\n\n" +
-                       "⏱ <b>Таймер учёбы:</b>\n" +
-                       "/timer — запустить таймер (25/30/45/60 мин или своё)\n" +
-                       "/stop — остановить текущий таймер\n\n" +
-                       "☕ <b>Отдых:</b>\n" +
-                       "/rest — запустить таймер отдыха\n\n" +
-                       "📚 <b>Домашние задания:</b>\n" +
-                       "/add_homework — в личке добавить ДЗ по расписанию, в группе — общее ДЗ\n" +
-                       "/homework — посмотреть свои или общие ДЗ\n" +
-                       "/reminders — настроить личные или групповые напоминания\n" +
-                       "В группе ДЗ добавляется через выбор предмета из /add_homework.\n\n" +
-                       "📋 <b>Планирование:</b>\n" +
-                       "/plan — управление задачами\n\n" +
-                       "📅 <b>Расписание:</b>\n" +
-                       "/schedule — моё расписание занятий\n\n" +
-                       "❓ /help — эта справка",
+            chatId: msg.Chat.Id,
+            text: "Список команд:\n\n" +
+                  "Таймер учёбы:\n" +
+                  "/timer — запустить таймер (25/30/45/60 минут или своё)\n" +
+                  "/stop — остановить текущий таймер\n\n" +
+                  "Отдых:\n" +
+                  "/rest — запустить таймер отдыха\n\n" +
+                  "Домашние задания:\n" +
+                  "/add_homework — в личке добавить ДЗ по расписанию, в группе — общее ДЗ\n" +
+                  "/homework — посмотреть свои или общие ДЗ\n" +
+                  "/homework_settings — настроить предметы и порядок показа\n" +
+                  "/reminders — настроить личные или групповые напоминания\n\n" +
+                  "Планирование:\n" +
+                  "/plan — управление задачами\n\n" +
+                  "Расписание:\n" +
+                  "/schedule — моё расписание занятий\n\n" +
+                  "/help — эта справка",
             parseMode: ParseMode.Html,
             replyMarkup: BuildMiniAppLinkMarkup(),
             cancellationToken: ct);
     }
 
-    // ══════════════════════════════════════════════════════════
-    //  /timer
-    // ══════════════════════════════════════════════════════════
-
-    /// <summary>Показать меню выбора длительности рабочего таймера</summary>
     public async Task HandleMiniAppAsync(Message msg, CancellationToken ct)
     {
         if (IsGroupChat(msg.Chat.Type))
@@ -252,11 +246,6 @@ public class CommandHandler
             parseMode: ParseMode.Html,
             cancellationToken: ct);
 
-    // ══════════════════════════════════════════════════════════
-    //  /rest
-    // ══════════════════════════════════════════════════════════
-
-    /// <summary>Показать меню выбора длительности отдыха</summary>
     public async Task HandleRestAsync(Message msg, CancellationToken ct)
     {
         if (IsGroupChat(msg.Chat.Type))
@@ -428,8 +417,8 @@ public class CommandHandler
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,
                 text: IsGroupChat(msg.Chat.Type)
-                    ? "������� �������� ���������� ������ ����� /schedule, ����� � ����� ��������� �������� ��� ������ ��."
-                    : "������� ������ ��� ���������� ����� /schedule, ����� � ����� ��������� �������� ��� ��.",
+                    ? "Сначала подключи расписание группы через /schedule, потом я смогу настроить предметы для общего ДЗ."
+                    : "Сначала выбери своё расписание через /schedule, потом я смогу настроить предметы для ДЗ.",
                 cancellationToken: ct);
             return;
         }
@@ -439,7 +428,7 @@ public class CommandHandler
         {
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,
-                text: "� ���������� ���� �� ������� ��������� ��� ��������� ��.",
+                text: "В расписании пока не нашлось предметов для настройки ДЗ.",
                 cancellationToken: ct);
             return;
         }
@@ -485,17 +474,15 @@ public class CommandHandler
             .ToList();
 
         if (!showAll && preferences.IsConfigured)
-            buttons.Add(("�������� ���", "hw_show_all"));
+            buttons.Add(("Показать все", "hw_show_all"));
 
-        buttons.Add(("���������", "hw_config"));
+        buttons.Add(("Настроить", "hw_config"));
 
         var text = visibleSubjects.Count == 0
-            ? "<b>� ������ �� ���� ��� ��������� ���������.</b>\n����� ����������� � ������ ������."
+            ? "<b>В списке ДЗ пока нет выбранных предметов.</b>\nНажми «Настроить» и отметь нужные."
             : preferences.IsConfigured || showAll
-                ? "<b>������ �������, �� �������� ������ ��:</b>"
-                : "<b>������ �������, �� �������� ������ ��:</b>\n\n" +
-                  "���� ��� ���� ������ ��������, ����� ����������� � ������ ������ ������.\n\n" +
-                  "�������� ����� ���� � ��� �������, � ������� �� �� ��������.";
+                ? "<b>Выбери предмет, по которому задали ДЗ:</b>"
+                : "<b>Выбери предмет, по которому задали ДЗ:</b>\n\nЕсли тут есть лишние предметы, нажми «Настроить» и оставь только нужные.\n\nПредметы будут идти в том порядке, в котором ты их отметишь.";
 
         var message = await _bot.SendMessage(
             chatId: chatId,
@@ -527,21 +514,21 @@ public class CommandHandler
                     string.Equals(favorite, subject, StringComparison.OrdinalIgnoreCase));
                 var label = priority >= 0
                     ? $"{priority + 1}. {subject}"
-                    : $"{subject}";
+                    : subject;
                 return (label, $"hw_fav_{key}");
             })
-            .Append(("������", "hw_done"));
+            .Append(("Готово", "hw_done"));
 
         var message = await _bot.SendMessage(
             chatId: chatId,
-            text: "<b>�������� ��� ��</b>\n" +
-                  "������� �������� � ������ �������: ������ ��������� ����� ���� ���� � /add_homework.",
+            text: "<b>Предметы для ДЗ</b>\nОтмечай предметы в нужном порядке: первый выбранный будет выше всех в /add_homework.",
             parseMode: ParseMode.Html,
             replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
             cancellationToken: ct);
 
         _inlineCleanup.Track(chatId, message.MessageId, message.ReplyMarkup);
     }
+
     private static string BuildPlanMenuText(int pending, bool includeIntro)
     {
         var text = pending > 0
@@ -590,10 +577,6 @@ public class CommandHandler
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
         await SendHomeworkListAsync(msg.Chat.Id, session, ct);
     }
-
-    // ══════════════════════════════════════════════════════════
-    //  /reminders
-    // ══════════════════════════════════════════════════════════
 
     public async Task HandleRemindersAsync(Message msg, CancellationToken ct)
     {
@@ -865,13 +848,13 @@ public class CommandHandler
             .ToList();
 
         if (preferences.IsConfigured)
-            buttons.Add(("�������� ���", "hw_show_all"));
+            buttons.Add(("Показать все", "hw_show_all"));
 
-        buttons.Add(("���������", "hw_config"));
+        buttons.Add(("Настроить", "hw_config"));
 
         var text = visibleSubjects.Count == 0
-            ? "<b>��� ������ �� ���� �� ������� ��������.</b>\n����� ����������� � ������ ������."
-            : "<b>������ ������� �� ���������� ������:</b>";
+            ? "<b>Для общего ДЗ пока не выбраны предметы.</b>\nНажми «Настроить» и отметь нужные."
+            : "<b>Выбери предмет из расписания группы:</b>";
 
         var message = await _bot.SendMessage(
             chatId: chatId,
@@ -903,26 +886,27 @@ public class CommandHandler
                     string.Equals(favorite, subject, StringComparison.OrdinalIgnoreCase));
                 var label = priority >= 0
                     ? $"{priority + 1}. {subject}"
-                    : $"{subject}";
+                    : subject;
                 return (label, $"hw_fav_{key}");
             })
-            .Append(("������", "hw_done"));
+            .Append(("Готово", "hw_done"));
 
         var titlePrefix = string.IsNullOrWhiteSpace(chatTitle)
             ? string.Empty
-            : $"���: <b>{Escape(chatTitle)}</b>\n";
+            : $"Чат: <b>{Escape(chatTitle)}</b>\n";
 
         var message = await _bot.SendMessage(
             chatId: chatId,
-            text: "<b>�������� ��� ������ ��</b>\n" +
+            text: "<b>Предметы для общего ДЗ</b>\n" +
                   titlePrefix +
-                  "������� �������� � ������ �������: ������ ��������� ����� ���� ���� � /add_homework.",
+                  "Отмечай предметы в нужном порядке: первый выбранный будет выше всех в /add_homework.",
             parseMode: ParseMode.Html,
             replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
             cancellationToken: ct);
 
         _inlineCleanup.Track(chatId, message.MessageId, message.ReplyMarkup);
     }
+
     private async Task TryPinMiniAppMessageAsync(ChatId chatId, Message launchMessage, CancellationToken ct)
     {
         try
