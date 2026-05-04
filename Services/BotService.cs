@@ -47,7 +47,8 @@ public class BotService : IHostedService
             AllowedUpdates = new[]
             {
                 UpdateType.Message,
-                UpdateType.CallbackQuery
+                UpdateType.CallbackQuery,
+                UpdateType.ChatMember
             },
             DropPendingUpdates = true
         };
@@ -91,6 +92,7 @@ public class BotService : IHostedService
             new BotCommand { Command = "add_homework", Description = "Добавить общее ДЗ" },
             new BotCommand { Command = "homework", Description = "Общий список ДЗ" },
             new BotCommand { Command = "homework_settings", Description = "Настроить предметы ДЗ" },
+            new BotCommand { Command = "call", Description = "Позвать известных участников" },
             new BotCommand { Command = "reminders", Description = "Напоминания в группу" },
             new BotCommand { Command = "schedule", Description = "Расписание группы" },
             new BotCommand { Command = "help", Description = "Список команд" }

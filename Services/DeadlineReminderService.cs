@@ -75,8 +75,7 @@ public class DeadlineReminderService : BackgroundService
         {
             if (!settings.IsEnabled ||
                 settings.ChatId == 0 ||
-                settings.Hour != now.Hour ||
-                settings.Minute != now.Minute ||
+                !IsScheduledTimeReached(now, settings.Hour, settings.Minute) ||
                 settings.LastNotificationDate?.Date == today)
             {
                 continue;
@@ -95,19 +94,30 @@ public class DeadlineReminderService : BackgroundService
 
             if (dueTomorrow.Count > 0)
             {
-                await _bot.SendMessage(
-                    chatId: settings.ChatId,
-                    text: BuildReminderText(dueTomorrow, tomorrow),
-                    parseMode: ParseMode.Html,
-                    cancellationToken: ct);
+                try
+                {
+                    await _bot.SendMessage(
+                        chatId: settings.ChatId,
+                        text: BuildReminderText(dueTomorrow, tomorrow),
+                        parseMode: ParseMode.Html,
+                        cancellationToken: ct);
 
-                _logger.LogInformation(
-                    "Отправлено напоминание о {Count} дедлайнах пользователю {UserId}",
-                    dueTomorrow.Count,
-                    userId);
+                    _reminders.MarkNotificationChecked(userId, today);
+
+                    _logger.LogInformation(
+                        "Отправлено напоминание о {Count} дедлайнах пользователю {UserId}",
+                        dueTomorrow.Count,
+                        userId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Не удалось отправить напоминание пользователю {UserId} в чат {ChatId}",
+                        userId,
+                        settings.ChatId);
+                }
             }
-
-            _reminders.MarkNotificationChecked(userId, today);
         }
 
         foreach (var (chatId, settings) in allGroupSettings)
@@ -115,8 +125,7 @@ public class DeadlineReminderService : BackgroundService
             if (!settings.IsEnabled ||
                 (settings.Frequency == Models.GroupReminderFrequency.Weekdays &&
                  (today.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)) ||
-                settings.Hour != now.Hour ||
-                settings.Minute != now.Minute ||
+                !IsScheduledTimeReached(now, settings.Hour, settings.Minute) ||
                 settings.LastNotificationDate?.Date == today)
             {
                 continue;
@@ -136,23 +145,31 @@ public class DeadlineReminderService : BackgroundService
             if (dueTomorrow.Count > 0)
             {
                 var participants = _groupParticipants.Get(chatId);
-                var participantMentions = participants.Count > 0
-                    ? string.Join(" ", participants.Select(BuildMention)) + "\n\n"
-                    : string.Empty;
+                var participantMentions = BuildParticipantMentions(participants);
 
-                await _bot.SendMessage(
-                    chatId: settings.ChatId,
-                    text: participantMentions + BuildGroupReminderText(dueTomorrow, tomorrow, participants),
-                    parseMode: ParseMode.Html,
-                    cancellationToken: ct);
+                try
+                {
+                    await _bot.SendMessage(
+                        chatId: settings.ChatId,
+                        text: participantMentions + BuildGroupReminderText(dueTomorrow, tomorrow, participants),
+                        parseMode: ParseMode.Html,
+                        cancellationToken: ct);
 
-                _logger.LogInformation(
-                    "Отправлено групповое напоминание о {Count} дедлайнах в чат {ChatId}",
-                    dueTomorrow.Count,
-                    chatId);
+                    _groupReminders.MarkNotificationChecked(chatId, today);
+
+                    _logger.LogInformation(
+                        "Отправлено групповое напоминание о {Count} дедлайнах в чат {ChatId}",
+                        dueTomorrow.Count,
+                        chatId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Не удалось отправить групповое напоминание в чат {ChatId}",
+                        settings.ChatId);
+                }
             }
-
-            _groupReminders.MarkNotificationChecked(chatId, today);
         }
     }
 
@@ -248,6 +265,37 @@ public class DeadlineReminderService : BackgroundService
             : participant.Username!;
 
         return $"<a href=\"tg://user?id={participant.UserId}\">{Escape(label)}</a>";
+    }
+
+    private static string BuildParticipantMentions(IReadOnlyCollection<Models.GroupParticipant> participants)
+    {
+        if (participants.Count == 0)
+            return string.Empty;
+
+        const int maxMentionChars = 1200;
+        var sb = new StringBuilder();
+
+        foreach (var participant in participants)
+        {
+            var mention = BuildMention(participant);
+            if (sb.Length > 0 && sb.Length + 1 + mention.Length > maxMentionChars)
+                break;
+
+            if (sb.Length > 0)
+                sb.Append(' ');
+
+            sb.Append(mention);
+        }
+
+        return sb.Length == 0 ? string.Empty : sb.ToString() + "\n\n";
+    }
+
+    private static bool IsScheduledTimeReached(DateTime now, int hour, int minute)
+    {
+        if (now.Hour > hour)
+            return true;
+
+        return now.Hour == hour && now.Minute >= minute;
     }
 
     private static string Escape(string text)

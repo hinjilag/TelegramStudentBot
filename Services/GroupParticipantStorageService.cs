@@ -43,6 +43,7 @@ public class GroupParticipantStorageService
                     UserId = user.Id,
                     Nickname = nickname,
                     Username = username,
+                    IsBot = user.IsBot,
                     LastSeenAt = DateTime.Now
                 });
             }
@@ -50,6 +51,7 @@ public class GroupParticipantStorageService
             {
                 participant.Nickname = nickname;
                 participant.Username = username;
+                participant.IsBot = user.IsBot;
                 participant.LastSeenAt = DateTime.Now;
             }
 
@@ -108,6 +110,7 @@ public class GroupParticipantStorageService
             UserId = source.UserId,
             Nickname = source.Nickname,
             Username = source.Username,
+            IsBot = source.IsBot,
             LastSeenAt = source.LastSeenAt
         };
     }

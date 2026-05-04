@@ -8,6 +8,8 @@ public class GroupParticipant
 
     public string? Username { get; set; }
 
+    public bool IsBot { get; set; }
+
     public DateTime LastSeenAt { get; set; } = DateTime.Now;
 }
 

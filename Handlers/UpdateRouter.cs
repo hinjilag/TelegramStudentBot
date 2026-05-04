@@ -65,6 +65,9 @@ public class UpdateRouter
                 return;
             }
 
+            if (update.Type == UpdateType.ChatMember && update.ChatMember is not null)
+                return;
+
             if (update.Type == UpdateType.Message && update.Message?.Text is not null)
             {
                 await HandleMessageAsync(update.Message, ct);
@@ -101,18 +104,30 @@ public class UpdateRouter
     private void RememberUser(Update update)
     {
         var user = update.Message?.From ?? update.CallbackQuery?.From;
-        if (user is null)
+        if (user is not null)
+        {
+            _userProfiles.Upsert(user);
+            _taskStorage.SyncUserMetadata(user.Id);
+            _reminders.SyncUserMetadata(user.Id);
+            _homeworkSubjects.SyncUserMetadata(user.Id);
+            _scheduleSelections.SyncUserMetadata(user.Id);
+        }
+
+        var chat = update.Message?.Chat ?? update.CallbackQuery?.Message?.Chat ?? update.ChatMember?.Chat;
+        if (chat?.Type is not (ChatType.Group or ChatType.Supergroup))
             return;
 
-        _userProfiles.Upsert(user);
-        _taskStorage.SyncUserMetadata(user.Id);
-        _reminders.SyncUserMetadata(user.Id);
-        _homeworkSubjects.SyncUserMetadata(user.Id);
-        _scheduleSelections.SyncUserMetadata(user.Id);
-
-        var chat = update.Message?.Chat ?? update.CallbackQuery?.Message?.Chat;
-        if (chat?.Type is ChatType.Group or ChatType.Supergroup)
+        if (user is not null)
             _groupParticipants.Upsert(chat.Id, chat.Title, user);
+
+        if (update.Message?.NewChatMembers is { Length: > 0 } newMembers)
+        {
+            foreach (var member in newMembers)
+                _groupParticipants.Upsert(chat.Id, chat.Title, member);
+        }
+
+        if (update.ChatMember is not null)
+            _groupParticipants.Upsert(chat.Id, chat.Title, update.ChatMember.NewChatMember.User);
     }
 
     private async Task HandleMessageAsync(Message msg, CancellationToken ct)
@@ -228,6 +243,10 @@ public class UpdateRouter
 
             case "/homework":
                 await _commands.HandleHomeworkAsync(msg, ct);
+                break;
+
+            case "/call":
+                await _commands.HandleCallAsync(msg, ct);
                 break;
 
             case "/reminders":

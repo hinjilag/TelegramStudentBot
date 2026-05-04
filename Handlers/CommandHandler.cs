@@ -22,6 +22,7 @@ public class CommandHandler
         "/add_homework — добавить общее ДЗ\n" +
         "/homework — открыть общий список ДЗ\n" +
         "/homework_settings — настроить предметы для общего ДЗ\n" +
+        "/call — позвать известных мне участников\n" +
         "/reminders — настроить напоминания в этот чат\n" +
         "/help — показать команды\n\n" +
         "Обычную переписку в группе я не трогаю. Таймеры и личный планер работают только в личке.";
@@ -33,6 +34,7 @@ public class CommandHandler
     private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly ReminderSettingsService _reminders;
     private readonly GroupStudyTaskStorageService _groupTasks;
+    private readonly GroupParticipantStorageService _groupParticipants;
     private readonly GroupReminderSettingsService _groupReminders;
     private readonly GroupHomeworkSubjectPreferencesService _groupHomeworkSubjects;
     private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
@@ -49,6 +51,7 @@ public class CommandHandler
         UserScheduleSelectionService scheduleSelections,
         ReminderSettingsService reminders,
         GroupStudyTaskStorageService groupTasks,
+        GroupParticipantStorageService groupParticipants,
         GroupReminderSettingsService groupReminders,
         GroupHomeworkSubjectPreferencesService groupHomeworkSubjects,
         HomeworkSubjectPreferencesService homeworkSubjects,
@@ -64,6 +67,7 @@ public class CommandHandler
         _scheduleSelections = scheduleSelections;
         _reminders = reminders;
         _groupTasks = groupTasks;
+        _groupParticipants = groupParticipants;
         _groupReminders = groupReminders;
         _groupHomeworkSubjects = groupHomeworkSubjects;
         _homeworkSubjects = homeworkSubjects;
@@ -153,6 +157,7 @@ public class CommandHandler
                       "/add_homework — добавить общее ДЗ по предмету из расписания\n" +
                       "/homework — посмотреть общее ДЗ\n" +
                       "/homework_settings — настроить предметы и их порядок для общего ДЗ\n" +
+                      "/call — позвать известных мне участников группы\n" +
                       "/reminders — настроить напоминания в этот чат\n" +
                       "/help — эта справка\n\n" +
                       "Сценарий простой: сначала /schedule, потом /add_homework, дальше /homework и /reminders.",
@@ -715,6 +720,79 @@ public class CommandHandler
             cancellationToken: ct);
     }
 
+    public async Task HandleCallAsync(Message msg, CancellationToken ct)
+    {
+        if (!IsGroupChat(msg.Chat.Type))
+        {
+            await _bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: "Команда /call работает только в группах.",
+                cancellationToken: ct);
+            return;
+        }
+
+        var callerId = msg.From?.Id;
+        var knownParticipants = _groupParticipants.Get(msg.Chat.Id)
+            .Where(participant => !participant.IsBot)
+            .Where(participant => participant.UserId != callerId)
+            .GroupBy(participant => participant.UserId)
+            .Select(group => group.OrderByDescending(item => item.LastSeenAt).First())
+            .OrderByDescending(participant => participant.LastSeenAt)
+            .ToList();
+
+        if (knownParticipants.Count == 0)
+        {
+            await _bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: "Я пока никого не запомнил для вызова. Когда участники пишут в чат или заходят в группу, я постепенно собираю список.",
+                cancellationToken: ct);
+            return;
+        }
+
+        var activeParticipants = new List<GroupParticipant>();
+        foreach (var participant in knownParticipants)
+        {
+            try
+            {
+                var member = await _bot.GetChatMember(msg.Chat.Id, participant.UserId, ct);
+                if (member is Telegram.Bot.Types.ChatMemberMember or
+                    Telegram.Bot.Types.ChatMemberAdministrator or
+                    Telegram.Bot.Types.ChatMemberOwner or
+                    Telegram.Bot.Types.ChatMemberRestricted)
+                {
+                    activeParticipants.Add(participant);
+                }
+            }
+            catch
+            {
+                // Skip participants we can't verify right now.
+            }
+        }
+
+        if (activeParticipants.Count == 0)
+        {
+            await _bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: "Не смог собрать актуальный список участников для вызова. Попробуй ещё раз чуть позже.",
+                cancellationToken: ct);
+            return;
+        }
+
+        var batches = BuildCallMentionBatches(activeParticipants);
+        for (var index = 0; index < batches.Count; index++)
+        {
+            var prefix = index == 0
+                ? "📣 <b>Созываю участников:</b>\n\n"
+                : "📣 <b>Продолжаю вызов:</b>\n\n";
+
+            await _bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: prefix + batches[index],
+                parseMode: ParseMode.Html,
+                cancellationToken: ct);
+        }
+    }
+
     private async Task SendSelectedScheduleMenuAsync(
         long chatId,
         ScheduleGroup group,
@@ -1021,6 +1099,43 @@ public class CommandHandler
                 InlineKeyboardButton.WithCallbackData("Выключить", "rem_off")
             }
         });
+    }
+
+    private static List<string> BuildCallMentionBatches(IReadOnlyList<GroupParticipant> participants)
+    {
+        const int maxBatchLength = 3200;
+        var batches = new List<string>();
+        var current = new List<string>();
+        var currentLength = 0;
+
+        foreach (var participant in participants)
+        {
+            var mention = BuildParticipantMention(participant);
+            var separatorLength = current.Count == 0 ? 0 : 1;
+            if (current.Count > 0 && currentLength + separatorLength + mention.Length > maxBatchLength)
+            {
+                batches.Add(string.Join(" ", current));
+                current.Clear();
+                currentLength = 0;
+            }
+
+            current.Add(mention);
+            currentLength += (current.Count == 1 ? 0 : 1) + mention.Length;
+        }
+
+        if (current.Count > 0)
+            batches.Add(string.Join(" ", current));
+
+        return batches;
+    }
+
+    private static string BuildParticipantMention(GroupParticipant participant)
+    {
+        var label = string.IsNullOrWhiteSpace(participant.Username)
+            ? participant.Nickname
+            : participant.Username!;
+
+        return $"<a href=\"tg://user?id={participant.UserId}\">{Escape(label)}</a>";
     }
 
     private static string? ResolveWebAppUrl(IConfiguration configuration)
