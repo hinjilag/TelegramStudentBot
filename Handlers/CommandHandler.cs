@@ -18,11 +18,12 @@ public class CommandHandler
     private const string GroupWelcomeText =
         "Привет! В группе я помогаю вести общее расписание и домашние задания.\n\n" +
         "Доступные команды:\n" +
+        "/all — массово позвать известных мне участников\n" +
         "/schedule — выбрать расписание для этой группы\n" +
         "/add_homework — добавить общее ДЗ\n" +
         "/homework — открыть общий список ДЗ\n" +
         "/homework_settings — настроить предметы для общего ДЗ\n" +
-        "/call — позвать известных мне участников\n" +
+        "/call — алиас для /all\n" +
         "/reminders — настроить напоминания в этот чат\n" +
         "/help — показать команды\n\n" +
         "Обычную переписку в группе я не трогаю. Таймеры и личный планер работают только в личке.";
@@ -153,11 +154,12 @@ public class CommandHandler
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,
                 text: "Что я умею в группе:\n\n" +
+                      "/all — массово позвать известных мне участников группы\n" +
                       "/schedule — выбрать или поменять расписание этой группы\n" +
                       "/add_homework — добавить общее ДЗ по предмету из расписания\n" +
                       "/homework — посмотреть общее ДЗ\n" +
                       "/homework_settings — настроить предметы и их порядок для общего ДЗ\n" +
-                      "/call — позвать известных мне участников группы\n" +
+                      "/call — алиас для /all\n" +
                       "/reminders — настроить напоминания в этот чат\n" +
                       "/help — эта справка\n\n" +
                       "Сценарий простой: сначала /schedule, потом /add_homework, дальше /homework и /reminders.",
@@ -726,7 +728,7 @@ public class CommandHandler
         {
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,
-                text: "Команда /call работает только в группах.",
+                text: "Команды /all и /call работают только в группах.",
                 cancellationToken: ct);
             return;
         }
@@ -744,7 +746,7 @@ public class CommandHandler
         {
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,
-                text: "Я пока никого не запомнил для вызова. Когда участники пишут в чат или заходят в группу, я постепенно собираю список.",
+                text: "Я пока никого не запомнил для вызова. Когда участники пишут в чат или заходят в группу, я постепенно собираю список для /all.",
                 cancellationToken: ct);
             return;
         }
@@ -782,8 +784,8 @@ public class CommandHandler
         for (var index = 0; index < batches.Count; index++)
         {
             var prefix = index == 0
-                ? "📣 <b>Созываю участников:</b>\n\n"
-                : "📣 <b>Продолжаю вызов:</b>\n\n";
+                ? "📣 <b>Общий сбор:</b>\n\n"
+                : "📣 <b>Ещё участники:</b>\n\n";
 
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,

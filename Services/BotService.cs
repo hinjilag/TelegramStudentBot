@@ -89,6 +89,7 @@ public class BotService : IHostedService
 
         var groupCommands = new[]
         {
+            new BotCommand { Command = "all", Description = "Позвать участников" },
             new BotCommand { Command = "add_homework", Description = "Добавить общее ДЗ" },
             new BotCommand { Command = "homework", Description = "Общий список ДЗ" },
             new BotCommand { Command = "homework_settings", Description = "Настроить предметы ДЗ" },
