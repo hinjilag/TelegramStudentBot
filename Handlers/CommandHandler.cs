@@ -734,6 +734,8 @@ public class CommandHandler
         }
 
         var callerId = msg.From?.Id;
+        await SeedKnownParticipantsFromAdminsAsync(msg.Chat.Id, msg.Chat.Title, ct);
+
         var knownParticipants = _groupParticipants.Get(msg.Chat.Id)
             .Where(participant => !participant.IsBot)
             .Where(participant => participant.UserId != callerId)
@@ -792,6 +794,23 @@ public class CommandHandler
                 text: prefix + batches[index],
                 parseMode: ParseMode.Html,
                 cancellationToken: ct);
+
+            if (index < batches.Count - 1)
+                await Task.Delay(TimeSpan.FromMilliseconds(350), ct);
+        }
+    }
+
+    private async Task SeedKnownParticipantsFromAdminsAsync(long chatId, string? chatTitle, CancellationToken ct)
+    {
+        try
+        {
+            var admins = await _bot.GetChatAdministrators(chatId, ct);
+            foreach (var admin in admins)
+                _groupParticipants.Upsert(chatId, chatTitle, admin.User);
+        }
+        catch
+        {
+            // Not critical: /all can still work with already known participants.
         }
     }
 
@@ -1105,7 +1124,8 @@ public class CommandHandler
 
     private static List<string> BuildCallMentionBatches(IReadOnlyList<GroupParticipant> participants)
     {
-        const int maxBatchLength = 3200;
+        const int maxBatchLength = 700;
+        const int maxMentionsPerBatch = 6;
         var batches = new List<string>();
         var current = new List<string>();
         var currentLength = 0;
@@ -1114,7 +1134,9 @@ public class CommandHandler
         {
             var mention = BuildParticipantMention(participant);
             var separatorLength = current.Count == 0 ? 0 : 1;
-            if (current.Count > 0 && currentLength + separatorLength + mention.Length > maxBatchLength)
+            if (current.Count > 0 &&
+                (currentLength + separatorLength + mention.Length > maxBatchLength ||
+                 current.Count >= maxMentionsPerBatch))
             {
                 batches.Add(string.Join(" ", current));
                 current.Clear();

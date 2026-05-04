@@ -144,14 +144,32 @@ public class DeadlineReminderService : BackgroundService
 
             if (dueTomorrow.Count > 0)
             {
-                var participants = _groupParticipants.Get(chatId);
-                var participantMentions = BuildParticipantMentions(participants);
+                await SeedKnownParticipantsFromAdminsAsync(chatId, settings.ChatTitle, ct);
+
+                var knownParticipants = _groupParticipants.Get(chatId);
+                var activeParticipants = await GetActiveParticipantsAsync(chatId, knownParticipants, ct);
 
                 try
                 {
+                    var mentionBatches = BuildParticipantMentionBatches(activeParticipants);
+                    for (var index = 0; index < mentionBatches.Count; index++)
+                    {
+                        var prefix = index == 0
+                            ? "📣 <b>Напоминание для группы:</b>\n\n"
+                            : "📣 <b>Ещё участники:</b>\n\n";
+
+                        await _bot.SendMessage(
+                            chatId: settings.ChatId,
+                            text: prefix + mentionBatches[index],
+                            parseMode: ParseMode.Html,
+                            cancellationToken: ct);
+
+                        await Task.Delay(TimeSpan.FromMilliseconds(350), ct);
+                    }
+
                     await _bot.SendMessage(
                         chatId: settings.ChatId,
-                        text: participantMentions + BuildGroupReminderText(dueTomorrow, tomorrow, participants),
+                        text: BuildGroupReminderText(dueTomorrow, tomorrow, activeParticipants),
                         parseMode: ParseMode.Html,
                         cancellationToken: ct);
 
@@ -267,27 +285,85 @@ public class DeadlineReminderService : BackgroundService
         return $"<a href=\"tg://user?id={participant.UserId}\">{Escape(label)}</a>";
     }
 
-    private static string BuildParticipantMentions(IReadOnlyCollection<Models.GroupParticipant> participants)
+    private async Task SeedKnownParticipantsFromAdminsAsync(long chatId, string? chatTitle, CancellationToken ct)
     {
-        if (participants.Count == 0)
-            return string.Empty;
+        try
+        {
+            var admins = await _bot.GetChatAdministrators(chatId, ct);
+            foreach (var admin in admins)
+                _groupParticipants.Upsert(chatId, chatTitle, admin.User);
+        }
+        catch
+        {
+            // Not critical for reminder delivery.
+        }
+    }
 
-        const int maxMentionChars = 1200;
-        var sb = new StringBuilder();
+    private async Task<List<Models.GroupParticipant>> GetActiveParticipantsAsync(
+        long chatId,
+        IReadOnlyCollection<Models.GroupParticipant> participants,
+        CancellationToken ct)
+    {
+        var activeParticipants = new List<Models.GroupParticipant>();
+
+        foreach (var participant in participants)
+        {
+            if (participant.IsBot)
+                continue;
+
+            try
+            {
+                var member = await _bot.GetChatMember(chatId, participant.UserId, ct);
+                if (member is Telegram.Bot.Types.ChatMemberMember or
+                    Telegram.Bot.Types.ChatMemberAdministrator or
+                    Telegram.Bot.Types.ChatMemberOwner or
+                    Telegram.Bot.Types.ChatMemberRestricted)
+                {
+                    activeParticipants.Add(participant);
+                }
+            }
+            catch
+            {
+                // Skip participants that can't be verified anymore.
+            }
+        }
+
+        return activeParticipants
+            .GroupBy(participant => participant.UserId)
+            .Select(group => group.OrderByDescending(item => item.LastSeenAt).First())
+            .OrderByDescending(participant => participant.LastSeenAt)
+            .ToList();
+    }
+
+    private static List<string> BuildParticipantMentionBatches(IReadOnlyList<Models.GroupParticipant> participants)
+    {
+        const int maxBatchLength = 700;
+        const int maxMentionsPerBatch = 6;
+        var batches = new List<string>();
+        var current = new List<string>();
+        var currentLength = 0;
 
         foreach (var participant in participants)
         {
             var mention = BuildMention(participant);
-            if (sb.Length > 0 && sb.Length + 1 + mention.Length > maxMentionChars)
-                break;
+            var separatorLength = current.Count == 0 ? 0 : 1;
+            if (current.Count > 0 &&
+                (currentLength + separatorLength + mention.Length > maxBatchLength ||
+                 current.Count >= maxMentionsPerBatch))
+            {
+                batches.Add(string.Join(" ", current));
+                current.Clear();
+                currentLength = 0;
+            }
 
-            if (sb.Length > 0)
-                sb.Append(' ');
-
-            sb.Append(mention);
+            current.Add(mention);
+            currentLength += (current.Count == 1 ? 0 : 1) + mention.Length;
         }
 
-        return sb.Length == 0 ? string.Empty : sb.ToString() + "\n\n";
+        if (current.Count > 0)
+            batches.Add(string.Join(" ", current));
+
+        return batches;
     }
 
     private static bool IsScheduledTimeReached(DateTime now, int hour, int minute)
