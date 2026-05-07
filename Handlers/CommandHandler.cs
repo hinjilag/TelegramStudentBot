@@ -158,6 +158,9 @@ public class CommandHandler
             return;
         }
 
+        if (msg.Chat.Type == ChatType.Private)
+            await ReplacePrivateMiniAppMessageAsync(msg.Chat.Id, ct);
+
         var launchMessage = await _bot.SendMessage(
             chatId: msg.Chat.Id,
             text: MiniAppLaunchMessageText,
@@ -595,6 +598,18 @@ public class CommandHandler
 
         try
         {
+            if (launchMessage.Chat.Type == ChatType.Private)
+            {
+                await _bot.PinChatMessage(
+                    chatId: chatId,
+                    messageId: launchMessage.Id,
+                    disableNotification: true,
+                    cancellationToken: ct);
+
+                _miniAppPins.Save(chatIdValue, launchMessage.Id);
+                return;
+            }
+
             if (storedState is not null)
             {
                 if (await TryPinStoredMiniAppMessageAsync(chatId, storedState.MessageId, ct))
@@ -632,6 +647,39 @@ public class CommandHandler
         {
             // Закрепление не критично: в некоторых чатах у бота может не быть прав.
         }
+    }
+
+    private async Task ReplacePrivateMiniAppMessageAsync(long chatId, CancellationToken ct)
+    {
+        var storedState = _miniAppPins.Get(chatId);
+        if (storedState is null)
+            return;
+
+        try
+        {
+            await _bot.UnpinChatMessage(
+                chatId: chatId,
+                messageId: storedState.MessageId,
+                cancellationToken: ct);
+        }
+        catch
+        {
+            // Если сообщение уже не в закрепе, продолжаем очистку.
+        }
+
+        try
+        {
+            await _bot.DeleteMessage(
+                chatId: chatId,
+                messageId: storedState.MessageId,
+                cancellationToken: ct);
+        }
+        catch
+        {
+            // Если старое сообщение уже удалено, просто создадим новое.
+        }
+
+        _miniAppPins.Delete(chatId);
     }
 
     private async Task<bool> TryPinStoredMiniAppMessageAsync(ChatId chatId, int messageId, CancellationToken ct)
