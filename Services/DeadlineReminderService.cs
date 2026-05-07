@@ -14,7 +14,7 @@ public class DeadlineReminderService : BackgroundService
     private readonly GroupStudyTaskStorageService _groupTasks;
     private readonly ReminderSettingsService _reminders;
     private readonly GroupReminderSettingsService _groupReminders;
-    private readonly GroupParticipantStorageService _groupParticipants;
+    private readonly GroupParticipantResolverService _groupParticipantResolver;
     private readonly ILogger<DeadlineReminderService> _logger;
     private readonly TimeZoneInfo _moscowTimeZone;
     private DateTime? _lastGroupCleanupDate;
@@ -25,7 +25,7 @@ public class DeadlineReminderService : BackgroundService
         ReminderSettingsService reminders,
         GroupStudyTaskStorageService groupTasks,
         GroupReminderSettingsService groupReminders,
-        GroupParticipantStorageService groupParticipants,
+        GroupParticipantResolverService groupParticipantResolver,
         ILogger<DeadlineReminderService> logger)
     {
         _bot = bot;
@@ -33,7 +33,7 @@ public class DeadlineReminderService : BackgroundService
         _reminders = reminders;
         _groupTasks = groupTasks;
         _groupReminders = groupReminders;
-        _groupParticipants = groupParticipants;
+        _groupParticipantResolver = groupParticipantResolver;
         _logger = logger;
         _moscowTimeZone = ResolveMoscowTimeZone();
     }
@@ -144,14 +144,14 @@ public class DeadlineReminderService : BackgroundService
 
             if (dueTomorrow.Count > 0)
             {
-                await SeedKnownParticipantsFromAdminsAsync(chatId, settings.ChatTitle, ct);
-
-                var knownParticipants = _groupParticipants.Get(chatId);
-                var activeParticipants = await GetActiveParticipantsAsync(chatId, knownParticipants, ct);
+                var activeParticipants = await _groupParticipantResolver.ResolveReminderParticipantsAsync(
+                    chatId,
+                    settings.ChatTitle,
+                    ct);
 
                 try
                 {
-                    var mentionBatches = BuildParticipantMentionBatches(activeParticipants);
+                    var mentionBatches = _groupParticipantResolver.BuildMentionBatches(activeParticipants);
                     for (var index = 0; index < mentionBatches.Count; index++)
                     {
                         var prefix = index == 0
@@ -274,96 +274,6 @@ public class DeadlineReminderService : BackgroundService
 
         sb.Append("Открыть общий список: /homework");
         return sb.ToString();
-    }
-
-    private static string BuildMention(Models.GroupParticipant participant)
-    {
-        var label = string.IsNullOrWhiteSpace(participant.Username)
-            ? participant.Nickname
-            : participant.Username!;
-
-        return $"<a href=\"tg://user?id={participant.UserId}\">{Escape(label)}</a>";
-    }
-
-    private async Task SeedKnownParticipantsFromAdminsAsync(long chatId, string? chatTitle, CancellationToken ct)
-    {
-        try
-        {
-            var admins = await _bot.GetChatAdministrators(chatId, ct);
-            foreach (var admin in admins)
-                _groupParticipants.Upsert(chatId, chatTitle, admin.User);
-        }
-        catch
-        {
-            // Not critical for reminder delivery.
-        }
-    }
-
-    private async Task<List<Models.GroupParticipant>> GetActiveParticipantsAsync(
-        long chatId,
-        IReadOnlyCollection<Models.GroupParticipant> participants,
-        CancellationToken ct)
-    {
-        var activeParticipants = new List<Models.GroupParticipant>();
-
-        foreach (var participant in participants)
-        {
-            if (participant.IsBot)
-                continue;
-
-            try
-            {
-                var member = await _bot.GetChatMember(chatId, participant.UserId, ct);
-                if (member is Telegram.Bot.Types.ChatMemberMember or
-                    Telegram.Bot.Types.ChatMemberAdministrator or
-                    Telegram.Bot.Types.ChatMemberOwner or
-                    Telegram.Bot.Types.ChatMemberRestricted)
-                {
-                    activeParticipants.Add(participant);
-                }
-            }
-            catch
-            {
-                // Skip participants that can't be verified anymore.
-            }
-        }
-
-        return activeParticipants
-            .GroupBy(participant => participant.UserId)
-            .Select(group => group.OrderByDescending(item => item.LastSeenAt).First())
-            .OrderByDescending(participant => participant.LastSeenAt)
-            .ToList();
-    }
-
-    private static List<string> BuildParticipantMentionBatches(IReadOnlyList<Models.GroupParticipant> participants)
-    {
-        const int maxBatchLength = 700;
-        const int maxMentionsPerBatch = 6;
-        var batches = new List<string>();
-        var current = new List<string>();
-        var currentLength = 0;
-
-        foreach (var participant in participants)
-        {
-            var mention = BuildMention(participant);
-            var separatorLength = current.Count == 0 ? 0 : 1;
-            if (current.Count > 0 &&
-                (currentLength + separatorLength + mention.Length > maxBatchLength ||
-                 current.Count >= maxMentionsPerBatch))
-            {
-                batches.Add(string.Join(" ", current));
-                current.Clear();
-                currentLength = 0;
-            }
-
-            current.Add(mention);
-            currentLength += (current.Count == 1 ? 0 : 1) + mention.Length;
-        }
-
-        if (current.Count > 0)
-            batches.Add(string.Join(" ", current));
-
-        return batches;
     }
 
     private static bool IsScheduledTimeReached(DateTime now, int hour, int minute)

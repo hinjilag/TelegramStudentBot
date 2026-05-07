@@ -35,6 +35,7 @@ builder.Services.AddSingleton<GroupStudyTaskStorageService>();
 builder.Services.AddSingleton<ReminderSettingsService>();
 builder.Services.AddSingleton<GroupReminderSettingsService>();
 builder.Services.AddSingleton<GroupParticipantStorageService>();
+builder.Services.AddSingleton<GroupParticipantResolverService>();
 builder.Services.AddSingleton<GroupHomeworkSubjectPreferencesService>();
 builder.Services.AddSingleton<GroupVisitLogService>();
 builder.Services.AddSingleton<HomeworkSubjectPreferencesService>();
@@ -47,6 +48,7 @@ builder.Services.AddSingleton<SessionService>();
 builder.Services.AddSingleton<TimerService>();
 builder.Services.AddSingleton<ScheduleCatalogService>();
 builder.Services.AddSingleton<UserScheduleSelectionService>();
+builder.Services.AddSingleton<BotIdentityService>();
 
 builder.Services.AddSingleton<MiniAppAuthService>();
 builder.Services.AddSingleton<GroupMiniAppAccessService>();

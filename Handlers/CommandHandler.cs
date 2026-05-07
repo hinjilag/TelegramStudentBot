@@ -18,7 +18,7 @@ public class CommandHandler
     private const string GroupWelcomeText =
         "Привет! В группе я помогаю вести общее расписание и домашние задания.\n\n" +
         "Доступные команды:\n" +
-        "/all — массово позвать известных мне участников\n" +
+        "/all — массово позвать участников группы\n" +
         "/schedule — выбрать расписание для этой группы\n" +
         "/add_homework — добавить общее ДЗ\n" +
         "/homework — открыть общий список ДЗ\n" +
@@ -35,7 +35,7 @@ public class CommandHandler
     private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly ReminderSettingsService _reminders;
     private readonly GroupStudyTaskStorageService _groupTasks;
-    private readonly GroupParticipantStorageService _groupParticipants;
+    private readonly GroupParticipantResolverService _groupParticipantResolver;
     private readonly GroupReminderSettingsService _groupReminders;
     private readonly GroupHomeworkSubjectPreferencesService _groupHomeworkSubjects;
     private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
@@ -53,7 +53,7 @@ public class CommandHandler
         UserScheduleSelectionService scheduleSelections,
         ReminderSettingsService reminders,
         GroupStudyTaskStorageService groupTasks,
-        GroupParticipantStorageService groupParticipants,
+        GroupParticipantResolverService groupParticipantResolver,
         GroupReminderSettingsService groupReminders,
         GroupHomeworkSubjectPreferencesService groupHomeworkSubjects,
         HomeworkSubjectPreferencesService homeworkSubjects,
@@ -70,7 +70,7 @@ public class CommandHandler
         _scheduleSelections = scheduleSelections;
         _reminders = reminders;
         _groupTasks = groupTasks;
-        _groupParticipants = groupParticipants;
+        _groupParticipantResolver = groupParticipantResolver;
         _groupReminders = groupReminders;
         _groupHomeworkSubjects = groupHomeworkSubjects;
         _homeworkSubjects = homeworkSubjects;
@@ -155,7 +155,7 @@ public class CommandHandler
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,
                 text: "Что я умею в группе:\n\n" +
-                      "/all — массово позвать известных мне участников группы\n" +
+                      "/all — массово позвать участников группы\n" +
                       "/schedule — выбрать или поменять расписание этой группы\n" +
                       "/add_homework — добавить общее ДЗ по предмету из расписания\n" +
                       "/homework — посмотреть общее ДЗ\n" +
@@ -738,55 +738,23 @@ public class CommandHandler
         }
 
         var callerId = msg.From?.Id;
-        await SeedKnownParticipantsFromAdminsAsync(msg.Chat.Id, msg.Chat.Title, ct);
-
-        var knownParticipants = _groupParticipants.Get(msg.Chat.Id)
-            .Where(participant => !participant.IsBot)
-            .Where(participant => participant.UserId != callerId)
-            .GroupBy(participant => participant.UserId)
-            .Select(group => group.OrderByDescending(item => item.LastSeenAt).First())
-            .OrderByDescending(participant => participant.LastSeenAt)
+        var activeParticipants = (await _groupParticipantResolver.ResolveCallParticipantsAsync(
+                msg.Chat.Id,
+                msg.Chat.Title,
+                callerId,
+                ct))
             .ToList();
-
-        if (knownParticipants.Count == 0)
-        {
-            await _bot.SendMessage(
-                chatId: msg.Chat.Id,
-                text: "Я пока никого не запомнил для вызова. Когда участники пишут в чат или заходят в группу, я постепенно собираю список для /all.",
-                cancellationToken: ct);
-            return;
-        }
-
-        var activeParticipants = new List<GroupParticipant>();
-        foreach (var participant in knownParticipants)
-        {
-            try
-            {
-                var member = await _bot.GetChatMember(msg.Chat.Id, participant.UserId, ct);
-                if (member is Telegram.Bot.Types.ChatMemberMember or
-                    Telegram.Bot.Types.ChatMemberAdministrator or
-                    Telegram.Bot.Types.ChatMemberOwner or
-                    Telegram.Bot.Types.ChatMemberRestricted)
-                {
-                    activeParticipants.Add(participant);
-                }
-            }
-            catch
-            {
-                // Skip participants we can't verify right now.
-            }
-        }
 
         if (activeParticipants.Count == 0)
         {
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,
-                text: "Не смог собрать актуальный список участников для вызова. Попробуй ещё раз чуть позже.",
+                text: "Не смог собрать список участников группы для вызова. Проверь, что у бота есть права администратора, а в конфиге заданы TelegramApi:ApiId и TelegramApi:ApiHash.",
                 cancellationToken: ct);
             return;
         }
-
-        var batches = BuildCallMentionBatches(activeParticipants);
+        
+        var batches = _groupParticipantResolver.BuildMentionBatches(activeParticipants);
         for (var index = 0; index < batches.Count; index++)
         {
             var prefix = index == 0
@@ -801,20 +769,6 @@ public class CommandHandler
 
             if (index < batches.Count - 1)
                 await Task.Delay(TimeSpan.FromMilliseconds(350), ct);
-        }
-    }
-
-    private async Task SeedKnownParticipantsFromAdminsAsync(long chatId, string? chatTitle, CancellationToken ct)
-    {
-        try
-        {
-            var admins = await _bot.GetChatAdministrators(chatId, ct);
-            foreach (var admin in admins)
-                _groupParticipants.Upsert(chatId, chatTitle, admin.User);
-        }
-        catch
-        {
-            // Not critical: /all can still work with already known participants.
         }
     }
 
@@ -1184,46 +1138,6 @@ public class CommandHandler
                 InlineKeyboardButton.WithCallbackData("Выключить", "rem_off")
             }
         });
-    }
-
-    private static List<string> BuildCallMentionBatches(IReadOnlyList<GroupParticipant> participants)
-    {
-        const int maxBatchLength = 700;
-        const int maxMentionsPerBatch = 6;
-        var batches = new List<string>();
-        var current = new List<string>();
-        var currentLength = 0;
-
-        foreach (var participant in participants)
-        {
-            var mention = BuildParticipantMention(participant);
-            var separatorLength = current.Count == 0 ? 0 : 1;
-            if (current.Count > 0 &&
-                (currentLength + separatorLength + mention.Length > maxBatchLength ||
-                 current.Count >= maxMentionsPerBatch))
-            {
-                batches.Add(string.Join(" ", current));
-                current.Clear();
-                currentLength = 0;
-            }
-
-            current.Add(mention);
-            currentLength += (current.Count == 1 ? 0 : 1) + mention.Length;
-        }
-
-        if (current.Count > 0)
-            batches.Add(string.Join(" ", current));
-
-        return batches;
-    }
-
-    private static string BuildParticipantMention(GroupParticipant participant)
-    {
-        var label = string.IsNullOrWhiteSpace(participant.Username)
-            ? participant.Nickname
-            : participant.Username!;
-
-        return $"<a href=\"tg://user?id={participant.UserId}\">{Escape(label)}</a>";
     }
 
     private static string? ResolveWebAppUrl(IConfiguration configuration)
