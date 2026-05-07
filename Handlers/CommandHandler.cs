@@ -1,4 +1,4 @@
-using Telegram.Bot;
+﻿using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
@@ -42,6 +42,7 @@ public class CommandHandler
     private readonly InlineMessageCleanupService _inlineCleanup;
     private readonly UserFeatureIntroService _featureIntros;
     private readonly BotVisitLogService _visits;
+    private readonly MiniAppPinStateService _miniAppPins;
     private readonly string? _webAppUrl;
 
     public CommandHandler(
@@ -59,6 +60,7 @@ public class CommandHandler
         InlineMessageCleanupService inlineCleanup,
         UserFeatureIntroService featureIntros,
         BotVisitLogService visits,
+        MiniAppPinStateService miniAppPins,
         IConfiguration configuration)
     {
         _bot = bot;
@@ -75,6 +77,7 @@ public class CommandHandler
         _inlineCleanup = inlineCleanup;
         _featureIntros = featureIntros;
         _visits = visits;
+        _miniAppPins = miniAppPins;
         _webAppUrl = ResolveWebAppUrl(configuration);
     }
 
@@ -121,7 +124,6 @@ public class CommandHandler
                     replyMarkup: BuildMiniAppLinkMarkup(),
                     cancellationToken: ct);
 
-                await EnsureMiniAppPinnedAsync(msg.Chat.Id, ct);
                 return;
             }
 
@@ -144,7 +146,6 @@ public class CommandHandler
             replyMarkup: BuildMiniAppLinkMarkup(),
             cancellationToken: ct);
 
-        await EnsureMiniAppPinnedAsync(msg.Chat.Id, ct);
     }
 
     public async Task HandleHelpAsync(Message msg, CancellationToken ct)
@@ -207,6 +208,9 @@ public class CommandHandler
                 cancellationToken: ct);
             return;
         }
+
+        if (msg.Chat.Type == ChatType.Private)
+            await ReplacePrivateMiniAppMessageAsync(msg.Chat.Id, ct);
 
         var launchMessage = await _bot.SendMessage(
             chatId: msg.Chat.Id,
@@ -1008,17 +1012,55 @@ public class CommandHandler
 
     private async Task TryPinMiniAppMessageAsync(ChatId chatId, Message launchMessage, CancellationToken ct)
     {
+        var chatIdValue = launchMessage.Chat.Id;
+        var storedState = _miniAppPins.Get(chatIdValue);
+
         try
         {
-            var chat = await _bot.GetChat(chatId, ct);
-            if (IsMiniAppPinned(chat.PinnedMessage))
+            if (launchMessage.Chat.Type == ChatType.Private)
+            {
+                await _bot.PinChatMessage(
+                    chatId: chatId,
+                    messageId: launchMessage.Id,
+                    disableNotification: true,
+                    cancellationToken: ct);
+
+                _miniAppPins.Save(chatIdValue, launchMessage.Id);
                 return;
+            }
+
+            if (storedState is not null)
+            {
+                if (await TryPinStoredMiniAppMessageAsync(chatId, storedState.MessageId, ct))
+                {
+                    _miniAppPins.Save(chatIdValue, storedState.MessageId);
+                    return;
+                }
+
+                _miniAppPins.Delete(chatIdValue);
+            }
+
+            try
+            {
+                var chat = await _bot.GetChat(chatId, ct);
+                if (IsMiniAppPinned(chat.PinnedMessage))
+                {
+                    _miniAppPins.Save(chatIdValue, chat.PinnedMessage!.Id);
+                    return;
+                }
+            }
+            catch
+            {
+                // Если не удалось прочитать состояние чата, всё равно попробуем закрепить новое сообщение.
+            }
 
             await _bot.PinChatMessage(
                 chatId: chatId,
                 messageId: launchMessage.Id,
                 disableNotification: true,
                 cancellationToken: ct);
+
+            _miniAppPins.Save(chatIdValue, launchMessage.Id);
         }
         catch
         {
@@ -1026,32 +1068,54 @@ public class CommandHandler
         }
     }
 
-    private async Task EnsureMiniAppPinnedAsync(ChatId chatId, CancellationToken ct)
+    private async Task ReplacePrivateMiniAppMessageAsync(long chatId, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(_webAppUrl))
+        var storedState = _miniAppPins.Get(chatId);
+        if (storedState is null)
             return;
 
         try
         {
-            var chat = await _bot.GetChat(chatId, ct);
-            if (IsMiniAppPinned(chat.PinnedMessage))
-                return;
-
-            var launchMessage = await _bot.SendMessage(
+            await _bot.UnpinChatMessage(
                 chatId: chatId,
-                text: MiniAppLaunchMessageText,
-                replyMarkup: BuildMiniAppLinkMarkup(),
-                cancellationToken: ct);
-
-            await _bot.PinChatMessage(
-                chatId: chatId,
-                messageId: launchMessage.Id,
-                disableNotification: true,
+                messageId: storedState.MessageId,
                 cancellationToken: ct);
         }
         catch
         {
-            // Закрепление не критично: в некоторых чатах у бота может не быть прав.
+            // Если сообщение уже не в закрепе, продолжаем очистку.
+        }
+
+        try
+        {
+            await _bot.DeleteMessage(
+                chatId: chatId,
+                messageId: storedState.MessageId,
+                cancellationToken: ct);
+        }
+        catch
+        {
+            // Если старое сообщение уже удалено, просто создадим новое.
+        }
+
+        _miniAppPins.Delete(chatId);
+    }
+
+    private async Task<bool> TryPinStoredMiniAppMessageAsync(ChatId chatId, int messageId, CancellationToken ct)
+    {
+        try
+        {
+            await _bot.PinChatMessage(
+                chatId: chatId,
+                messageId: messageId,
+                disableNotification: true,
+                cancellationToken: ct);
+
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 

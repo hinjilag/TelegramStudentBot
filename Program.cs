@@ -42,7 +42,7 @@ builder.Services.AddSingleton<InlineMessageCleanupService>();
 builder.Services.AddSingleton<UserProfileStorageService>();
 builder.Services.AddSingleton<UserFeatureIntroService>();
 builder.Services.AddSingleton<BotVisitLogService>();
-builder.Services.AddSingleton<BotIdentityService>();
+builder.Services.AddSingleton<MiniAppPinStateService>();
 builder.Services.AddSingleton<SessionService>();
 builder.Services.AddSingleton<TimerService>();
 builder.Services.AddSingleton<ScheduleCatalogService>();
