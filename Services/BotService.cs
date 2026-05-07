@@ -50,7 +50,7 @@ public class BotService : IHostedService
                 UpdateType.CallbackQuery,
                 UpdateType.ChatMember
             },
-            DropPendingUpdates = true
+            DropPendingUpdates = false
         };
 
         _bot.StartReceiving(

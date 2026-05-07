@@ -390,7 +390,7 @@ function renderRemindersView(reminder) {
                     </label>
                   `).join("")}
                 </div>`
-              : `<p class="group-caption">Пока не удалось загрузить список участников. Если выбор уже сохранён, он останется как есть.</p>`}
+              : `<p class="group-caption">Пока список пуст. Без подключения Telegram API я могу предлагать здесь только тех участников, которых уже видел в чате.</p>`}
           </div>
           <button class="pixel-button" type="submit">Сохранить напоминания</button>
         </form>
