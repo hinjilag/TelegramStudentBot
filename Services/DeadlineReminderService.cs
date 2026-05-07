@@ -148,10 +148,11 @@ public class DeadlineReminderService : BackgroundService
                     chatId,
                     settings.ChatTitle,
                     ct);
+                var participantsToMention = FilterSelectedParticipants(activeParticipants, settings);
 
                 try
                 {
-                    var mentionBatches = _groupParticipantResolver.BuildMentionBatches(activeParticipants);
+                    var mentionBatches = _groupParticipantResolver.BuildMentionBatches(participantsToMention);
                     for (var index = 0; index < mentionBatches.Count; index++)
                     {
                         var prefix = index == 0
@@ -169,7 +170,7 @@ public class DeadlineReminderService : BackgroundService
 
                     await _bot.SendMessage(
                         chatId: settings.ChatId,
-                        text: BuildGroupReminderText(dueTomorrow, tomorrow, activeParticipants),
+                        text: BuildGroupReminderText(dueTomorrow, tomorrow, participantsToMention),
                         parseMode: ParseMode.Html,
                         cancellationToken: ct);
 
@@ -286,6 +287,19 @@ public class DeadlineReminderService : BackgroundService
 
     private static string Escape(string text)
         => WebUtility.HtmlEncode(text);
+
+    private static IReadOnlyList<Models.GroupParticipant> FilterSelectedParticipants(
+        IReadOnlyList<Models.GroupParticipant> participants,
+        Models.GroupReminderSettings settings)
+    {
+        if (settings.SelectedParticipantUserIds.Count == 0)
+            return participants;
+
+        var selectedIds = settings.SelectedParticipantUserIds.ToHashSet();
+        return participants
+            .Where(participant => selectedIds.Contains(participant.UserId))
+            .ToList();
+    }
 
     private static TimeZoneInfo ResolveMoscowTimeZone()
     {

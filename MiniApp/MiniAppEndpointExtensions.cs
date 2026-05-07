@@ -239,7 +239,8 @@ public static class MiniAppEndpointExtensions
             HttpContext httpContext,
             MiniAppAuthService auth,
             GroupMiniAppAccessService access,
-            GroupMiniAppService miniAppService) =>
+            GroupMiniAppService miniAppService,
+            CancellationToken cancellationToken) =>
         {
             if (!auth.TryAuthenticate(httpContext, out var identity, out var authError))
                 return Results.Json(new { error = authError }, statusCode: StatusCodes.Status401Unauthorized);
@@ -247,7 +248,7 @@ public static class MiniAppEndpointExtensions
             if (!access.TryResolveChatAccess(httpContext, identity!, out var chatId, out var accessError))
                 return Results.Json(new { error = accessError }, statusCode: StatusCodes.Status403Forbidden);
 
-            return Results.Ok(miniAppService.GetState(identity!, chatId));
+            return Results.Ok(await miniAppService.GetStateAsync(identity!, chatId, cancellationToken));
         });
 
         groupMiniApp.MapGet("/groups", async (
@@ -274,7 +275,8 @@ public static class MiniAppEndpointExtensions
             MiniAppAuthService auth,
             GroupMiniAppAccessService access,
             GroupMiniAppService miniAppService,
-            MiniAppScheduleSelectionRequest request) =>
+            MiniAppScheduleSelectionRequest request,
+            CancellationToken cancellationToken) =>
         {
             if (!auth.TryAuthenticate(httpContext, out var identity, out var authError))
                 return Results.Json(new { error = authError }, statusCode: StatusCodes.Status401Unauthorized);
@@ -285,7 +287,7 @@ public static class MiniAppEndpointExtensions
             try
             {
                 miniAppService.SaveScheduleSelection(chatId, request);
-                return Results.Ok(miniAppService.GetState(identity!, chatId));
+                return Results.Ok(await miniAppService.GetStateAsync(identity!, chatId, cancellationToken));
             }
             catch (InvalidOperationException ex)
             {
@@ -297,7 +299,8 @@ public static class MiniAppEndpointExtensions
             HttpContext httpContext,
             MiniAppAuthService auth,
             GroupMiniAppAccessService access,
-            GroupMiniAppService miniAppService) =>
+            GroupMiniAppService miniAppService,
+            CancellationToken cancellationToken) =>
         {
             if (!auth.TryAuthenticate(httpContext, out var identity, out var authError))
                 return Results.Json(new { error = authError }, statusCode: StatusCodes.Status401Unauthorized);
@@ -306,7 +309,7 @@ public static class MiniAppEndpointExtensions
                 return Results.Json(new { error = accessError }, statusCode: StatusCodes.Status403Forbidden);
 
             miniAppService.ClearScheduleSelection(chatId);
-            return Results.Ok(miniAppService.GetState(identity!, chatId));
+            return Results.Ok(await miniAppService.GetStateAsync(identity!, chatId, cancellationToken));
         });
 
         groupMiniApp.MapPost("/homework", async (
@@ -314,7 +317,8 @@ public static class MiniAppEndpointExtensions
             MiniAppAuthService auth,
             GroupMiniAppAccessService access,
             GroupMiniAppService miniAppService,
-            MiniAppHomeworkCreateRequest request) =>
+            MiniAppHomeworkCreateRequest request,
+            CancellationToken cancellationToken) =>
         {
             if (!auth.TryAuthenticate(httpContext, out var identity, out var authError))
                 return Results.Json(new { error = authError }, statusCode: StatusCodes.Status401Unauthorized);
@@ -325,7 +329,7 @@ public static class MiniAppEndpointExtensions
             try
             {
                 miniAppService.CreateHomework(identity!, chatId, request);
-                return Results.Ok(miniAppService.GetState(identity!, chatId));
+                return Results.Ok(await miniAppService.GetStateAsync(identity!, chatId, cancellationToken));
             }
             catch (InvalidOperationException ex)
             {
@@ -338,7 +342,8 @@ public static class MiniAppEndpointExtensions
             MiniAppAuthService auth,
             GroupMiniAppAccessService access,
             GroupMiniAppService miniAppService,
-            string taskId) =>
+            string taskId,
+            CancellationToken cancellationToken) =>
         {
             if (!auth.TryAuthenticate(httpContext, out var identity, out var authError))
                 return Results.Json(new { error = authError }, statusCode: StatusCodes.Status401Unauthorized);
@@ -349,7 +354,7 @@ public static class MiniAppEndpointExtensions
             try
             {
                 miniAppService.DeleteHomework(chatId, taskId);
-                return Results.Ok(miniAppService.GetState(identity!, chatId));
+                return Results.Ok(await miniAppService.GetStateAsync(identity!, chatId, cancellationToken));
             }
             catch (InvalidOperationException ex)
             {
@@ -362,7 +367,8 @@ public static class MiniAppEndpointExtensions
             MiniAppAuthService auth,
             GroupMiniAppAccessService access,
             GroupMiniAppService miniAppService,
-            GroupMiniAppReminderUpdateRequest request) =>
+            GroupMiniAppReminderUpdateRequest request,
+            CancellationToken cancellationToken) =>
         {
             if (!auth.TryAuthenticate(httpContext, out var identity, out var authError))
                 return Results.Json(new { error = authError }, statusCode: StatusCodes.Status401Unauthorized);
@@ -373,7 +379,7 @@ public static class MiniAppEndpointExtensions
             try
             {
                 miniAppService.UpdateReminder(chatId, request);
-                return Results.Ok(miniAppService.GetState(identity!, chatId));
+                return Results.Ok(await miniAppService.GetStateAsync(identity!, chatId, cancellationToken));
             }
             catch (InvalidOperationException ex)
             {

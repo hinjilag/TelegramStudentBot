@@ -20,6 +20,8 @@ public class GroupReminderSettings
 
     public int Minute { get; set; }
 
+    public List<long> SelectedParticipantUserIds { get; set; } = new();
+
     public DateTime? LastNotificationDate { get; set; }
 
     public DateTime UpdatedAt { get; set; } = DateTime.Now;

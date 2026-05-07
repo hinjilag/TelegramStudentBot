@@ -25,7 +25,14 @@ public sealed record GroupMiniAppReminderDto(
     string FrequencyText,
     string TimeText,
     int Hour,
-    int Minute);
+    int Minute,
+    IReadOnlyList<GroupMiniAppParticipantDto> Participants);
+
+public sealed record GroupMiniAppParticipantDto(
+    long UserId,
+    string DisplayName,
+    string? Username,
+    bool IsSelected);
 
 public sealed record GroupMiniAppTaskDto(
     string Id,
@@ -42,4 +49,5 @@ public sealed record GroupMiniAppReminderUpdateRequest(
     bool IsEnabled,
     string? Frequency,
     int? Hour,
-    int? Minute);
+    int? Minute,
+    IReadOnlyList<long>? SelectedParticipantUserIds);

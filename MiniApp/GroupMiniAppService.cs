@@ -7,6 +7,7 @@ public class GroupMiniAppService
 {
     private readonly GroupStudyTaskStorageService _groupTasks;
     private readonly GroupReminderSettingsService _groupReminders;
+    private readonly GroupParticipantResolverService _groupParticipantResolver;
     private readonly ScheduleCatalogService _scheduleCatalog;
     private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly UserProfileStorageService _userProfiles;
@@ -14,18 +15,23 @@ public class GroupMiniAppService
     public GroupMiniAppService(
         GroupStudyTaskStorageService groupTasks,
         GroupReminderSettingsService groupReminders,
+        GroupParticipantResolverService groupParticipantResolver,
         ScheduleCatalogService scheduleCatalog,
         UserScheduleSelectionService scheduleSelections,
         UserProfileStorageService userProfiles)
     {
         _groupTasks = groupTasks;
         _groupReminders = groupReminders;
+        _groupParticipantResolver = groupParticipantResolver;
         _scheduleCatalog = scheduleCatalog;
         _scheduleSelections = scheduleSelections;
         _userProfiles = userProfiles;
     }
 
-    public GroupMiniAppStateDto GetState(MiniAppIdentity identity, long chatId)
+    public async Task<GroupMiniAppStateDto> GetStateAsync(
+        MiniAppIdentity identity,
+        long chatId,
+        CancellationToken ct)
     {
         var currentWeekType = _scheduleCatalog.GetCurrentWeekType();
         var currentWeekLabel = _scheduleCatalog.GetCurrentWeekLabel();
@@ -68,6 +74,11 @@ public class GroupMiniAppService
         var todayEntries = weekEntries.Where(entry => entry.DayOfWeek == today).ToList();
 
         var reminder = _groupReminders.Get(chatId);
+        var reminderParticipants = await BuildReminderParticipantsAsync(
+            chatId,
+            reminder.ChatTitle,
+            reminder.SelectedParticipantUserIds,
+            ct);
         var homework = _groupTasks.Get(chatId)
             .OrderBy(task => task.IsCompleted)
             .ThenBy(task => task.Deadline ?? DateTime.MaxValue)
@@ -100,7 +111,8 @@ public class GroupMiniAppService
                 reminder.FrequencyText,
                 reminder.TimeText,
                 reminder.Hour,
-                reminder.Minute),
+                reminder.Minute,
+                reminderParticipants),
             homework.Select(ToTaskDto).ToList(),
             BuildHomeworkSubjects(allEntries));
     }
@@ -181,9 +193,11 @@ public class GroupMiniAppService
 
     public void UpdateReminder(long chatId, GroupMiniAppReminderUpdateRequest request)
     {
+        var currentSettings = _groupReminders.Get(chatId);
+
         if (!request.IsEnabled)
         {
-            _groupReminders.Disable(chatId, _groupReminders.Get(chatId).ChatTitle);
+            _groupReminders.Disable(chatId, currentSettings.ChatTitle);
             return;
         }
 
@@ -196,10 +210,31 @@ public class GroupMiniAppService
         var frequency = ParseFrequency(request.Frequency);
         _groupReminders.Enable(
             chatId,
-            _groupReminders.Get(chatId).ChatTitle,
+            currentSettings.ChatTitle,
             request.Hour.Value,
             request.Minute.Value,
-            frequency);
+            frequency,
+            request.SelectedParticipantUserIds);
+    }
+
+    private async Task<IReadOnlyList<GroupMiniAppParticipantDto>> BuildReminderParticipantsAsync(
+        long chatId,
+        string? chatTitle,
+        IReadOnlyCollection<long> selectedParticipantUserIds,
+        CancellationToken ct)
+    {
+        var selectedIds = selectedParticipantUserIds.Count == 0
+            ? null
+            : selectedParticipantUserIds.ToHashSet();
+
+        var participants = await _groupParticipantResolver.ResolveReminderParticipantsAsync(chatId, chatTitle, ct);
+        return participants
+            .Select(participant => new GroupMiniAppParticipantDto(
+                participant.UserId,
+                participant.Nickname,
+                participant.Username,
+                selectedIds?.Contains(participant.UserId) ?? false))
+            .ToList();
     }
 
     private (ScheduleGroup? Group, List<ScheduleEntry> Entries) GetScheduleEntries(long chatId)

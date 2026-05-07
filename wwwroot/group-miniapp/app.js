@@ -161,6 +161,7 @@ function renderView(context) {
 function renderDashboardView(schedule, reminder, activeHomework) {
   const entries = store.scheduleMode === "today" ? schedule.todayEntries : schedule.weekEntries;
   const grouped = groupScheduleEntries(entries);
+  const audienceText = getReminderAudienceText(reminder);
 
   return `
     <div class="content-grid">
@@ -210,7 +211,7 @@ function renderDashboardView(schedule, reminder, activeHomework) {
           </div>
           <p class="group-caption">
             ${reminder.isEnabled
-              ? `Бот будет писать в группу ${escapeHtml(reminder.frequencyText)} в ${escapeHtml(reminder.timeText)} по МСК и отмечать участников, которых уже видел в чате.`
+              ? `Бот будет писать в группу ${escapeHtml(reminder.frequencyText)} в ${escapeHtml(reminder.timeText)} по МСК и ${escapeHtml(audienceText)}.`
               : "Групповые напоминания пока выключены."}
           </p>
         </section>
@@ -343,6 +344,8 @@ function renderHomeworkView(homeworkSubjects, homework) {
 }
 
 function renderRemindersView(reminder) {
+  const participants = reminder.participants || [];
+
   return `
     <div class="single-column">
       <section class="module panel">
@@ -371,6 +374,23 @@ function renderRemindersView(reminder) {
           <div class="field time-field native-input-field">
             <label for="reminders-time">Время по МСК</label>
             <input id="reminders-time" name="time" type="time" value="${escapeHtml(reminder.timeText)}">
+          </div>
+          <div class="field">
+            <label>Кого отмечать</label>
+            <p class="group-caption">Если никого не выбрать, бот отметит всех доступных участников группы.</p>
+            ${participants.length > 0
+              ? `<div class="participant-picker">
+                  ${participants.map(participant => `
+                    <label class="participant-option">
+                      <input type="checkbox" name="selectedParticipantUserIds" value="${participant.userId}" ${participant.isSelected ? "checked" : ""}>
+                      <span class="participant-copy">
+                        <strong>${escapeHtml(participant.displayName)}</strong>
+                        ${participant.username ? `<span class="participant-username">${escapeHtml(participant.username)}</span>` : ""}
+                      </span>
+                    </label>
+                  `).join("")}
+                </div>`
+              : `<p class="group-caption">Пока не удалось загрузить список участников. Если выбор уже сохранён, он останется как есть.</p>`}
           </div>
           <button class="pixel-button" type="submit">Сохранить напоминания</button>
         </form>
@@ -492,11 +512,22 @@ async function handleSubmit(event) {
     const frequency = String(formData.get("frequency") || "daily");
     const time = String(formData.get("time") || "20:00");
     const [hour, minute] = time.split(":").map(Number);
+    const participantInputs = [...form.querySelectorAll('input[name="selectedParticipantUserIds"]')];
+    const selectedParticipantUserIds = participantInputs
+      .filter((input) => input.checked)
+      .map((input) => Number(input.value))
+      .filter((value) => Number.isFinite(value) && value > 0);
 
     await runAction(async () => {
       store.state = await api("/api/group-miniapp/reminders", {
         method: "PUT",
-        body: { isEnabled, frequency, hour, minute }
+        body: {
+          isEnabled,
+          frequency,
+          hour,
+          minute,
+          selectedParticipantUserIds: participantInputs.length > 0 ? selectedParticipantUserIds : undefined
+        }
       });
       toast("Напоминания сохранены.");
       afterMutation();
@@ -581,6 +612,19 @@ function getInitials(name) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() || "")
     .join("");
+}
+
+function getReminderAudienceText(reminder) {
+  const selectedParticipants = (reminder.participants || []).filter((participant) => participant.isSelected);
+  if (selectedParticipants.length === 0) {
+    return "отмечать всех доступных участников";
+  }
+
+  if (selectedParticipants.length === 1) {
+    return `отмечать только ${selectedParticipants[0].displayName}`;
+  }
+
+  return `отмечать выбранных участников (${selectedParticipants.length})`;
 }
 
 async function runAction(action) {

@@ -35,7 +35,13 @@ public class GroupReminderSettingsService
         }
     }
 
-    public void Enable(long chatId, string? chatTitle, int hour, int minute, GroupReminderFrequency frequency)
+    public void Enable(
+        long chatId,
+        string? chatTitle,
+        int hour,
+        int minute,
+        GroupReminderFrequency frequency,
+        IEnumerable<long>? selectedParticipantUserIds = null)
     {
         lock (_lock)
         {
@@ -49,6 +55,8 @@ public class GroupReminderSettingsService
             settings.Frequency = frequency;
             settings.Hour = hour;
             settings.Minute = minute;
+            if (selectedParticipantUserIds is not null)
+                settings.SelectedParticipantUserIds = NormalizeParticipantIds(selectedParticipantUserIds);
             settings.UpdatedAt = DateTime.Now;
 
             _settingsByChat[chatId] = CloneSettings(settings);
@@ -119,9 +127,18 @@ public class GroupReminderSettingsService
             Frequency = settings.Frequency,
             Hour = settings.Hour,
             Minute = settings.Minute,
+            SelectedParticipantUserIds = settings.SelectedParticipantUserIds.ToList(),
             LastNotificationDate = settings.LastNotificationDate,
             UpdatedAt = settings.UpdatedAt
         };
+    }
+
+    private static List<long> NormalizeParticipantIds(IEnumerable<long> participantIds)
+    {
+        return participantIds
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList();
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
