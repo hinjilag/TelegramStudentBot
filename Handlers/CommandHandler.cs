@@ -25,6 +25,7 @@ public class CommandHandler
     private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
     private readonly UserFeatureIntroService _featureIntros;
     private readonly BotVisitLogService _visits;
+    private readonly MiniAppPinStateService _miniAppPins;
     private readonly string? _webAppUrl;
 
     public CommandHandler(
@@ -37,6 +38,7 @@ public class CommandHandler
         HomeworkSubjectPreferencesService homeworkSubjects,
         UserFeatureIntroService featureIntros,
         BotVisitLogService visits,
+        MiniAppPinStateService miniAppPins,
         IConfiguration configuration)
     {
         _bot = bot;
@@ -48,6 +50,7 @@ public class CommandHandler
         _homeworkSubjects = homeworkSubjects;
         _featureIntros = featureIntros;
         _visits = visits;
+        _miniAppPins = miniAppPins;
         _webAppUrl = ResolveWebAppUrl(configuration);
     }
 
@@ -587,21 +590,65 @@ public class CommandHandler
 
     private async Task TryPinMiniAppMessageAsync(ChatId chatId, Message launchMessage, CancellationToken ct)
     {
+        var chatIdValue = launchMessage.Chat.Id;
+        var storedState = _miniAppPins.Get(chatIdValue);
+
         try
         {
-            var chat = await _bot.GetChat(chatId, ct);
-            if (IsMiniAppPinned(chat.PinnedMessage))
-                return;
+            if (storedState is not null)
+            {
+                if (await TryPinStoredMiniAppMessageAsync(chatId, storedState.MessageId, ct))
+                {
+                    _miniAppPins.Save(chatIdValue, storedState.MessageId);
+                    return;
+                }
+
+                _miniAppPins.Delete(chatIdValue);
+            }
+
+            try
+            {
+                var chat = await _bot.GetChat(chatId, ct);
+                if (IsMiniAppPinned(chat.PinnedMessage))
+                {
+                    _miniAppPins.Save(chatIdValue, chat.PinnedMessage!.Id);
+                    return;
+                }
+            }
+            catch
+            {
+                // Если не удалось прочитать состояние чата, всё равно попробуем закрепить новое сообщение.
+            }
 
             await _bot.PinChatMessage(
                 chatId: chatId,
                 messageId: launchMessage.Id,
                 disableNotification: true,
                 cancellationToken: ct);
+
+            _miniAppPins.Save(chatIdValue, launchMessage.Id);
         }
         catch
         {
             // Закрепление не критично: в некоторых чатах у бота может не быть прав.
+        }
+    }
+
+    private async Task<bool> TryPinStoredMiniAppMessageAsync(ChatId chatId, int messageId, CancellationToken ct)
+    {
+        try
+        {
+            await _bot.PinChatMessage(
+                chatId: chatId,
+                messageId: messageId,
+                disableNotification: true,
+                cancellationToken: ct);
+
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 
