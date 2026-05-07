@@ -95,6 +95,22 @@ public class GroupReminderSettingsService
         }
     }
 
+    public void SetPinnedReminderMessageId(long chatId, int? messageId)
+    {
+        lock (_lock)
+        {
+            var settings = _settingsByChat.TryGetValue(chatId, out var existing)
+                ? existing
+                : new GroupReminderSettings { ChatId = chatId };
+
+            settings.PinnedReminderMessageId = messageId;
+            settings.UpdatedAt = DateTime.Now;
+
+            _settingsByChat[chatId] = CloneSettings(settings);
+            SaveAll();
+        }
+    }
+
     private void SaveAll()
     {
         var directory = Path.GetDirectoryName(_path);
@@ -128,6 +144,7 @@ public class GroupReminderSettingsService
             Hour = settings.Hour,
             Minute = settings.Minute,
             SelectedParticipantUserIds = settings.SelectedParticipantUserIds.ToList(),
+            PinnedReminderMessageId = settings.PinnedReminderMessageId,
             LastNotificationDate = settings.LastNotificationDate,
             UpdatedAt = settings.UpdatedAt
         };

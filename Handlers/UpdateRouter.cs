@@ -246,7 +246,6 @@ public class UpdateRouter
                 break;
 
             case "/all":
-            case "/call":
                 await _commands.HandleCallAsync(msg, ct);
                 break;
 

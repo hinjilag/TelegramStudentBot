@@ -23,7 +23,6 @@ public class CommandHandler
         "/add_homework — добавить общее ДЗ\n" +
         "/homework — открыть общий список ДЗ\n" +
         "/homework_settings — настроить предметы для общего ДЗ\n" +
-        "/call — алиас для /all\n" +
         "/reminders — настроить напоминания в этот чат\n" +
         "/help — показать команды\n\n" +
         "Обычную переписку в группе я не трогаю. Таймеры и личный планер работают только в личке.";
@@ -160,7 +159,6 @@ public class CommandHandler
                       "/add_homework — добавить общее ДЗ по предмету из расписания\n" +
                       "/homework — посмотреть общее ДЗ\n" +
                       "/homework_settings — настроить предметы и их порядок для общего ДЗ\n" +
-                      "/call — алиас для /all\n" +
                       "/reminders — настроить напоминания в этот чат\n" +
                       "/help — эта справка\n\n" +
                       "Сценарий простой: сначала /schedule, потом /add_homework, дальше /homework и /reminders.",
@@ -732,7 +730,7 @@ public class CommandHandler
         {
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,
-                text: "Команды /all и /call работают только в группах.",
+                text: "Команда /all работает только в группах.",
                 cancellationToken: ct);
             return;
         }

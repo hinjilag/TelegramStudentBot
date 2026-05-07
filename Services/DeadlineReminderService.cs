@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
+using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 
 namespace TelegramStudentBot.Services;
@@ -168,11 +169,13 @@ public class DeadlineReminderService : BackgroundService
                         await Task.Delay(TimeSpan.FromMilliseconds(350), ct);
                     }
 
-                    await _bot.SendMessage(
+                    var reminderMessage = await _bot.SendMessage(
                         chatId: settings.ChatId,
                         text: BuildGroupReminderText(dueTomorrow, tomorrow, participantsToMention),
                         parseMode: ParseMode.Html,
                         cancellationToken: ct);
+
+                    await ReplacePinnedReminderAsync(settings, reminderMessage, ct);
 
                     _groupReminders.MarkNotificationChecked(chatId, today);
 
@@ -287,6 +290,50 @@ public class DeadlineReminderService : BackgroundService
 
     private static string Escape(string text)
         => WebUtility.HtmlEncode(text);
+
+    private async Task ReplacePinnedReminderAsync(
+        Models.GroupReminderSettings settings,
+        Message reminderMessage,
+        CancellationToken ct)
+    {
+        if (settings.PinnedReminderMessageId.HasValue)
+        {
+            try
+            {
+                await _bot.UnpinChatMessage(
+                    chatId: settings.ChatId,
+                    messageId: settings.PinnedReminderMessageId.Value,
+                    cancellationToken: ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(
+                    ex,
+                    "Не удалось снять прошлый закреп напоминания {MessageId} в чате {ChatId}",
+                    settings.PinnedReminderMessageId.Value,
+                    settings.ChatId);
+            }
+        }
+
+        try
+        {
+            await _bot.PinChatMessage(
+                chatId: settings.ChatId,
+                messageId: reminderMessage.MessageId,
+                disableNotification: false,
+                cancellationToken: ct);
+
+            _groupReminders.SetPinnedReminderMessageId(settings.ChatId, reminderMessage.MessageId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Не удалось закрепить напоминание {MessageId} в чате {ChatId}",
+                reminderMessage.MessageId,
+                settings.ChatId);
+        }
+    }
 
     private static IReadOnlyList<Models.GroupParticipant> FilterSelectedParticipants(
         IReadOnlyList<Models.GroupParticipant> participants,

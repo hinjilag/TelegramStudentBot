@@ -22,6 +22,8 @@ public class GroupReminderSettings
 
     public List<long> SelectedParticipantUserIds { get; set; } = new();
 
+    public int? PinnedReminderMessageId { get; set; }
+
     public DateTime? LastNotificationDate { get; set; }
 
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
