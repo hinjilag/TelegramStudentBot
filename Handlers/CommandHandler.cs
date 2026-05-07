@@ -87,7 +87,6 @@ public class CommandHandler
                     replyMarkup: BuildMiniAppLinkMarkup(),
                     cancellationToken: ct);
 
-                await EnsureMiniAppPinnedAsync(msg.Chat.Id, ct);
                 return;
             }
 
@@ -109,7 +108,6 @@ public class CommandHandler
             replyMarkup: BuildMiniAppLinkMarkup(),
             cancellationToken: ct);
 
-        await EnsureMiniAppPinnedAsync(msg.Chat.Id, ct);
     }
 
     // ══════════════════════════════════════════════════════════
