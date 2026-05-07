@@ -9,12 +9,12 @@ using System.Net;
 namespace TelegramStudentBot.Handlers;
 
 /// <summary>
-/// Обработчик команд (/start, /help, /timer, /rest, /plan, /stop, /schedule).
-/// Каждый метод соответствует одной команде.
+/// РћР±СЂР°Р±РѕС‚С‡РёРє РєРѕРјР°РЅРґ (/start, /help, /timer, /rest, /plan, /stop, /schedule).
+/// РљР°Р¶РґС‹Р№ РјРµС‚РѕРґ СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓРµС‚ РѕРґРЅРѕР№ РєРѕРјР°РЅРґРµ.
 /// </summary>
 public class CommandHandler
 {
-    private const string MiniAppLaunchMessageText = "Открой mini app по кнопке ниже.";
+    private const string MiniAppLaunchMessageText = "РћС‚РєСЂРѕР№ mini app РїРѕ РєРЅРѕРїРєРµ РЅРёР¶Рµ.";
 
     private readonly ITelegramBotClient _bot;
     private readonly SessionService _sessions;
@@ -51,11 +51,11 @@ public class CommandHandler
         _webAppUrl = ResolveWebAppUrl(configuration);
     }
 
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
     //  /start
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
-    /// <summary>Приветствие при первом запуске или перезапуске</summary>
+    /// <summary>РџСЂРёРІРµС‚СЃС‚РІРёРµ РїСЂРё РїРµСЂРІРѕРј Р·Р°РїСѓСЃРєРµ РёР»Рё РїРµСЂРµР·Р°РїСѓСЃРєРµ</summary>
     public async Task HandleStartAsync(Message msg, CancellationToken ct)
     {
         _visits.RecordVisit(msg.From!);
@@ -74,15 +74,15 @@ public class CommandHandler
 
                 await _bot.SendMessage(
                     chatId: msg.Chat.Id,
-                    text: "👋 <b>С возвращением!</b>\n\n" +
-                          "Я уже помню твоё расписание:\n" +
+                    text: "рџ‘‹ <b>РЎ РІРѕР·РІСЂР°С‰РµРЅРёРµРј!</b>\n\n" +
+                          "РЇ СѓР¶Рµ РїРѕРјРЅСЋ С‚РІРѕС‘ СЂР°СЃРїРёСЃР°РЅРёРµ:\n" +
                           $"<b>{Escape(FormatGroupTitle(group, selection.SubGroup))}</b>.\n\n" +
-                          "Можешь сразу перейти к нужному:\n" +
-                          "📅 /schedule — пары на день\n" +
-                          "📝 /homework — домашние задания\n" +
-                          "➕ /add_homework — добавить новое ДЗ\n" +
-                          "📋 /plan — личные дела с дедлайнами\n" +
-                          "⏱ /timer — сфокусироваться на учёбе",
+                          "РњРѕР¶РµС€СЊ СЃСЂР°Р·Сѓ РїРµСЂРµР№С‚Рё Рє РЅСѓР¶РЅРѕРјСѓ:\n" +
+                          "рџ“… /schedule вЂ” РїР°СЂС‹ РЅР° РґРµРЅСЊ\n" +
+                          "рџ“ќ /homework вЂ” РґРѕРјР°С€РЅРёРµ Р·Р°РґР°РЅРёСЏ\n" +
+                          "вћ• /add_homework вЂ” РґРѕР±Р°РІРёС‚СЊ РЅРѕРІРѕРµ Р”Р—\n" +
+                          "рџ“‹ /plan вЂ” Р»РёС‡РЅС‹Рµ РґРµР»Р° СЃ РґРµРґР»Р°Р№РЅР°РјРё\n" +
+                          "вЏ± /timer вЂ” СЃС„РѕРєСѓСЃРёСЂРѕРІР°С‚СЊСЃСЏ РЅР° СѓС‡С‘Р±Рµ",
                     parseMode: ParseMode.Html,
                     replyMarkup: BuildMiniAppLinkMarkup(),
                     cancellationToken: ct);
@@ -95,62 +95,62 @@ public class CommandHandler
 
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
-            text:      "👋 <b>Привет! Я помогу тебе следить за расписанием, домашками и личными делами.</b>\n\n" +
-                       "Давай сначала настроим расписание:\n" +
-                       "1. Нажми /schedule\n" +
-                       "2. Выбери направление, курс и подгруппу\n" +
-                       "3. После этого я закреплю расписание за тобой\n\n" +
-                       "Когда расписание будет выбрано:\n" +
-                       "📚 /add_homework — ДЗ по предметам\n" +
-                       "📋 /plan — личные дела с датой и временем\n" +
-                       "⏱ /timer — таймер учёбы",
+            text:      "рџ‘‹ <b>РџСЂРёРІРµС‚! РЇ РїРѕРјРѕРіСѓ С‚РµР±Рµ СЃР»РµРґРёС‚СЊ Р·Р° СЂР°СЃРїРёСЃР°РЅРёРµРј, РґРѕРјР°С€РєР°РјРё Рё Р»РёС‡РЅС‹РјРё РґРµР»Р°РјРё.</b>\n\n" +
+                       "Р”Р°РІР°Р№ СЃРЅР°С‡Р°Р»Р° РЅР°СЃС‚СЂРѕРёРј СЂР°СЃРїРёСЃР°РЅРёРµ:\n" +
+                       "1. РќР°Р¶РјРё /schedule\n" +
+                       "2. Р’С‹Р±РµСЂРё РЅР°РїСЂР°РІР»РµРЅРёРµ, РєСѓСЂСЃ Рё РїРѕРґРіСЂСѓРїРїСѓ\n" +
+                       "3. РџРѕСЃР»Рµ СЌС‚РѕРіРѕ СЏ Р·Р°РєСЂРµРїР»СЋ СЂР°СЃРїРёСЃР°РЅРёРµ Р·Р° С‚РѕР±РѕР№\n\n" +
+                       "РљРѕРіРґР° СЂР°СЃРїРёСЃР°РЅРёРµ Р±СѓРґРµС‚ РІС‹Р±СЂР°РЅРѕ:\n" +
+                       "рџ“љ /add_homework вЂ” Р”Р— РїРѕ РїСЂРµРґРјРµС‚Р°Рј\n" +
+                       "рџ“‹ /plan вЂ” Р»РёС‡РЅС‹Рµ РґРµР»Р° СЃ РґР°С‚РѕР№ Рё РІСЂРµРјРµРЅРµРј\n" +
+                       "вЏ± /timer вЂ” С‚Р°Р№РјРµСЂ СѓС‡С‘Р±С‹",
             parseMode: ParseMode.Html,
             replyMarkup: BuildMiniAppLinkMarkup(),
             cancellationToken: ct);
 
     }
 
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
     //  /help
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
-    /// <summary>Справка по всем командам</summary>
+    /// <summary>РЎРїСЂР°РІРєР° РїРѕ РІСЃРµРј РєРѕРјР°РЅРґР°Рј</summary>
     public async Task HandleHelpAsync(Message msg, CancellationToken ct)
     {
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
-            text:      "📖 <b>Список команд:</b>\n\n" +
-                       "⏱ <b>Таймер учёбы:</b>\n" +
-                       "/timer — запустить таймер (25/30/45/60 мин или своё)\n" +
-                       "/stop — остановить текущий таймер\n\n" +
-                       "☕ <b>Отдых:</b>\n" +
-                       "/rest — запустить таймер отдыха\n\n" +
-                       "📚 <b>Домашние задания:</b>\n" +
-                       "/add_homework — добавить ДЗ по предмету из расписания\n" +
-                       "/homework — посмотреть ДЗ и задачи\n" +
-                       "/reminders — настроить напоминания\n\n" +
-                       "📋 <b>Планирование:</b>\n" +
-                       "/plan — управление задачами\n\n" +
-                       "📅 <b>Расписание:</b>\n" +
-                       "/schedule — моё расписание занятий\n\n" +
-                       "❓ /help — эта справка",
+            text:      "рџ“– <b>РЎРїРёСЃРѕРє РєРѕРјР°РЅРґ:</b>\n\n" +
+                       "вЏ± <b>РўР°Р№РјРµСЂ СѓС‡С‘Р±С‹:</b>\n" +
+                       "/timer вЂ” Р·Р°РїСѓСЃС‚РёС‚СЊ С‚Р°Р№РјРµСЂ (25/30/45/60 РјРёРЅ РёР»Рё СЃРІРѕС‘)\n" +
+                       "/stop вЂ” РѕСЃС‚Р°РЅРѕРІРёС‚СЊ С‚РµРєСѓС‰РёР№ С‚Р°Р№РјРµСЂ\n\n" +
+                       "в• <b>РћС‚РґС‹С…:</b>\n" +
+                       "/rest вЂ” Р·Р°РїСѓСЃС‚РёС‚СЊ С‚Р°Р№РјРµСЂ РѕС‚РґС‹С…Р°\n\n" +
+                       "рџ“љ <b>Р”РѕРјР°С€РЅРёРµ Р·Р°РґР°РЅРёСЏ:</b>\n" +
+                       "/add_homework вЂ” РґРѕР±Р°РІРёС‚СЊ Р”Р— РїРѕ РїСЂРµРґРјРµС‚Сѓ РёР· СЂР°СЃРїРёСЃР°РЅРёСЏ\n" +
+                       "/homework вЂ” РїРѕСЃРјРѕС‚СЂРµС‚СЊ Р”Р— Рё Р·Р°РґР°С‡Рё\n" +
+                       "/reminders вЂ” РЅР°СЃС‚СЂРѕРёС‚СЊ РЅР°РїРѕРјРёРЅР°РЅРёСЏ\n\n" +
+                       "рџ“‹ <b>РџР»Р°РЅРёСЂРѕРІР°РЅРёРµ:</b>\n" +
+                       "/plan вЂ” СѓРїСЂР°РІР»РµРЅРёРµ Р·Р°РґР°С‡Р°РјРё\n\n" +
+                       "рџ“… <b>Р Р°СЃРїРёСЃР°РЅРёРµ:</b>\n" +
+                       "/schedule вЂ” РјРѕС‘ СЂР°СЃРїРёСЃР°РЅРёРµ Р·Р°РЅСЏС‚РёР№\n\n" +
+                       "вќ“ /help вЂ” СЌС‚Р° СЃРїСЂР°РІРєР°",
             parseMode: ParseMode.Html,
             replyMarkup: BuildMiniAppLinkMarkup(),
             cancellationToken: ct);
     }
 
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
     //  /timer
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
-    /// <summary>Показать меню выбора длительности рабочего таймера</summary>
+    /// <summary>РџРѕРєР°Р·Р°С‚СЊ РјРµРЅСЋ РІС‹Р±РѕСЂР° РґР»РёС‚РµР»СЊРЅРѕСЃС‚Рё СЂР°Р±РѕС‡РµРіРѕ С‚Р°Р№РјРµСЂР°</summary>
     public async Task HandleMiniAppAsync(Message msg, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(_webAppUrl))
         {
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,
-                text: "Mini app пока не настроен. Укажи публичный WebAppUrl в конфигурации бота.",
+                text: "Mini app РїРѕРєР° РЅРµ РЅР°СЃС‚СЂРѕРµРЅ. РЈРєР°Р¶Рё РїСѓР±Р»РёС‡РЅС‹Р№ WebAppUrl РІ РєРѕРЅС„РёРіСѓСЂР°С†РёРё Р±РѕС‚Р°.",
                 cancellationToken: ct);
             return;
         }
@@ -168,52 +168,52 @@ public class CommandHandler
     {
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
 
-        // Если уже идёт таймер — сообщаем пользователю
+        // Р•СЃР»Рё СѓР¶Рµ РёРґС‘С‚ С‚Р°Р№РјРµСЂ вЂ” СЃРѕРѕР±С‰Р°РµРј РїРѕР»СЊР·РѕРІР°С‚РµР»СЋ
         string prefix = string.Empty;
         if (session.ActiveTimer is not null)
         {
             var remaining = session.ActiveTimer.Remaining;
-            var typeLabel = session.ActiveTimer.Type == TimerType.Work ? "рабочий" : "отдых";
-            prefix = $"⚠️ Уже идёт таймер <b>({typeLabel})</b>, осталось: " +
-                     $"<b>{(int)remaining.TotalMinutes} мин {remaining.Seconds} сек</b>\n" +
-                     $"Выбери новый, чтобы заменить текущий:\n\n";
+            var typeLabel = session.ActiveTimer.Type == TimerType.Work ? "СЂР°Р±РѕС‡РёР№" : "РѕС‚РґС‹С…";
+            prefix = $"вљ пёЏ РЈР¶Рµ РёРґС‘С‚ С‚Р°Р№РјРµСЂ <b>({typeLabel})</b>, РѕСЃС‚Р°Р»РѕСЃСЊ: " +
+                     $"<b>{(int)remaining.TotalMinutes} РјРёРЅ {remaining.Seconds} СЃРµРє</b>\n" +
+                     $"Р’С‹Р±РµСЂРё РЅРѕРІС‹Р№, С‡С‚РѕР±С‹ Р·Р°РјРµРЅРёС‚СЊ С‚РµРєСѓС‰РёР№:\n\n";
         }
 
         await _bot.SendMessage(
             chatId:      msg.Chat.Id,
-            text:        prefix + "⏱ <b>Выбери длительность рабочего таймера:</b>",
+            text:        prefix + "вЏ± <b>Р’С‹Р±РµСЂРё РґР»РёС‚РµР»СЊРЅРѕСЃС‚СЊ СЂР°Р±РѕС‡РµРіРѕ С‚Р°Р№РјРµСЂР°:</b>",
             parseMode:   ParseMode.Html,
             replyMarkup: BuildTimerKeyboard(),
             cancellationToken: ct);
     }
 
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
     //  /rest
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
-    /// <summary>Показать меню выбора длительности отдыха</summary>
+    /// <summary>РџРѕРєР°Р·Р°С‚СЊ РјРµРЅСЋ РІС‹Р±РѕСЂР° РґР»РёС‚РµР»СЊРЅРѕСЃС‚Рё РѕС‚РґС‹С…Р°</summary>
     public async Task HandleRestAsync(Message msg, CancellationToken ct)
     {
         await _bot.SendMessage(
             chatId:      msg.Chat.Id,
-            text:        "☕ <b>Выбери длительность перерыва:</b>",
+            text:        "в• <b>Р’С‹Р±РµСЂРё РґР»РёС‚РµР»СЊРЅРѕСЃС‚СЊ РїРµСЂРµСЂС‹РІР°:</b>",
             parseMode:   ParseMode.Html,
             replyMarkup: BuildRestKeyboard(),
             cancellationToken: ct);
     }
 
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
     //  /stop
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
-    /// <summary>Досрочно остановить активный таймер</summary>
+    /// <summary>Р”РѕСЃСЂРѕС‡РЅРѕ РѕСЃС‚Р°РЅРѕРІРёС‚СЊ Р°РєС‚РёРІРЅС‹Р№ С‚Р°Р№РјРµСЂ</summary>
     public async Task HandleStopAsync(Message msg, CancellationToken ct)
     {
         var stopped = _timers.StopTimer(msg.From!.Id);
 
         var text = stopped
-            ? "⏹ Таймер <b>остановлен</b>. Когда будешь готов — запускай снова!"
-            : "ℹ️ Нет активного таймера.";
+            ? "вЏ№ РўР°Р№РјРµСЂ <b>РѕСЃС‚Р°РЅРѕРІР»РµРЅ</b>. РљРѕРіРґР° Р±СѓРґРµС€СЊ РіРѕС‚РѕРІ вЂ” Р·Р°РїСѓСЃРєР°Р№ СЃРЅРѕРІР°!"
+            : "в„№пёЏ РќРµС‚ Р°РєС‚РёРІРЅРѕРіРѕ С‚Р°Р№РјРµСЂР°.";
 
         await _bot.SendMessage(
             chatId:    msg.Chat.Id,
@@ -222,11 +222,11 @@ public class CommandHandler
             cancellationToken: ct);
     }
 
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
     //  /plan
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
-    /// <summary>Меню управления личными делами.</summary>
+    /// <summary>РњРµРЅСЋ СѓРїСЂР°РІР»РµРЅРёСЏ Р»РёС‡РЅС‹РјРё РґРµР»Р°РјРё.</summary>
     public async Task HandlePlanAsync(Message msg, CancellationToken ct)
     {
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
@@ -246,9 +246,9 @@ public class CommandHandler
             cancellationToken: ct);
     }
 
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
     //  /add_homework
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
     public async Task HandleAddHomeworkAsync(Message msg, CancellationToken ct)
     {
@@ -264,7 +264,7 @@ public class CommandHandler
 
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,
-                text: "Сначала выбери своё расписание через /schedule: укажи направление, курс и подгруппу. После этого я покажу предметы и смогу добавлять ДЗ с дедлайнами.",
+                text: "РЎРЅР°С‡Р°Р»Р° РІС‹Р±РµСЂРё СЃРІРѕС‘ СЂР°СЃРїРёСЃР°РЅРёРµ С‡РµСЂРµР· /schedule: СѓРєР°Р¶Рё РЅР°РїСЂР°РІР»РµРЅРёРµ, РєСѓСЂСЃ Рё РїРѕРґРіСЂСѓРїРїСѓ. РџРѕСЃР»Рµ СЌС‚РѕРіРѕ СЏ РїРѕРєР°Р¶Сѓ РїСЂРµРґРјРµС‚С‹ Рё СЃРјРѕРіСѓ РґРѕР±Р°РІР»СЏС‚СЊ Р”Р— СЃ РґРµРґР»Р°Р№РЅР°РјРё.",
                 cancellationToken: ct);
             return;
         }
@@ -280,7 +280,7 @@ public class CommandHandler
 
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,
-                text: "В твоём расписании пока нет предметов для выбора.",
+                text: "Р’ С‚РІРѕС‘Рј СЂР°СЃРїРёСЃР°РЅРёРё РїРѕРєР° РЅРµС‚ РїСЂРµРґРјРµС‚РѕРІ РґР»СЏ РІС‹Р±РѕСЂР°.",
                 cancellationToken: ct);
             return;
         }
@@ -320,18 +320,18 @@ public class CommandHandler
             .ToList();
 
         if (!showAll && preferences.IsConfigured)
-            buttons.Add(("👀 Показать все", "hw_show_all"));
+            buttons.Add(("рџ‘Ђ РџРѕРєР°Р·Р°С‚СЊ РІСЃРµ", "hw_show_all"));
 
-        buttons.Add(("⚙️ Настроить", "hw_config"));
-        buttons.Add(("🔴 Отмена", "hw_cancel"));
+        buttons.Add(("вљ™пёЏ РќР°СЃС‚СЂРѕРёС‚СЊ", "hw_config"));
+        buttons.Add(("рџ”ґ РћС‚РјРµРЅР°", "hw_cancel"));
 
         var text = visibleSubjects.Count == 0
-            ? "📚 <b>В списке ДЗ пока нет выбранных предметов.</b>\nНажми «Настроить» и отметь нужные."
+            ? "рџ“љ <b>Р’ СЃРїРёСЃРєРµ Р”Р— РїРѕРєР° РЅРµС‚ РІС‹Р±СЂР°РЅРЅС‹С… РїСЂРµРґРјРµС‚РѕРІ.</b>\nРќР°Р¶РјРё В«РќР°СЃС‚СЂРѕРёС‚СЊВ» Рё РѕС‚РјРµС‚СЊ РЅСѓР¶РЅС‹Рµ."
             : preferences.IsConfigured || showAll
-                ? "📚 <b>Выбери предмет, по которому задали ДЗ:</b>"
-                : "📚 <b>Выбери предмет, по которому задали ДЗ:</b>\n\n" +
-                  "Если тут есть лишние предметы, нажми «⚙️ Настроить» и оставь только нужные.\n\n" +
-                  "Предметы будут идти в том порядке, в котором ты их отметишь.";
+                ? "рџ“љ <b>Р’С‹Р±РµСЂРё РїСЂРµРґРјРµС‚, РїРѕ РєРѕС‚РѕСЂРѕРјСѓ Р·Р°РґР°Р»Рё Р”Р—:</b>"
+                : "рџ“љ <b>Р’С‹Р±РµСЂРё РїСЂРµРґРјРµС‚, РїРѕ РєРѕС‚РѕСЂРѕРјСѓ Р·Р°РґР°Р»Рё Р”Р—:</b>\n\n" +
+                  "Р•СЃР»Рё С‚СѓС‚ РµСЃС‚СЊ Р»РёС€РЅРёРµ РїСЂРµРґРјРµС‚С‹, РЅР°Р¶РјРё В«вљ™пёЏ РќР°СЃС‚СЂРѕРёС‚СЊВ» Рё РѕСЃС‚Р°РІСЊ С‚РѕР»СЊРєРѕ РЅСѓР¶РЅС‹Рµ.\n\n" +
+                  "РџСЂРµРґРјРµС‚С‹ Р±СѓРґСѓС‚ РёРґС‚Рё РІ С‚РѕРј РїРѕСЂСЏРґРєРµ, РІ РєРѕС‚РѕСЂРѕРј С‚С‹ РёС… РѕС‚РјРµС‚РёС€СЊ.";
 
         await _bot.SendMessage(
             chatId: chatId,
@@ -344,16 +344,16 @@ public class CommandHandler
     private static string BuildPlanMenuText(int pending, bool includeIntro)
     {
         var text = pending > 0
-            ? $"📋 <b>Личный план</b>\nАктивных дел: <b>{pending}</b>"
-            : "📋 <b>Личный план</b>\nДел пока нет. Добавь первое!";
+            ? $"рџ“‹ <b>Р›РёС‡РЅС‹Р№ РїР»Р°РЅ</b>\nРђРєС‚РёРІРЅС‹С… РґРµР»: <b>{pending}</b>"
+            : "рџ“‹ <b>Р›РёС‡РЅС‹Р№ РїР»Р°РЅ</b>\nР”РµР» РїРѕРєР° РЅРµС‚. Р”РѕР±Р°РІСЊ РїРµСЂРІРѕРµ!";
 
         if (includeIntro)
         {
-            text += "\n\nЗдесь можно хранить дела вне учёбы: сходить в поликлинику, купить тетради, не забыть созвон.\n" +
-                    "Я могу поставить дедлайн с датой и временем.";
+            text += "\n\nР—РґРµСЃСЊ РјРѕР¶РЅРѕ С…СЂР°РЅРёС‚СЊ РґРµР»Р° РІРЅРµ СѓС‡С‘Р±С‹: СЃС…РѕРґРёС‚СЊ РІ РїРѕР»РёРєР»РёРЅРёРєСѓ, РєСѓРїРёС‚СЊ С‚РµС‚СЂР°РґРё, РЅРµ Р·Р°Р±С‹С‚СЊ СЃРѕР·РІРѕРЅ.\n" +
+                    "РЇ РјРѕРіСѓ РїРѕСЃС‚Р°РІРёС‚СЊ РґРµРґР»Р°Р№РЅ СЃ РґР°С‚РѕР№ Рё РІСЂРµРјРµРЅРµРј.";
         }
 
-        return text + "\n\nЧто делаем?";
+        return text + "\n\nР§С‚Рѕ РґРµР»Р°РµРј?";
     }
 
     private static List<string> GetHomeworkSubjects(List<ScheduleEntry> entries)
@@ -367,9 +367,9 @@ public class CommandHandler
             .ToList();
     }
 
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
     //  /homework
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
     public async Task HandleHomeworkAsync(Message msg, CancellationToken ct)
     {
@@ -377,9 +377,9 @@ public class CommandHandler
         await SendHomeworkListAsync(msg.Chat.Id, session, ct);
     }
 
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
     //  /reminders
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
     public async Task HandleRemindersAsync(Message msg, CancellationToken ct)
     {
@@ -392,10 +392,10 @@ public class CommandHandler
         _reminders.Save(userId, settings);
 
         var text = settings.IsEnabled
-            ? $"⏰ <b>Напоминания включены</b>\n" +
-              $"Каждый день в <b>{settings.TimeText}</b> по МСК я буду присылать дедлайны на завтра."
-            : "⏰ <b>Напоминания выключены</b>\n" +
-              "Могу каждый день присылать дедлайны на завтра в удобное время.";
+            ? $"вЏ° <b>РќР°РїРѕРјРёРЅР°РЅРёСЏ РІРєР»СЋС‡РµРЅС‹</b>\n" +
+              $"РљР°Р¶РґС‹Р№ РґРµРЅСЊ РІ <b>{settings.TimeText}</b> РїРѕ РњРЎРљ СЏ Р±СѓРґСѓ РїСЂРёСЃС‹Р»Р°С‚СЊ РґРµРґР»Р°Р№РЅС‹ РЅР° Р·Р°РІС‚СЂР°."
+            : "вЏ° <b>РќР°РїРѕРјРёРЅР°РЅРёСЏ РІС‹РєР»СЋС‡РµРЅС‹</b>\n" +
+              "РњРѕРіСѓ РєР°Р¶РґС‹Р№ РґРµРЅСЊ РїСЂРёСЃС‹Р»Р°С‚СЊ РґРµРґР»Р°Р№РЅС‹ РЅР° Р·Р°РІС‚СЂР° РІ СѓРґРѕР±РЅРѕРµ РІСЂРµРјСЏ.";
 
         await _bot.SendMessage(
             chatId: msg.Chat.Id,
@@ -405,11 +405,11 @@ public class CommandHandler
             cancellationToken: ct);
     }
 
-    // ══════════════════════════════════════════════════════════
-    //  /add_schedule  (и алиас /schedule)
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+    //  /add_schedule  (Рё Р°Р»РёР°СЃ /schedule)
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
-    /// <summary>Алиас для старой команды: теперь открывает выбор готового расписания.</summary>
+    /// <summary>РђР»РёР°СЃ РґР»СЏ СЃС‚Р°СЂРѕР№ РєРѕРјР°РЅРґС‹: С‚РµРїРµСЂСЊ РѕС‚РєСЂС‹РІР°РµС‚ РІС‹Р±РѕСЂ РіРѕС‚РѕРІРѕРіРѕ СЂР°СЃРїРёСЃР°РЅРёСЏ.</summary>
     public Task HandleAddScheduleAsync(Message msg, CancellationToken ct)
         => HandleScheduleAsync(msg, ct);
 
@@ -439,11 +439,11 @@ public class CommandHandler
     private async Task SendDirectionChoiceAsync(long chatId, CancellationToken ct)
     {
         var buttons = _scheduleCatalog.GetDirections()
-            .Select(d => ($"{d.ShortTitle} — {d.DirectionName}", $"sched_dir_{d.DirectionCode}"));
+            .Select(d => ($"{d.ShortTitle} вЂ” {d.DirectionName}", $"sched_dir_{d.DirectionCode}"));
 
         await _bot.SendMessage(
             chatId: chatId,
-            text: "Шаг 1/3. Выбери направление:",
+            text: "РЁР°Рі 1/3. Р’С‹Р±РµСЂРё РЅР°РїСЂР°РІР»РµРЅРёРµ:",
             replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
             cancellationToken: ct);
     }
@@ -495,10 +495,10 @@ public class CommandHandler
 
         await _bot.SendMessage(
             chatId: chatId,
-            text: $"📅 <b>Твоё расписание</b>\n" +
+            text: $"рџ“… <b>РўРІРѕС‘ СЂР°СЃРїРёСЃР°РЅРёРµ</b>\n" +
                   $"{Escape(FormatGroupTitle(group, subGroup))}\n" +
-                  $"Текущая неделя: <b>{weekLabel}</b>\n\n" +
-                  "Что показать?",
+                  $"РўРµРєСѓС‰Р°СЏ РЅРµРґРµР»СЏ: <b>{weekLabel}</b>\n\n" +
+                  "Р§С‚Рѕ РїРѕРєР°Р·Р°С‚СЊ?",
             parseMode: ParseMode.Html,
             replyMarkup: ScheduleKeyboards.ScheduleMenu,
             cancellationToken: ct);
@@ -518,56 +518,56 @@ public class CommandHandler
         => WebUtility.HtmlEncode(text);
 
     private static string FormatGroupTitle(ScheduleGroup group, int? subGroup)
-        => subGroup.HasValue ? $"{group.Title}, подгруппа {subGroup.Value}" : group.Title;
+        => subGroup.HasValue ? $"{group.Title}, РїРѕРґРіСЂСѓРїРїР° {subGroup.Value}" : group.Title;
 
-    // ══════════════════════════════════════════════════════════
-    //  Построители клавиатур (приватные)
-    // ══════════════════════════════════════════════════════════
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+    //  РџРѕСЃС‚СЂРѕРёС‚РµР»Рё РєР»Р°РІРёР°С‚СѓСЂ (РїСЂРёРІР°С‚РЅС‹Рµ)
+    // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
-    /// <summary>Клавиатура выбора рабочего таймера</summary>
+    /// <summary>РљР»Р°РІРёР°С‚СѓСЂР° РІС‹Р±РѕСЂР° СЂР°Р±РѕС‡РµРіРѕ С‚Р°Р№РјРµСЂР°</summary>
     private static InlineKeyboardMarkup BuildTimerKeyboard() =>
         new(new[]
         {
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("⏱ 25 мин (Помодоро)", "timer_25"),
-                InlineKeyboardButton.WithCallbackData("⏱ 30 мин", "timer_30")
+                InlineKeyboardButton.WithCallbackData("вЏ± 25 РјРёРЅ (РџРѕРјРѕРґРѕСЂРѕ)", "timer_25"),
+                InlineKeyboardButton.WithCallbackData("вЏ± 30 РјРёРЅ", "timer_30")
             },
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("⏱ 45 мин", "timer_45"),
-                InlineKeyboardButton.WithCallbackData("⏱ 60 мин", "timer_60")
+                InlineKeyboardButton.WithCallbackData("вЏ± 45 РјРёРЅ", "timer_45"),
+                InlineKeyboardButton.WithCallbackData("вЏ± 60 РјРёРЅ", "timer_60")
             },
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("✏️ Своё время", "timer_custom"),
-                InlineKeyboardButton.WithCallbackData("⏹ Стоп", "timer_stop")
+                InlineKeyboardButton.WithCallbackData("вњЏпёЏ РЎРІРѕС‘ РІСЂРµРјСЏ", "timer_custom"),
+                InlineKeyboardButton.WithCallbackData("вЏ№ РЎС‚РѕРї", "timer_stop")
             }
         });
 
-    /// <summary>Клавиатура выбора перерыва</summary>
+    /// <summary>РљР»Р°РІРёР°С‚СѓСЂР° РІС‹Р±РѕСЂР° РїРµСЂРµСЂС‹РІР°</summary>
     private static InlineKeyboardMarkup BuildRestKeyboard() =>
         new(new[]
         {
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("☕ 5 мин (короткий)", "rest_5"),
-                InlineKeyboardButton.WithCallbackData("☕ 15 мин (средний)", "rest_15")
+                InlineKeyboardButton.WithCallbackData("в• 5 РјРёРЅ (РєРѕСЂРѕС‚РєРёР№)", "rest_5"),
+                InlineKeyboardButton.WithCallbackData("в• 15 РјРёРЅ (СЃСЂРµРґРЅРёР№)", "rest_15")
             },
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("🛌 30 мин (длинный)", "rest_30")
+                InlineKeyboardButton.WithCallbackData("рџ›Њ 30 РјРёРЅ (РґР»РёРЅРЅС‹Р№)", "rest_30")
             }
         });
 
-    /// <summary>Клавиатура меню планирования</summary>
+    /// <summary>РљР»Р°РІРёР°С‚СѓСЂР° РјРµРЅСЋ РїР»Р°РЅРёСЂРѕРІР°РЅРёСЏ</summary>
     private static InlineKeyboardMarkup BuildPlanKeyboard() =>
         new(new[]
         {
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("➕ Добавить дело", "plan_add"),
-                InlineKeyboardButton.WithCallbackData("📋 Показать план", "plan_list")
+                InlineKeyboardButton.WithCallbackData("вћ• Р”РѕР±Р°РІРёС‚СЊ РґРµР»Рѕ", "plan_add"),
+                InlineKeyboardButton.WithCallbackData("рџ“‹ РџРѕРєР°Р·Р°С‚СЊ РїР»Р°РЅ", "plan_list")
             }
         });
 
@@ -590,47 +590,19 @@ public class CommandHandler
         try
         {
             var chat = await _bot.GetChat(chatId, ct);
-            if (IsMiniAppPinned(chat.PinnedMessage))
-                return;
+            var messageToPin = IsMiniAppPinned(chat.PinnedMessage)
+                ? chat.PinnedMessage!
+                : launchMessage;
 
             await _bot.PinChatMessage(
                 chatId: chatId,
-                messageId: launchMessage.Id,
+                messageId: messageToPin.Id,
                 disableNotification: true,
                 cancellationToken: ct);
         }
         catch
         {
-            // Закрепление не критично: в некоторых чатах у бота может не быть прав.
-        }
-    }
-
-    private async Task EnsureMiniAppPinnedAsync(ChatId chatId, CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(_webAppUrl))
-            return;
-
-        try
-        {
-            var chat = await _bot.GetChat(chatId, ct);
-            if (IsMiniAppPinned(chat.PinnedMessage))
-                return;
-
-            var launchMessage = await _bot.SendMessage(
-                chatId: chatId,
-                text: MiniAppLaunchMessageText,
-                replyMarkup: BuildMiniAppLinkMarkup(),
-                cancellationToken: ct);
-
-            await _bot.PinChatMessage(
-                chatId: chatId,
-                messageId: launchMessage.Id,
-                disableNotification: true,
-                cancellationToken: ct);
-        }
-        catch
-        {
-            // Закрепление не критично: в некоторых чатах у бота может не быть прав.
+            // Р—Р°РєСЂРµРїР»РµРЅРёРµ РЅРµ РєСЂРёС‚РёС‡РЅРѕ: РІ РЅРµРєРѕС‚РѕСЂС‹С… С‡Р°С‚Р°С… Сѓ Р±РѕС‚Р° РјРѕР¶РµС‚ РЅРµ Р±С‹С‚СЊ РїСЂР°РІ.
         }
     }
 
@@ -663,7 +635,7 @@ public class CommandHandler
             {
                 new[]
                 {
-                    InlineKeyboardButton.WithCallbackData("Указать время", "rem_set")
+                    InlineKeyboardButton.WithCallbackData("РЈРєР°Р·Р°С‚СЊ РІСЂРµРјСЏ", "rem_set")
                 }
             });
         }
@@ -672,8 +644,8 @@ public class CommandHandler
         {
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("Изменить время", "rem_set"),
-                InlineKeyboardButton.WithCallbackData("Выключить", "rem_off")
+                InlineKeyboardButton.WithCallbackData("РР·РјРµРЅРёС‚СЊ РІСЂРµРјСЏ", "rem_set"),
+                InlineKeyboardButton.WithCallbackData("Р’С‹РєР»СЋС‡РёС‚СЊ", "rem_off")
             }
         });
     }
