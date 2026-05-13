@@ -197,6 +197,7 @@ public class UpdateRouter
             UserState.WaitingForHomeworkText => session.PendingGroupHomeworkChatId == msg.Chat.Id,
             UserState.WaitingForGroupHomeworkEntry => session.PendingGroupHomeworkChatId == msg.Chat.Id,
             UserState.WaitingForReminderTime => session.ReminderTargetIsGroup && session.ReminderTargetChatId == msg.Chat.Id,
+            UserState.WaitingForGroupParticipantUsernames => session.PendingParticipantChatId == msg.Chat.Id,
             UserState.WaitingForScheduleCorrection => true,
             UserState.WaitingForReviewSlotCorrection => true,
             _ => false

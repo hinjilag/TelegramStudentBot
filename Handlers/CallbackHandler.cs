@@ -18,6 +18,7 @@ public class CallbackHandler
     private readonly ReminderSettingsService _reminders;
     private readonly UserGroupTaskBridgeService _userGroupTasks;
     private readonly GroupInputLockService _groupInputLocks;
+    private readonly GroupParticipantStorageService _groupParticipants;
     private readonly GroupStudyTaskStorageService _groupTasks;
     private readonly GroupReminderSettingsService _groupReminders;
     private readonly GroupHomeworkSubjectPreferencesService _groupHomeworkSubjects;
@@ -33,6 +34,7 @@ public class CallbackHandler
         ReminderSettingsService reminders,
         UserGroupTaskBridgeService userGroupTasks,
         GroupInputLockService groupInputLocks,
+        GroupParticipantStorageService groupParticipants,
         GroupStudyTaskStorageService groupTasks,
         GroupReminderSettingsService groupReminders,
         GroupHomeworkSubjectPreferencesService groupHomeworkSubjects,
@@ -47,6 +49,7 @@ public class CallbackHandler
         _reminders = reminders;
         _userGroupTasks = userGroupTasks;
         _groupInputLocks = groupInputLocks;
+        _groupParticipants = groupParticipants;
         _groupTasks = groupTasks;
         _groupReminders = groupReminders;
         _groupHomeworkSubjects = groupHomeworkSubjects;
@@ -91,6 +94,7 @@ public class CallbackHandler
         if (data.StartsWith("plan_")) { await HandlePlanAsync(query, session, data, ct); return; }
         if (data.StartsWith("hw_")) { await HandleHomeworkAsync(query, userId, session, data, ct); return; }
         if (data.StartsWith("rem_")) { await HandleReminderFlowAsync(query, session, data, ct); return; }
+        if (data.StartsWith("grp_")) { await HandleGroupParticipantsFlowAsync(query, session, data, ct); return; }
         if (data.StartsWith("task_")) { await HandleTaskAsync(query, session, data, ct); return; }
         if (data.StartsWith("sched_")) { await HandleScheduleAsync(query, userId, session, data, ct); return; }
         if (data.StartsWith("review_")) { await HandleReviewActionAsync(chatId, session, data, ct); return; }
@@ -562,6 +566,90 @@ public class CallbackHandler
         }
     }
 
+    private async Task HandleGroupParticipantsFlowAsync(
+        CallbackQuery query,
+        UserSession session,
+        string data,
+        CancellationToken ct)
+    {
+        var message = query.Message!;
+        var chatId = message.Chat.Id;
+
+        if (data == "grp_members_set")
+        {
+            if (!_groupInputLocks.TryAcquire(
+                    chatId,
+                    query.From.Id,
+                    TextHandler.BuildAuthorName(query.From),
+                    "participants",
+                    out var participantLock))
+            {
+                await AnswerCallbackPopupAsync(query.Id, $"Сейчас я жду ввод от {participantLock!.OwnerDisplayName}.", ct);
+                return;
+            }
+
+            session.State = UserState.WaitingForGroupParticipantUsernames;
+            session.PendingParticipantChatId = chatId;
+            session.PendingParticipantChatTitle = message.Chat.Title;
+
+            var currentUsernames = _groupParticipants.GetManualUsernames(chatId);
+            var currentText = currentUsernames.Count == 0
+                ? "Пока список пуст."
+                : string.Join(", ", currentUsernames);
+
+            await _bot.EditMessageText(
+                chatId: chatId,
+                messageId: message.MessageId,
+                text: "👥 <b>Участники группы</b>\n\n" +
+                      "Пришли список username через пробел, запятую или с новой строки.\n" +
+                      "Пример: <code>@anna @ivan @petr</code>\n\n" +
+                      "Текущий список:\n" +
+                      $"{Escape(currentText)}\n\n" +
+                      "По этим username будет работать созыв, а групповые ДЗ смогут попасть в личный бот даже без активности в чате.",
+                parseMode: ParseMode.Html,
+                replyMarkup: new InlineKeyboardMarkup(new[]
+                {
+                    new[]
+                    {
+                        InlineKeyboardButton.WithCallbackData("Очистить список", "grp_members_clear"),
+                        InlineKeyboardButton.WithCallbackData("Отмена", "grp_members_cancel")
+                    }
+                }),
+                cancellationToken: ct);
+            return;
+        }
+
+        if (data == "grp_members_clear")
+        {
+            _groupParticipants.SetManualUsernames(chatId, message.Chat.Title, Array.Empty<string>());
+            session.State = UserState.Idle;
+            session.PendingParticipantChatId = null;
+            session.PendingParticipantChatTitle = null;
+            _groupInputLocks.Release(chatId, query.From.Id);
+
+            await _bot.EditMessageText(
+                chatId: chatId,
+                messageId: message.MessageId,
+                text: "Список username для группы очищен.",
+                cancellationToken: ct);
+            return;
+        }
+
+        if (data == "grp_members_cancel")
+        {
+            session.State = UserState.Idle;
+            session.PendingParticipantChatId = null;
+            session.PendingParticipantChatTitle = null;
+            _groupInputLocks.Release(chatId, query.From.Id);
+
+            await _bot.EditMessageText(
+                chatId: chatId,
+                messageId: message.MessageId,
+                text: "Настройка участников группы отменена.",
+                cancellationToken: ct);
+        }
+    }
+
     private async Task StartReminderTimeInputAsync(
         CallbackQuery query,
         UserSession session,
@@ -589,7 +677,7 @@ public class CallbackHandler
             text: isGroup
                 ? $"⏰ <b>Во сколько присылать напоминания {modeText}?</b>\n\n" +
                   "Напиши время в формате <b>ЧЧ:ММ</b>, например <b>20:00</b>.\n" +
-                  "Я пришлю сообщение в этот чат и отмечу участников, которых уже видел в группе."
+                  "Я пришлю сообщение в этот чат и отмечу участников, которых уже видел в группе или которые добавлены по username."
                 : $"⏰ <b>Во сколько присылать личные напоминания {modeText}?</b>\n\n" +
                   "Напиши время в формате <b>ЧЧ:ММ</b>, например <b>20:00</b>.\n" +
                   "Я буду присылать напоминания и по ДЗ, и по твоим личным делам.",
@@ -2372,6 +2460,7 @@ public class CallbackHandler
             "homework" => data.StartsWith("hw_", StringComparison.OrdinalIgnoreCase) ||
                           data.StartsWith("sched_", StringComparison.OrdinalIgnoreCase),
             "reminder" => data.StartsWith("rem_", StringComparison.OrdinalIgnoreCase),
+            "participants" => data.StartsWith("grp_", StringComparison.OrdinalIgnoreCase),
             _ => false
         };
     }

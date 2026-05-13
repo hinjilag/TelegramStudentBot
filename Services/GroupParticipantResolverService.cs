@@ -111,11 +111,11 @@ public sealed class GroupParticipantResolverService : IDisposable
     {
         var mtProtoParticipants = await TryResolveParticipantsFromMtProtoAsync(chatId, chatTitle, ct);
         if (mtProtoParticipants.Count > 0)
-            return FilterAndSort(mtProtoParticipants, excludeUserId);
+            return FilterAndSort(MergeManualParticipants(chatId, mtProtoParticipants), excludeUserId);
 
         await SeedKnownParticipantsFromAdminsAsync(chatId, chatTitle, ct);
         var activeKnownParticipants = await GetActiveKnownParticipantsAsync(chatId, excludeUserId, ct);
-        return FilterAndSort(activeKnownParticipants, excludeUserId);
+        return FilterAndSort(MergeManualParticipants(chatId, activeKnownParticipants), excludeUserId);
     }
 
     private async Task<List<GroupParticipant>> TryResolveParticipantsFromMtProtoAsync(
@@ -221,6 +221,7 @@ public sealed class GroupParticipantResolverService : IDisposable
                 Nickname = BuildNickname(user),
                 Username = NormalizeUsername(user.username),
                 IsBot = user.flags.HasFlag(User.Flags.bot),
+                IsManual = false,
                 LastSeenAt = resolvedAt
             };
 
@@ -245,6 +246,7 @@ public sealed class GroupParticipantResolverService : IDisposable
     {
         var knownParticipants = _storage.Get(chatId)
             .Where(participant => !participant.IsBot)
+            .Where(participant => participant.UserId > 0)
             .Where(participant => participant.UserId != excludeUserId)
             .GroupBy(participant => participant.UserId)
             .Select(group => group.OrderByDescending(item => item.LastSeenAt).First())
@@ -287,7 +289,6 @@ public sealed class GroupParticipantResolverService : IDisposable
         }
         catch
         {
-            // Admin list is only a fallback source for mentions.
         }
     }
 
@@ -358,6 +359,33 @@ public sealed class GroupParticipantResolverService : IDisposable
         };
     }
 
+    private List<GroupParticipant> MergeManualParticipants(long chatId, IEnumerable<GroupParticipant> participants)
+    {
+        var merged = participants.ToList();
+        var knownUsernames = merged
+            .Select(participant => participant.Username)
+            .Where(username => !string.IsNullOrWhiteSpace(username))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var username in _storage.GetManualUsernames(chatId))
+        {
+            if (knownUsernames.Contains(username))
+                continue;
+
+            merged.Add(new GroupParticipant
+            {
+                UserId = BuildManualParticipantId(username),
+                Nickname = username,
+                Username = username,
+                IsBot = false,
+                IsManual = true,
+                LastSeenAt = DateTime.Now
+            });
+        }
+
+        return merged;
+    }
+
     private static IReadOnlyList<GroupParticipant> FilterAndSort(
         IEnumerable<GroupParticipant> participants,
         long? excludeUserId)
@@ -365,7 +393,10 @@ public sealed class GroupParticipantResolverService : IDisposable
         return participants
             .Where(participant => !participant.IsBot)
             .Where(participant => participant.UserId != excludeUserId)
-            .GroupBy(participant => participant.UserId)
+            .GroupBy(participant =>
+                participant.UserId > 0
+                    ? $"id:{participant.UserId}"
+                    : $"username:{participant.Username?.ToLowerInvariant() ?? participant.Nickname.ToLowerInvariant()}")
             .Select(group => group.OrderByDescending(item => item.LastSeenAt).First())
             .OrderByDescending(participant => participant.LastSeenAt)
             .ThenBy(participant => participant.Nickname, StringComparer.OrdinalIgnoreCase)
@@ -374,6 +405,9 @@ public sealed class GroupParticipantResolverService : IDisposable
 
     private static string BuildMention(GroupParticipant participant)
     {
+        if (participant.UserId <= 0 && !string.IsNullOrWhiteSpace(participant.Username))
+            return Escape(participant.Username);
+
         var label = string.IsNullOrWhiteSpace(participant.Username)
             ? participant.Nickname
             : participant.Username!;
@@ -428,7 +462,24 @@ public sealed class GroupParticipantResolverService : IDisposable
         if (string.IsNullOrWhiteSpace(username))
             return null;
 
-        return username.StartsWith('@') ? username : $"@{username}";
+        var trimmed = username.Trim();
+        return trimmed.StartsWith('@') ? trimmed : $"@{trimmed}";
+    }
+
+    private static long BuildManualParticipantId(string username)
+    {
+        unchecked
+        {
+            ulong hash = 14695981039346656037UL;
+            foreach (var ch in username.ToLowerInvariant())
+            {
+                hash ^= ch;
+                hash *= 1099511628211UL;
+            }
+
+            var value = (long)(hash & 0x3FFFFFFFFFFFFFFFUL);
+            return value == 0 ? -1 : -value;
+        }
     }
 
     private static string ResolveSessionPath(IConfiguration configuration)

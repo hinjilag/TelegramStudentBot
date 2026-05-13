@@ -26,6 +26,7 @@ public class TextHandler
     private readonly TimerService       _timers;
     private readonly ReminderSettingsService _reminders;
     private readonly GroupInputLockService _groupInputLocks;
+    private readonly GroupParticipantStorageService _groupParticipants;
     private readonly GroupStudyTaskStorageService _groupTasks;
     private readonly GroupReminderSettingsService _groupReminders;
 
@@ -35,6 +36,7 @@ public class TextHandler
         TimerService       timers,
         ReminderSettingsService reminders,
         GroupInputLockService groupInputLocks,
+        GroupParticipantStorageService groupParticipants,
         GroupStudyTaskStorageService groupTasks,
         GroupReminderSettingsService groupReminders)
     {
@@ -43,6 +45,7 @@ public class TextHandler
         _timers   = timers;
         _reminders = reminders;
         _groupInputLocks = groupInputLocks;
+        _groupParticipants = groupParticipants;
         _groupTasks = groupTasks;
         _groupReminders = groupReminders;
     }
@@ -86,6 +89,10 @@ public class TextHandler
 
             case UserState.WaitingForReminderTime:
                 await HandleReminderTimeAsync(msg, session, text, ct);
+                break;
+
+            case UserState.WaitingForGroupParticipantUsernames:
+                await HandleGroupParticipantUsernamesAsync(msg, session, text, ct);
                 break;
 
             case UserState.WaitingForSchedulePhoto:
@@ -1124,7 +1131,7 @@ public class TextHandler
         await _bot.SendMessage(
             chatId: msg.Chat.Id,
             text: targetIsGroup
-                ? $"⏰ Готово! Буду присылать напоминания {FormatReminderModeText(reminderMode, selectedDays)} в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК и отмечать участников, которых уже видел в группе."
+                ? $"⏰ Готово! Буду присылать напоминания {FormatReminderModeText(reminderMode, selectedDays)} в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК и отмечать участников, которых уже видел в группе или которые добавлены по username."
                 : $"⏰ Готово! Буду присылать напоминания {FormatReminderModeText(reminderMode, selectedDays)} в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК и о ДЗ, и о личных делах.\n\n" +
                   BuildBasicCommandsText(),
             parseMode: ParseMode.Html,
@@ -1144,6 +1151,54 @@ public class TextHandler
         await _bot.SendMessage(
             chatId: msg.Chat.Id,
             text: "В группе ручной ввод общего ДЗ больше не используется.\nИспользуй /add_homework, выбери предмет из расписания и потом напиши само задание.",
+            cancellationToken: ct);
+    }
+
+    private async Task HandleGroupParticipantUsernamesAsync(
+        Message msg,
+        UserSession session,
+        string text,
+        CancellationToken ct)
+    {
+        if (!session.PendingParticipantChatId.HasValue || session.PendingParticipantChatId.Value != msg.Chat.Id)
+        {
+            session.State = UserState.Idle;
+            session.PendingParticipantChatId = null;
+            session.PendingParticipantChatTitle = null;
+            _groupInputLocks.Release(msg.Chat.Id, session.UserId);
+
+            await _bot.SendMessage(
+                msg.Chat.Id,
+                "Настройка участников устарела. Открой её заново через /reminders.",
+                cancellationToken: ct);
+            return;
+        }
+
+        var usernames = ParseManualUsernames(text);
+        if (usernames.Count == 0)
+        {
+            await _bot.SendMessage(
+                msg.Chat.Id,
+                "⚠️ Не нашёл ни одного username. Пришли их в виде <code>@anna @ivan @petr</code>.",
+                parseMode: ParseMode.Html,
+                cancellationToken: ct);
+            return;
+        }
+
+        _groupParticipants.SetManualUsernames(
+            session.PendingParticipantChatId.Value,
+            session.PendingParticipantChatTitle ?? msg.Chat.Title,
+            usernames);
+
+        session.State = UserState.Idle;
+        session.PendingParticipantChatId = null;
+        session.PendingParticipantChatTitle = null;
+        _groupInputLocks.Release(msg.Chat.Id, session.UserId);
+
+        await _bot.SendMessage(
+            msg.Chat.Id,
+            "✅ Список участников сохранён.\n\n" +
+            $"Теперь я буду учитывать: {string.Join(", ", usernames)}",
             cancellationToken: ct);
     }
 
@@ -1241,6 +1296,15 @@ public class TextHandler
             return user.Username.StartsWith('@') ? user.Username : $"@{user.Username}";
 
         return "Участник";
+    }
+
+    internal static List<string> ParseManualUsernames(string text)
+    {
+        return Regex.Matches(text ?? string.Empty, @"@[\p{L}\p{Nd}_]{3,32}")
+            .Select(match => match.Value)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(item => item, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private static string BuildBasicCommandsText()

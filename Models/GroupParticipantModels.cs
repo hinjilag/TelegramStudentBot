@@ -10,6 +10,8 @@ public class GroupParticipant
 
     public bool IsBot { get; set; }
 
+    public bool IsManual { get; set; }
+
     public DateTime LastSeenAt { get; set; } = DateTime.Now;
 }
 
@@ -22,6 +24,8 @@ public class StoredGroupParticipants
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
     public List<GroupParticipant> Participants { get; set; } = new();
+
+    public List<string> ManualUsernames { get; set; } = new();
 }
 
 public class GroupChatMembership

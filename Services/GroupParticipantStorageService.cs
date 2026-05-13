@@ -8,10 +8,12 @@ public class GroupParticipantStorageService
 {
     private readonly Lock _lock = new();
     private readonly string _path;
+    private readonly UserProfileStorageService _userProfiles;
     private readonly Dictionary<long, StoredGroupParticipants> _participantsByChat;
 
-    public GroupParticipantStorageService()
+    public GroupParticipantStorageService(UserProfileStorageService userProfiles)
     {
+        _userProfiles = userProfiles;
         _path = UserDataPath.ResolveFile("group-participants.json");
         _participantsByChat = LoadAll(_path);
     }
@@ -31,9 +33,7 @@ public class GroupParticipantStorageService
             stored.UpdatedAt = DateTime.Now;
 
             var nickname = BuildNickname(user);
-            var username = string.IsNullOrWhiteSpace(user.Username)
-                ? null
-                : (user.Username.StartsWith('@') ? user.Username : $"@{user.Username}");
+            var username = NormalizeUsername(user.Username);
 
             var participant = stored.Participants.FirstOrDefault(item => item.UserId == user.Id);
             if (participant is null)
@@ -44,6 +44,7 @@ public class GroupParticipantStorageService
                     Nickname = nickname,
                     Username = username,
                     IsBot = user.IsBot,
+                    IsManual = false,
                     LastSeenAt = DateTime.Now
                 });
             }
@@ -52,6 +53,7 @@ public class GroupParticipantStorageService
                 participant.Nickname = nickname;
                 participant.Username = username;
                 participant.IsBot = user.IsBot;
+                participant.IsManual = false;
                 participant.LastSeenAt = DateTime.Now;
             }
 
@@ -74,8 +76,13 @@ public class GroupParticipantStorageService
     {
         lock (_lock)
         {
+            var username = _userProfiles.Get(userId)?.Username;
+
             return _participantsByChat.Values
-                .Where(stored => stored.Participants.Any(participant => participant.UserId == userId && !participant.IsBot))
+                .Where(stored =>
+                    stored.Participants.Any(participant => participant.UserId == userId && !participant.IsBot) ||
+                    (!string.IsNullOrWhiteSpace(username) &&
+                     stored.ManualUsernames.Any(item => string.Equals(item, username, StringComparison.OrdinalIgnoreCase))))
                 .Select(stored => new GroupChatMembership
                 {
                     ChatId = stored.ChatId,
@@ -85,6 +92,41 @@ public class GroupParticipantStorageService
                 .OrderByDescending(item => item.UpdatedAt)
                 .ThenBy(item => item.ChatTitle, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+        }
+    }
+
+    public List<string> GetManualUsernames(long chatId)
+    {
+        lock (_lock)
+        {
+            return _participantsByChat.TryGetValue(chatId, out var stored)
+                ? stored.ManualUsernames
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(item => item, StringComparer.OrdinalIgnoreCase)
+                    .ToList()
+                : new List<string>();
+        }
+    }
+
+    public void SetManualUsernames(long chatId, string? chatTitle, IEnumerable<string> usernames)
+    {
+        lock (_lock)
+        {
+            var stored = _participantsByChat.TryGetValue(chatId, out var existing)
+                ? existing
+                : new StoredGroupParticipants { ChatId = chatId };
+
+            stored.ChatTitle = string.IsNullOrWhiteSpace(chatTitle) ? stored.ChatTitle : chatTitle.Trim();
+            stored.UpdatedAt = DateTime.Now;
+            stored.ManualUsernames = usernames
+                .Select(NormalizeUsername)
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(item => item, StringComparer.OrdinalIgnoreCase)
+                .ToList()!;
+
+            _participantsByChat[chatId] = Clone(stored);
+            SaveAll();
         }
     }
 
@@ -117,7 +159,8 @@ public class GroupParticipantStorageService
             ChatId = source.ChatId,
             ChatTitle = source.ChatTitle,
             UpdatedAt = source.UpdatedAt,
-            Participants = source.Participants.Select(Clone).ToList()
+            Participants = source.Participants.Select(Clone).ToList(),
+            ManualUsernames = source.ManualUsernames.ToList()
         };
     }
 
@@ -129,6 +172,7 @@ public class GroupParticipantStorageService
             Nickname = source.Nickname,
             Username = source.Username,
             IsBot = source.IsBot,
+            IsManual = source.IsManual,
             LastSeenAt = source.LastSeenAt
         };
     }
@@ -143,9 +187,18 @@ public class GroupParticipantStorageService
             return string.Join(" ", parts);
 
         if (!string.IsNullOrWhiteSpace(user.Username))
-            return user.Username.StartsWith('@') ? user.Username : $"@{user.Username}";
+            return NormalizeUsername(user.Username)!;
 
         return "Участник";
+    }
+
+    private static string? NormalizeUsername(string? username)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+            return null;
+
+        var trimmed = username.Trim();
+        return trimmed.StartsWith('@') ? trimmed : $"@{trimmed}";
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()

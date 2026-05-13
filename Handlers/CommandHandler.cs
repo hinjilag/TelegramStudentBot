@@ -628,7 +628,7 @@ public class CommandHandler
                 ? $"⏰ <b>Групповые напоминания включены</b>\n" +
                   $"Частота: <b>{groupSettings.FrequencyText}</b>\n" +
                   $"Время: <b>{groupSettings.TimeText}</b> по МСК\n\n" +
-                  "Я пришлю напоминание в этот чат и отмечу участников, которых уже видел в группе."
+                  "Я пришлю напоминание в этот чат и отмечу участников, которых уже видел в группе или которые добавлены по username."
                 : "⏰ <b>Групповые напоминания выключены</b>\n" +
                   "Давай настроим, как часто и во сколько удобно присылать напоминания в этот чат.";
 
@@ -774,7 +774,7 @@ public class CommandHandler
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,
                 text: "Пока не могу отметить участников этой группы.\n\n" +
-                      "Сейчас я зову только тех, кого уже видел в чате. Попроси участников написать хотя бы одно сообщение, и после этого я смогу их отмечать.",
+                      "Сейчас я зову только тех, кого уже видел в чате или кого ты добавил через кнопку «Участники группы» в /reminders.",
                 cancellationToken: ct);
             return;
         }
@@ -1151,6 +1151,10 @@ public class CommandHandler
                 new[]
                 {
                     InlineKeyboardButton.WithCallbackData("Настроить напоминания", "rem_set")
+                },
+                new[]
+                {
+                    InlineKeyboardButton.WithCallbackData("Участники группы", "grp_members_set")
                 }
             });
         }
@@ -1161,6 +1165,10 @@ public class CommandHandler
             {
                 InlineKeyboardButton.WithCallbackData("Изменить настройки", "rem_set"),
                 InlineKeyboardButton.WithCallbackData("Выключить", "rem_off")
+            },
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("Участники группы", "grp_members_set")
             }
         });
     }

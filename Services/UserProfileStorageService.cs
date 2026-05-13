@@ -60,6 +60,22 @@ public class UserProfileStorageService
         }
     }
 
+    public UserProfile? FindByUsername(string? username)
+    {
+        var normalizedUsername = BuildUsername(username);
+        if (string.IsNullOrWhiteSpace(normalizedUsername))
+            return null;
+
+        lock (_lock)
+        {
+            return _profiles.Values
+                .Where(profile => string.Equals(profile.Username, normalizedUsername, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(profile => profile.UpdatedAt)
+                .Select(Clone)
+                .FirstOrDefault();
+        }
+    }
+
     private void SaveAll()
     {
         var directory = Path.GetDirectoryName(_path);
@@ -110,7 +126,8 @@ public class UserProfileStorageService
         if (string.IsNullOrWhiteSpace(username))
             return null;
 
-        return username.StartsWith('@') ? username : $"@{username}";
+        var trimmed = username.Trim();
+        return trimmed.StartsWith('@') ? trimmed : $"@{trimmed}";
     }
 
     private static string ResolveProfilesPath()
