@@ -970,6 +970,24 @@ public class TextHandler
             }
 
             var groupTask = session.DraftTask;
+            if (groupTask.Deadline.HasValue && groupTask.Deadline.Value.Date < DateTime.Today)
+            {
+                session.State = UserState.Idle;
+                session.DraftTask = null;
+                session.PendingGroupHomeworkChatId = null;
+                session.PendingGroupHomeworkChatTitle = null;
+                session.HomeworkSubjectChoices.Clear();
+                session.HomeworkLessonTypeChoices.Clear();
+                session.HomeworkDeadlineChoices.Clear();
+                _groupInputLocks.Release(msg.Chat.Id, session.UserId);
+
+                await _bot.SendMessage(
+                    msg.Chat.Id,
+                    "Этот дедлайн уже прошёл. Начни добавление заново через /add_homework и выбери актуальную дату.",
+                    cancellationToken: ct);
+                return;
+            }
+
             groupTask.Title = text;
             groupTask.CreatedByName = BuildAuthorName(msg.From);
             groupTask.CreatedByUserId = msg.From?.Id;
@@ -1021,6 +1039,21 @@ public class TextHandler
         }
 
         var task = session.DraftTask;
+        if (task.Deadline.HasValue && task.Deadline.Value.Date < DateTime.Today)
+        {
+            session.DraftTask = null;
+            session.HomeworkSubjectChoices.Clear();
+            session.HomeworkLessonTypeChoices.Clear();
+            session.HomeworkDeadlineChoices.Clear();
+            session.State = UserState.Idle;
+
+            await _bot.SendMessage(
+                msg.Chat.Id,
+                "Этот дедлайн уже прошёл. Начни добавление заново через /add_homework и выбери актуальную дату.",
+                cancellationToken: ct);
+            return;
+        }
+
         task.Title = text;
         session.Tasks.Add(task);
         _sessions.SaveTasks(session);
@@ -1271,6 +1304,12 @@ public class TextHandler
             if (!TryParseTaskDeadline(parts[2].Trim(), out var parsedDeadline))
             {
                 error = "Не понял дату. Напиши, например: <code>30.04.2026</code> или <code>30.04.2026 18:00</code>.";
+                return false;
+            }
+
+            if (parsedDeadline.Date < DateTime.Today)
+            {
+                error = "Нельзя указать прошедшую дату. Выберите сегодняшнюю или более позднюю.";
                 return false;
             }
 

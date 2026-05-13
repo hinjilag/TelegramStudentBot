@@ -257,6 +257,10 @@ public class UpdateRouter
                 await _commands.HandleCallAsync(msg, ct);
                 break;
 
+            case "/group_members":
+                await _commands.HandleGroupMembersAsync(msg, ct);
+                break;
+
             case "/reminders":
                 await _commands.HandleRemindersAsync(msg, ct);
                 break;

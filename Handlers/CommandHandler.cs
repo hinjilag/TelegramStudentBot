@@ -19,6 +19,7 @@ public class CommandHandler
         "Привет! В группе я помогаю вести общее расписание и домашние задания.\n\n" +
         "Доступные команды:\n" +
         "/all — массово позвать участников группы\n" +
+        "/group_members — сохранить участников по @username\n" +
         "/schedule — выбрать расписание для этой группы\n" +
         "/add_homework — добавить общее ДЗ\n" +
         "/homework — открыть общий список ДЗ\n" +
@@ -36,6 +37,7 @@ public class CommandHandler
     private readonly UserGroupTaskBridgeService _userGroupTasks;
     private readonly GroupInputLockService _groupInputLocks;
     private readonly GroupStudyTaskStorageService _groupTasks;
+    private readonly GroupParticipantStorageService _groupParticipants;
     private readonly GroupParticipantResolverService _groupParticipantResolver;
     private readonly GroupReminderSettingsService _groupReminders;
     private readonly GroupHomeworkSubjectPreferencesService _groupHomeworkSubjects;
@@ -56,6 +58,7 @@ public class CommandHandler
         UserGroupTaskBridgeService userGroupTasks,
         GroupInputLockService groupInputLocks,
         GroupStudyTaskStorageService groupTasks,
+        GroupParticipantStorageService groupParticipants,
         GroupParticipantResolverService groupParticipantResolver,
         GroupReminderSettingsService groupReminders,
         GroupHomeworkSubjectPreferencesService groupHomeworkSubjects,
@@ -75,6 +78,7 @@ public class CommandHandler
         _userGroupTasks = userGroupTasks;
         _groupInputLocks = groupInputLocks;
         _groupTasks = groupTasks;
+        _groupParticipants = groupParticipants;
         _groupParticipantResolver = groupParticipantResolver;
         _groupReminders = groupReminders;
         _groupHomeworkSubjects = groupHomeworkSubjects;
@@ -161,6 +165,7 @@ public class CommandHandler
                 chatId: msg.Chat.Id,
                 text: "Что я умею в группе:\n\n" +
                       "/all — массово позвать участников группы\n" +
+                      "/group_members — сохранить список участников по @username\n" +
                       "/schedule — выбрать или поменять расписание этой группы\n" +
                       "/add_homework — добавить общее ДЗ по предмету из расписания\n" +
                       "/homework — посмотреть общее ДЗ\n" +
@@ -185,6 +190,7 @@ public class CommandHandler
                   "/add_homework — в личке добавить ДЗ по расписанию, в группе — общее ДЗ\n" +
                   "/homework — посмотреть свои или общие ДЗ\n" +
                   "/homework_settings — настроить предметы и порядок показа\n" +
+                  "/group_members — в группе сохранить участников по @username\n" +
                   "/reminders — настроить личные или групповые напоминания\n\n" +
                   "Планирование:\n" +
                   "/plan — управление задачами\n\n" +
@@ -628,7 +634,7 @@ public class CommandHandler
                 ? $"⏰ <b>Групповые напоминания включены</b>\n" +
                   $"Частота: <b>{groupSettings.FrequencyText}</b>\n" +
                   $"Время: <b>{groupSettings.TimeText}</b> по МСК\n\n" +
-                  "Я пришлю напоминание в этот чат и отмечу участников, которых уже видел в группе или которые добавлены по username."
+                  "Я пришлю напоминание в этот чат и отмечу участников, которых уже видел в группе или которые добавлены по username через /group_members."
                 : "⏰ <b>Групповые напоминания выключены</b>\n" +
                   "Давай настроим, как часто и во сколько удобно присылать напоминания в этот чат.";
 
@@ -658,6 +664,55 @@ public class CommandHandler
             text: text,
             parseMode: ParseMode.Html,
             replyMarkup: BuildReminderKeyboard(settings.IsEnabled),
+            cancellationToken: ct);
+    }
+
+    public async Task HandleGroupMembersAsync(Message msg, CancellationToken ct)
+    {
+        if (!IsGroupChat(msg.Chat.Type))
+        {
+            await _bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: "Команда /group_members работает только в группах.",
+                cancellationToken: ct);
+            return;
+        }
+
+        if (!_groupInputLocks.TryAcquire(
+                msg.Chat.Id,
+                msg.From!.Id,
+                TextHandler.BuildAuthorName(msg.From),
+                "participants",
+                out var activeLock))
+        {
+            await _bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: $"Сейчас я жду ввод от <b>{Escape(activeLock!.OwnerDisplayName)}</b>. Когда он закончит, можно будет запустить /group_members ещё раз.",
+                parseMode: ParseMode.Html,
+                cancellationToken: ct);
+            return;
+        }
+
+        var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
+        session.State = UserState.WaitingForGroupParticipantUsernames;
+        session.PendingParticipantChatId = msg.Chat.Id;
+        session.PendingParticipantChatTitle = msg.Chat.Title;
+
+        var currentUsernames = _groupParticipants.GetManualUsernames(msg.Chat.Id);
+        var currentText = currentUsernames.Count == 0
+            ? "Пока список пуст."
+            : string.Join(", ", currentUsernames);
+
+        await _bot.SendMessage(
+            chatId: msg.Chat.Id,
+            text: "👥 <b>Участники группы</b>\n\n" +
+                  "Пришли список username через пробел, запятую или с новой строки.\n" +
+                  "Пример: <code>@anna @ivan @petr</code>\n\n" +
+                  "Текущий список:\n" +
+                  $"{Escape(currentText)}\n\n" +
+                  "По этим username будет работать созыв, а групповые ДЗ смогут попасть в личный бот даже без активности в чате.",
+            parseMode: ParseMode.Html,
+            replyMarkup: BuildGroupMembersKeyboard(),
             cancellationToken: ct);
     }
 
@@ -774,7 +829,7 @@ public class CommandHandler
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,
                 text: "Пока не могу отметить участников этой группы.\n\n" +
-                      "Сейчас я зову только тех, кого уже видел в чате или кого ты добавил через кнопку «Участники группы» в /reminders.",
+                      "Сейчас я зову только тех, кого уже видел в чате или кого ты добавил через /group_members.",
                 cancellationToken: ct);
             return;
         }
@@ -1151,10 +1206,6 @@ public class CommandHandler
                 new[]
                 {
                     InlineKeyboardButton.WithCallbackData("Настроить напоминания", "rem_set")
-                },
-                new[]
-                {
-                    InlineKeyboardButton.WithCallbackData("Участники группы", "grp_members_set")
                 }
             });
         }
@@ -1165,13 +1216,19 @@ public class CommandHandler
             {
                 InlineKeyboardButton.WithCallbackData("Изменить настройки", "rem_set"),
                 InlineKeyboardButton.WithCallbackData("Выключить", "rem_off")
-            },
-            new[]
-            {
-                InlineKeyboardButton.WithCallbackData("Участники группы", "grp_members_set")
             }
         });
     }
+
+    private static InlineKeyboardMarkup BuildGroupMembersKeyboard()
+        => new(new[]
+        {
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("Очистить список", "grp_members_clear"),
+                InlineKeyboardButton.WithCallbackData("Отмена", "grp_members_cancel")
+            }
+        });
 
     private static string? ResolveWebAppUrl(IConfiguration configuration)
     {

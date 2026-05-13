@@ -1291,6 +1291,23 @@ public class CallbackHandler
             return;
         }
 
+        if (deadline.Date < DateTime.Today)
+        {
+            session.State = UserState.Idle;
+            session.DraftTask = null;
+            session.HomeworkSubjectChoices.Clear();
+            session.HomeworkLessonTypeChoices.Clear();
+            session.HomeworkDeadlineChoices.Clear();
+            if (isGroup)
+                _groupInputLocks.Release(chatId, query.From.Id);
+
+            await _bot.SendMessage(
+                chatId,
+                "Этот дедлайн уже прошёл. Открой список заново через /add_homework.",
+                cancellationToken: ct);
+            return;
+        }
+
         await BeginHomeworkTextInputAsync(message, session, session.DraftTask.Subject, deadline, isGroup, ct);
     }
 
@@ -1303,6 +1320,23 @@ public class CallbackHandler
         CancellationToken ct)
     {
         var chatId = message.Chat.Id;
+        if (deadline.Date < DateTime.Today)
+        {
+            session.State = UserState.Idle;
+            session.DraftTask = null;
+            session.HomeworkSubjectChoices.Clear();
+            session.HomeworkLessonTypeChoices.Clear();
+            session.HomeworkDeadlineChoices.Clear();
+            if (isGroup)
+                _groupInputLocks.Release(chatId, session.UserId);
+
+            await _bot.SendMessage(
+                chatId,
+                "Этот дедлайн уже прошёл. Открой список заново через /add_homework.",
+                cancellationToken: ct);
+            return;
+        }
+
         session.DraftTask ??= new StudyTask();
         session.DraftTask.Subject = subject;
         session.DraftTask.Deadline = deadline;
@@ -1339,10 +1373,30 @@ public class CallbackHandler
         }
 
         var buttons = session.HomeworkDeadlineChoices
+            .Where(item => item.Value.Date >= DateTime.Today)
             .OrderBy(item => item.Value)
             .Select(item => ($"{item.Value:dd.MM.yyyy}", $"hw_deadline_{item.Key}"))
-            .Append(("Назад", "hw_deadline_back"))
-            .Append(("🔴 Отмена", "hw_cancel"));
+            .ToList();
+
+        if (buttons.Count == 0)
+        {
+            session.State = UserState.Idle;
+            session.DraftTask = null;
+            session.HomeworkSubjectChoices.Clear();
+            session.HomeworkLessonTypeChoices.Clear();
+            session.HomeworkDeadlineChoices.Clear();
+            if (IsGroupChat(message.Chat.Type))
+                _groupInputLocks.Release(message.Chat.Id, session.UserId);
+
+            await _bot.SendMessage(
+                message.Chat.Id,
+                "Доступных будущих дат больше не осталось. Открой /add_homework заново.",
+                cancellationToken: ct);
+            return;
+        }
+
+        buttons.Add(("Назад", "hw_deadline_back"));
+        buttons.Add(("🔴 Отмена", "hw_cancel"));
 
         var currentDeadline = session.DraftTask.Deadline.HasValue
             ? session.DraftTask.Deadline.Value.ToString("dd.MM.yyyy")
