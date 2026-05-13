@@ -88,6 +88,15 @@ public class ReminderSettingsService
     }
 
     public void Enable(long userId, long chatId, int hour, int minute)
+        => Enable(userId, chatId, hour, minute, ReminderScheduleMode.Daily, null);
+
+    public void Enable(
+        long userId,
+        long chatId,
+        int hour,
+        int minute,
+        ReminderScheduleMode frequency,
+        IEnumerable<int>? selectedDays)
     {
         lock (_lock)
         {
@@ -100,6 +109,8 @@ public class ReminderSettingsService
             settings.PromptAnswered = true;
             settings.Hour = hour;
             settings.Minute = minute;
+            settings.Frequency = frequency;
+            settings.SelectedDays = NormalizeSelectedDays(selectedDays);
             ApplyUserMetadata(userId, settings);
             settings.UpdatedAt = DateTime.Now;
             _settingsByUser[userId] = settings;
@@ -170,11 +181,22 @@ public class ReminderSettingsService
             Username = settings.Username,
             IsEnabled = settings.IsEnabled,
             PromptAnswered = settings.PromptAnswered,
+            Frequency = settings.Frequency,
             Hour = settings.Hour,
             Minute = settings.Minute,
+            SelectedDays = settings.SelectedDays.ToList(),
             LastNotificationDate = settings.LastNotificationDate,
             UpdatedAt = settings.UpdatedAt
         };
+    }
+
+    private static List<int> NormalizeSelectedDays(IEnumerable<int>? selectedDays)
+    {
+        return (selectedDays ?? Array.Empty<int>())
+            .Where(day => day is >= 1 and <= 7)
+            .Distinct()
+            .OrderBy(day => day)
+            .ToList();
     }
 
     private void ApplyUserMetadata(long userId, UserReminderSettings settings)

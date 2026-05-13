@@ -880,6 +880,8 @@ public class TextHandler
             text:      $"🎉 <b>Дело добавлено!</b>\n\n📌 <b>{Escape(task.Title)}</b>\n📅 {dl}",
             parseMode: ParseMode.Html,
             cancellationToken: ct);
+
+        await TryPromptReminderSetupAsync(msg.Chat.Id, session, ct);
     }
 
     internal static bool TryParseTaskDeadline(string text, out DateTime deadline)
@@ -947,6 +949,7 @@ public class TextHandler
                 session.PendingGroupHomeworkChatTitle = null;
                 session.HomeworkSubjectChoices.Clear();
                 session.HomeworkLessonTypeChoices.Clear();
+                session.HomeworkDeadlineChoices.Clear();
 
                 await _bot.SendMessage(
                     msg.Chat.Id,
@@ -969,6 +972,7 @@ public class TextHandler
             session.PendingGroupHomeworkChatTitle = null;
             session.HomeworkSubjectChoices.Clear();
             session.HomeworkLessonTypeChoices.Clear();
+            session.HomeworkDeadlineChoices.Clear();
             session.State = UserState.Idle;
 
             var groupDeadlineText = groupTask.Deadline.HasValue
@@ -993,6 +997,7 @@ public class TextHandler
             session.State = UserState.Idle;
             session.HomeworkSubjectChoices.Clear();
             session.HomeworkLessonTypeChoices.Clear();
+            session.HomeworkDeadlineChoices.Clear();
 
             await _bot.SendMessage(
                 msg.Chat.Id,
@@ -1009,6 +1014,7 @@ public class TextHandler
         session.DraftTask = null;
         session.HomeworkSubjectChoices.Clear();
         session.HomeworkLessonTypeChoices.Clear();
+        session.HomeworkDeadlineChoices.Clear();
         session.State = UserState.Idle;
 
         var deadlineText = task.Deadline.HasValue
@@ -1025,7 +1031,6 @@ public class TextHandler
             parseMode: ParseMode.Html,
             cancellationToken: ct);
 
-        await TryPromptReminderSetupAsync(msg.Chat.Id, session, task, ct);
     }
 
     private async Task HandleCustomTimerAsync(
@@ -1069,7 +1074,21 @@ public class TextHandler
         }
 
         var targetIsGroup = session.ReminderTargetIsGroup;
-        var groupFrequency = session.PendingGroupReminderFrequency ?? GroupReminderFrequency.Daily;
+        var reminderMode = session.PendingReminderMode ?? ReminderScheduleMode.Daily;
+        var selectedDays = session.PendingReminderSelectedDays
+            .Where(day => day is >= 1 and <= 7)
+            .Distinct()
+            .OrderBy(day => day)
+            .ToList();
+
+        if (reminderMode == ReminderScheduleMode.CustomDays && selectedDays.Count == 0)
+        {
+            await _bot.SendMessage(
+                msg.Chat.Id,
+                "⚠️ Сначала выбери хотя бы один день для напоминаний через /reminders.",
+                cancellationToken: ct);
+            return;
+        }
 
         if (targetIsGroup)
         {
@@ -1078,24 +1097,26 @@ public class TextHandler
                 session.ReminderTargetChatTitle ?? msg.Chat.Title,
                 time.Hours,
                 time.Minutes,
-                groupFrequency);
+                reminderMode,
+                selectedDays);
         }
         else
         {
-            _reminders.Enable(session.UserId, msg.Chat.Id, time.Hours, time.Minutes);
+            _reminders.Enable(session.UserId, msg.Chat.Id, time.Hours, time.Minutes, reminderMode, selectedDays);
         }
 
         session.State = UserState.Idle;
         session.ReminderTargetChatId = 0;
         session.ReminderTargetChatTitle = null;
         session.ReminderTargetIsGroup = false;
-        session.PendingGroupReminderFrequency = null;
+        session.PendingReminderMode = null;
+        session.PendingReminderSelectedDays.Clear();
 
         await _bot.SendMessage(
             chatId: msg.Chat.Id,
             text: targetIsGroup
-                ? $"⏰ Готово! Буду присылать напоминания {FormatGroupFrequencyText(groupFrequency)} в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК и отмечать участников, которых уже видел в группе."
-                : $"⏰ Готово! Буду каждый день в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК присылать дедлайны на завтра.\n\n" +
+                ? $"⏰ Готово! Буду присылать напоминания {FormatReminderModeText(reminderMode, selectedDays)} в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК и отмечать участников, которых уже видел в группе."
+                : $"⏰ Готово! Буду присылать напоминания {FormatReminderModeText(reminderMode, selectedDays)} в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК о твоих личных делах.\n\n" +
                   BuildBasicCommandsText(),
             parseMode: ParseMode.Html,
             cancellationToken: ct);
@@ -1120,12 +1141,8 @@ public class TextHandler
     private async Task TryPromptReminderSetupAsync(
         long chatId,
         UserSession session,
-        StudyTask task,
         CancellationToken ct)
     {
-        if (!task.Deadline.HasValue)
-            return;
-
         var settings = _reminders.Get(session.UserId);
         if (settings.PromptAnswered)
             return;
@@ -1136,15 +1153,15 @@ public class TextHandler
         {
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("Указать время", "rem_set"),
+                InlineKeyboardButton.WithCallbackData("Настроить", "rem_set"),
                 InlineKeyboardButton.WithCallbackData("Не сейчас", "rem_later")
             }
         });
 
         await _bot.SendMessage(
             chatId: chatId,
-            text: "Следующий шаг: можно включить напоминания о дедлайнах.\n\n" +
-                  "Хочешь, я буду каждый день присылать задания, которые нужно сдать завтра?",
+            text: "Следующий шаг: можно включить напоминания о личных делах.\n\n" +
+                  "Хочешь, я буду регулярно присылать список твоих актуальных дел?",
             replyMarkup: keyboard,
             cancellationToken: ct);
     }
@@ -1226,8 +1243,16 @@ public class TextHandler
            "/timer — таймер для учёбы\n" +
            "/help — все команды";
 
-    private static string FormatGroupFrequencyText(GroupReminderFrequency frequency)
-        => frequency == GroupReminderFrequency.Weekdays ? "по будням" : "каждый день";
+    private static string FormatReminderModeText(ReminderScheduleMode mode, IReadOnlyCollection<int> selectedDays)
+    {
+        return mode switch
+        {
+            ReminderScheduleMode.Weekdays => "по будням",
+            ReminderScheduleMode.CustomDays when selectedDays.Count > 0 => "в выбранные дни",
+            ReminderScheduleMode.CustomDays => "по выбранным дням",
+            _ => "каждый день"
+        };
+    }
 
 }
 

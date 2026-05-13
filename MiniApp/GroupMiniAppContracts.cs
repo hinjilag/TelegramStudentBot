@@ -26,6 +26,7 @@ public sealed record GroupMiniAppReminderDto(
     string TimeText,
     int Hour,
     int Minute,
+    IReadOnlyList<int> SelectedDays,
     IReadOnlyList<GroupMiniAppParticipantDto> Participants);
 
 public sealed record GroupMiniAppParticipantDto(
@@ -50,4 +51,5 @@ public sealed record GroupMiniAppReminderUpdateRequest(
     string? Frequency,
     int? Hour,
     int? Minute,
+    IReadOnlyList<int>? SelectedDays,
     IReadOnlyList<long>? SelectedParticipantUserIds);

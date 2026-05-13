@@ -131,34 +131,39 @@ public class ScheduleCatalogService
         IEnumerable<ScheduleEntry> entries,
         string subject,
         DateTime? now = null)
-    {
-        var current = now ?? DateTime.Now;
-        DateTime? best = null;
+        => FindUpcomingHomeworkDates(entries, subject, 1, now).FirstOrDefault();
 
-        foreach (var date in Enumerable.Range(0, 120).Select(offset => current.Date.AddDays(offset)))
+    public IReadOnlyList<DateTime> FindUpcomingHomeworkDates(
+        IEnumerable<ScheduleEntry> entries,
+        string subject,
+        int maxCount = 5,
+        DateTime? now = null)
+    {
+        if (maxCount <= 0)
+            return Array.Empty<DateTime>();
+
+        var currentDate = (now ?? DateTime.Now).Date;
+        var matches = new List<DateTime>();
+
+        foreach (var date in Enumerable.Range(1, 180).Select(offset => currentDate.AddDays(offset)))
         {
             var dayNumber = GetDayNumber(date);
             var weekType = GetCurrentWeekType(date);
 
-            foreach (var entry in entries)
-            {
-                if (entry.DayOfWeek != dayNumber ||
-                    !string.Equals(entry.Subject, subject, StringComparison.OrdinalIgnoreCase) ||
-                    (entry.WeekType.HasValue && entry.WeekType.Value != weekType))
-                {
-                    continue;
-                }
+            var hasMatch = entries.Any(entry =>
+                entry.DayOfWeek == dayNumber &&
+                string.Equals(entry.Subject, subject, StringComparison.OrdinalIgnoreCase) &&
+                (!entry.WeekType.HasValue || entry.WeekType.Value == weekType));
 
-                var occurrence = date.Add(ParseLessonStart(entry.Time));
-                if (occurrence <= current)
-                    continue;
+            if (!hasMatch)
+                continue;
 
-                if (best is null || occurrence < best.Value)
-                    best = occurrence;
-            }
+            matches.Add(date);
+            if (matches.Count >= maxCount)
+                break;
         }
 
-        return best?.Date;
+        return matches;
     }
 
     public static string GetHomeworkSubjectTitle(string subject)

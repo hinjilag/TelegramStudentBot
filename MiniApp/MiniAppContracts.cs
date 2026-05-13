@@ -70,9 +70,12 @@ public sealed record MiniAppScheduleEntryDto(
 
 public sealed record MiniAppReminderDto(
     bool IsEnabled,
+    string Frequency,
+    string FrequencyText,
     string TimeText,
     int Hour,
-    int Minute);
+    int Minute,
+    IReadOnlyList<int> SelectedDays);
 
 public sealed record MiniAppTimerDto(
     bool IsActive,
@@ -106,7 +109,12 @@ public sealed record MiniAppHomeworkSubjectOptionDto(
     string Subject,
     string LessonType,
     string? NextDeadlineIso,
-    string? NextDeadlineText);
+    string? NextDeadlineText,
+    IReadOnlyList<MiniAppHomeworkDeadlineDto> AvailableDeadlines);
+
+public sealed record MiniAppHomeworkDeadlineDto(
+    string DateIso,
+    string Label);
 
 public sealed record MiniAppScheduleSelectionRequest(
     string ScheduleId,
@@ -114,7 +122,8 @@ public sealed record MiniAppScheduleSelectionRequest(
 
 public sealed record MiniAppHomeworkCreateRequest(
     string Subject,
-    string Title);
+    string Title,
+    DateTime? Deadline);
 
 public sealed record MiniAppPersonalTaskCreateRequest(
     string Title,
@@ -125,8 +134,10 @@ public sealed record MiniAppTaskCompletionRequest(
 
 public sealed record MiniAppReminderUpdateRequest(
     bool IsEnabled,
+    string? Frequency,
     int? Hour,
-    int? Minute);
+    int? Minute,
+    IReadOnlyList<int>? SelectedDays);
 
 public sealed record MiniAppTimerStartRequest(
     string Type,

@@ -112,6 +112,7 @@ public class GroupMiniAppService
                 reminder.TimeText,
                 reminder.Hour,
                 reminder.Minute,
+                reminder.SelectedDays.ToList(),
                 reminderParticipants),
             homework.Select(ToTaskDto).ToList(),
             BuildHomeworkSubjects(allEntries));
@@ -160,8 +161,7 @@ public class GroupMiniAppService
         if (!allEntries.Any(entry => string.Equals(entry.Subject, request.Subject, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException("Предмет отсутствует в расписании группы.");
 
-        var deadline = _scheduleCatalog.FindNextLessonDate(allEntries, request.Subject)
-            ?? throw new InvalidOperationException("Не удалось определить ближайшую пару для этого предмета.");
+        var deadline = ValidateSelectedHomeworkDeadline(allEntries, request.Subject, request.Deadline);
 
         var tasks = _groupTasks.Get(chatId);
         tasks.Add(new StudyTask
@@ -208,12 +208,17 @@ public class GroupMiniAppService
             throw new InvalidOperationException("Время напоминаний указано неверно.");
 
         var frequency = ParseFrequency(request.Frequency);
+        var selectedDays = NormalizeSelectedDays(request.SelectedDays);
+        if (frequency == ReminderScheduleMode.CustomDays && selectedDays.Count == 0)
+            throw new InvalidOperationException("Выберите хотя бы один день для напоминаний.");
+
         _groupReminders.Enable(
             chatId,
             currentSettings.ChatTitle,
             request.Hour.Value,
             request.Minute.Value,
             frequency,
+            selectedDays,
             request.SelectedParticipantUserIds);
     }
 
@@ -281,12 +286,19 @@ public class GroupMiniAppService
                     .OrderBy(ScheduleCatalogService.GetHomeworkLessonTypeLabel)
                     .Select(subject =>
                     {
-                        var nextDeadline = _scheduleCatalog.FindNextLessonDate(allEntries, subject);
+                        var availableDeadlines = _scheduleCatalog.FindUpcomingHomeworkDates(allEntries, subject)
+                            .Select(date => new MiniAppHomeworkDeadlineDto(
+                                date.ToString("yyyy-MM-dd"),
+                                date.ToString("dd.MM.yyyy")))
+                            .ToList();
+                        var nextDeadline = availableDeadlines.FirstOrDefault();
+
                         return new MiniAppHomeworkSubjectOptionDto(
                             subject,
                             ScheduleCatalogService.GetHomeworkLessonTypeLabel(subject),
-                            nextDeadline?.ToString("O"),
-                            nextDeadline?.ToString("dd.MM.yyyy"));
+                            nextDeadline?.DateIso,
+                            nextDeadline?.Label,
+                            availableDeadlines);
                     })
                     .ToList();
 
@@ -299,12 +311,14 @@ public class GroupMiniAppService
             .ToList();
     }
 
-    private GroupReminderFrequency ParseFrequency(string? value)
+    private static ReminderScheduleMode ParseFrequency(string? value)
     {
         return value?.Trim().ToLowerInvariant() switch
         {
-            "weekdays" => GroupReminderFrequency.Weekdays,
-            _ => GroupReminderFrequency.Daily
+            "weekdays" => ReminderScheduleMode.Weekdays,
+            "customdays" => ReminderScheduleMode.CustomDays,
+            "custom" => ReminderScheduleMode.CustomDays,
+            _ => ReminderScheduleMode.Daily
         };
     }
 
@@ -340,5 +354,33 @@ public class GroupMiniAppService
             entry.LessonNumber,
             entry.Time,
             entry.Subject);
+    }
+
+    private DateTime ValidateSelectedHomeworkDeadline(
+        IReadOnlyList<ScheduleEntry> entries,
+        string subject,
+        DateTime? requestedDeadline)
+    {
+        var availableDeadlines = _scheduleCatalog.FindUpcomingHomeworkDates(entries, subject);
+        if (availableDeadlines.Count == 0)
+            throw new InvalidOperationException("Не удалось определить ближайшие пары для этого предмета.");
+
+        if (!requestedDeadline.HasValue)
+            return availableDeadlines[0];
+
+        var deadlineDate = requestedDeadline.Value.Date;
+        if (!availableDeadlines.Contains(deadlineDate))
+            throw new InvalidOperationException("Выбранная дата больше не подходит для этого предмета.");
+
+        return deadlineDate;
+    }
+
+    private static List<int> NormalizeSelectedDays(IReadOnlyList<int>? selectedDays)
+    {
+        return (selectedDays ?? Array.Empty<int>())
+            .Where(day => day is >= 1 and <= 7)
+            .Distinct()
+            .OrderBy(day => day)
+            .ToList();
     }
 }

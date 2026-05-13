@@ -311,6 +311,7 @@ public class CallbackHandler
             session.PendingGroupHomeworkChatTitle = null;
             session.HomeworkSubjectChoices.Clear();
             session.HomeworkLessonTypeChoices.Clear();
+            session.HomeworkDeadlineChoices.Clear();
 
             await _bot.EditMessageText(
                 chatId: chatId,
@@ -379,83 +380,13 @@ public class CallbackHandler
             await HandleHomeworkLessonTypeChoiceAsync(query, userId, session, data, ct);
             return;
         }
-    }
-    private async Task HandleReminderAsync(
-        CallbackQuery query,
-        UserSession session,
-        string data,
-        CancellationToken ct)
-    {
-        var message = query.Message!;
-        var chatId = message.Chat.Id;
-        var isGroup = message.Chat.Type is ChatType.Group or ChatType.Supergroup;
 
-        switch (data)
+        if (data.StartsWith("hw_deadline_"))
         {
-            case "rem_set":
-                session.State = UserState.WaitingForReminderTime;
-                session.ReminderTargetChatId = chatId;
-                session.ReminderTargetChatTitle = message.Chat.Title;
-                session.ReminderTargetIsGroup = isGroup;
-
-                if (!isGroup)
-                    _reminders.MarkPromptAnswered(session.UserId, chatId);
-
-                await _bot.EditMessageText(
-                    chatId: chatId,
-                    messageId: message.MessageId,
-                    text: isGroup
-                        ? "⏰ Во сколько писать в этот чат про общие дедлайны на завтра?\n\n" +
-                          "Напиши время в формате <b>ЧЧ:ММ</b>, например <b>20:00</b>.\n" +
-                          "Время по МСК."
-                        : "⏰ Во сколько напоминать о дедлайнах на завтра?\n\n" +
-                          "Напиши время в формате <b>ЧЧ:ММ</b>, например <b>20:00</b>.\n" +
-                          "Время по МСК.",
-                    parseMode: ParseMode.Html,
-                    cancellationToken: ct);
-                break;
-
-            case "rem_later":
-                session.State = UserState.Idle;
-                session.ReminderTargetChatId = 0;
-                session.ReminderTargetChatTitle = null;
-                session.ReminderTargetIsGroup = false;
-
-                if (!isGroup)
-                    _reminders.Disable(session.UserId, chatId);
-
-                await _bot.EditMessageText(
-                    chatId: chatId,
-                    messageId: message.MessageId,
-                    text: isGroup
-                        ? "Хорошо, напоминания для этой группы можно включить позже через /reminders."
-                        : "Хорошо, не буду напоминать. Настроить можно в любой момент через /reminders.\n\n" +
-                          BuildBasicCommandsText(),
-                    cancellationToken: ct);
-                break;
-
-            case "rem_off":
-                session.State = UserState.Idle;
-                session.ReminderTargetChatId = 0;
-                session.ReminderTargetChatTitle = null;
-                session.ReminderTargetIsGroup = false;
-
-                if (isGroup)
-                    _groupReminders.Disable(chatId, message.Chat.Title);
-                else
-                    _reminders.Disable(session.UserId, chatId);
-
-                await _bot.EditMessageText(
-                    chatId: chatId,
-                    messageId: message.MessageId,
-                    text: isGroup
-                        ? "⏰ Групповые напоминания выключены. Включить снова можно через /reminders."
-                        : "⏰ Напоминания выключены. Включить снова можно через /reminders.",
-                    cancellationToken: ct);
-                break;
+            await HandleHomeworkDeadlineChoiceAsync(query, session, data, ct);
+            return;
         }
     }
-
     private async Task HandleReminderFlowAsync(
         CallbackQuery query,
         UserSession session,
@@ -473,53 +404,57 @@ public class CallbackHandler
                 session.ReminderTargetChatTitle = message.Chat.Title;
                 session.ReminderTargetIsGroup = isGroup;
 
-                if (isGroup)
-                {
-                    session.State = UserState.Idle;
-                    session.PendingGroupReminderFrequency = null;
-
-                    await _bot.EditMessageText(
-                        chatId: chatId,
-                        messageId: message.MessageId,
-                        text: "⏰ <b>Настроим напоминания для группы</b>\n\n" +
-                              "Как часто их присылать?",
-                        parseMode: ParseMode.Html,
-                        replyMarkup: BuildGroupReminderFrequencyKeyboard(),
-                        cancellationToken: ct);
-                    return;
-                }
-
-                session.State = UserState.WaitingForReminderTime;
-                _reminders.MarkPromptAnswered(session.UserId, chatId);
+                session.State = UserState.Idle;
+                session.PendingReminderMode = null;
+                session.PendingReminderSelectedDays.Clear();
 
                 await _bot.EditMessageText(
                     chatId: chatId,
                     messageId: message.MessageId,
-                    text: "⏰ Во сколько напоминать о дедлайнах на завтра?\n\n" +
-                          "Напиши время в формате <b>ЧЧ:ММ</b>, например <b>20:00</b>.\n" +
-                          "Время по МСК.",
+                    text: isGroup
+                        ? "⏰ <b>Настроим напоминания для группы</b>\n\nКак часто их присылать?"
+                        : "⏰ <b>Настроим личные напоминания</b>\n\nОни будут приходить по твоим личным делам. Как часто их присылать?",
                     parseMode: ParseMode.Html,
+                    replyMarkup: BuildReminderModeKeyboard(),
                     cancellationToken: ct);
                 return;
 
-            case "rem_freq_daily":
-            case "rem_freq_weekdays":
-                session.State = UserState.WaitingForReminderTime;
-                session.ReminderTargetChatId = chatId;
-                session.ReminderTargetChatTitle = message.Chat.Title;
-                session.ReminderTargetIsGroup = true;
-                session.PendingGroupReminderFrequency = data == "rem_freq_weekdays"
-                    ? Models.GroupReminderFrequency.Weekdays
-                    : Models.GroupReminderFrequency.Daily;
+            case "rem_mode_daily":
+                await StartReminderTimeInputAsync(query, session, ReminderScheduleMode.Daily, Array.Empty<int>(), ct);
+                return;
+
+            case "rem_mode_weekdays":
+                await StartReminderTimeInputAsync(query, session, ReminderScheduleMode.Weekdays, Array.Empty<int>(), ct);
+                return;
+
+            case "rem_mode_custom":
+                session.State = UserState.Idle;
+                session.PendingReminderMode = ReminderScheduleMode.CustomDays;
+                session.PendingReminderSelectedDays = GetCurrentReminderSelectedDays(session, chatId).ToList();
 
                 await _bot.EditMessageText(
                     chatId: chatId,
                     messageId: message.MessageId,
-                    text: $"⏰ <b>Во сколько присылать напоминания {FormatGroupFrequencyText(session.PendingGroupReminderFrequency.Value)}?</b>\n\n" +
-                          "Напиши время в формате <b>ЧЧ:ММ</b>, например <b>20:00</b>.\n" +
-                          "Я пришлю сообщение в этот чат и отмечу участников, которых уже видел в группе.",
+                    text: "⏰ <b>Выбери дни для напоминаний</b>\n\n" +
+                          "Можно отметить любые дни недели, потом нажми «Продолжить».",
                     parseMode: ParseMode.Html,
+                    replyMarkup: BuildReminderDaysKeyboard(session.PendingReminderSelectedDays),
                     cancellationToken: ct);
+                return;
+
+            case "rem_days_continue":
+                if (session.PendingReminderSelectedDays.Count == 0)
+                {
+                    await AnswerCallbackPopupAsync(query.Id, "Выбери хотя бы один день.", ct);
+                    return;
+                }
+
+                await StartReminderTimeInputAsync(
+                    query,
+                    session,
+                    ReminderScheduleMode.CustomDays,
+                    session.PendingReminderSelectedDays,
+                    ct);
                 return;
 
             case "rem_later":
@@ -527,7 +462,8 @@ public class CallbackHandler
                 session.ReminderTargetChatId = 0;
                 session.ReminderTargetChatTitle = null;
                 session.ReminderTargetIsGroup = false;
-                session.PendingGroupReminderFrequency = null;
+                session.PendingReminderMode = null;
+                session.PendingReminderSelectedDays.Clear();
 
                 if (!isGroup)
                     _reminders.Disable(session.UserId, chatId);
@@ -547,7 +483,8 @@ public class CallbackHandler
                 session.ReminderTargetChatId = 0;
                 session.ReminderTargetChatTitle = null;
                 session.ReminderTargetIsGroup = false;
-                session.PendingGroupReminderFrequency = null;
+                session.PendingReminderMode = null;
+                session.PendingReminderSelectedDays.Clear();
 
                 if (isGroup)
                     _groupReminders.Disable(chatId, message.Chat.Title);
@@ -563,16 +500,88 @@ public class CallbackHandler
                     cancellationToken: ct);
                 return;
         }
+
+        if (data.StartsWith("rem_day_"))
+        {
+            session.ReminderTargetChatId = chatId;
+            session.ReminderTargetChatTitle = message.Chat.Title;
+            session.ReminderTargetIsGroup = isGroup;
+            session.PendingReminderMode = ReminderScheduleMode.CustomDays;
+
+            if (!int.TryParse(data["rem_day_".Length..], out var day) || day is < 1 or > 7)
+            {
+                await AnswerCallbackPopupAsync(query.Id, "Не удалось определить день.", ct);
+                return;
+            }
+
+            ToggleReminderDay(session.PendingReminderSelectedDays, day);
+
+            await _bot.EditMessageText(
+                chatId: chatId,
+                messageId: message.MessageId,
+                text: "⏰ <b>Выбери дни для напоминаний</b>\n\n" +
+                      "Можно отметить любые дни недели, потом нажми «Продолжить».",
+                parseMode: ParseMode.Html,
+                replyMarkup: BuildReminderDaysKeyboard(session.PendingReminderSelectedDays),
+                cancellationToken: ct);
+        }
     }
 
-    private static InlineKeyboardMarkup BuildGroupReminderFrequencyKeyboard()
+    private async Task StartReminderTimeInputAsync(
+        CallbackQuery query,
+        UserSession session,
+        ReminderScheduleMode mode,
+        IReadOnlyCollection<int> selectedDays,
+        CancellationToken ct)
+    {
+        var message = query.Message!;
+        var isGroup = message.Chat.Type is ChatType.Group or ChatType.Supergroup;
+
+        session.State = UserState.WaitingForReminderTime;
+        session.ReminderTargetChatId = message.Chat.Id;
+        session.ReminderTargetChatTitle = message.Chat.Title;
+        session.ReminderTargetIsGroup = isGroup;
+        session.PendingReminderMode = mode;
+        session.PendingReminderSelectedDays = selectedDays.OrderBy(day => day).ToList();
+
+        if (!isGroup)
+            _reminders.MarkPromptAnswered(session.UserId, message.Chat.Id);
+
+        var modeText = FormatReminderModeText(mode, session.PendingReminderSelectedDays);
+        await _bot.EditMessageText(
+            chatId: message.Chat.Id,
+            messageId: message.MessageId,
+            text: isGroup
+                ? $"⏰ <b>Во сколько присылать напоминания {modeText}?</b>\n\n" +
+                  "Напиши время в формате <b>ЧЧ:ММ</b>, например <b>20:00</b>.\n" +
+                  "Я пришлю сообщение в этот чат и отмечу участников, которых уже видел в группе."
+                : $"⏰ <b>Во сколько присылать личные напоминания {modeText}?</b>\n\n" +
+                  "Напиши время в формате <b>ЧЧ:ММ</b>, например <b>20:00</b>.\n" +
+                  "Я буду присылать напоминания по твоим личным делам.",
+            parseMode: ParseMode.Html,
+            cancellationToken: ct);
+    }
+
+    private IReadOnlyList<int> GetCurrentReminderSelectedDays(UserSession session, long chatId)
+    {
+        if (session.ReminderTargetIsGroup)
+            return _groupReminders.Get(chatId).SelectedDays;
+
+        return _reminders.Get(session.UserId).SelectedDays;
+    }
+
+    private static InlineKeyboardMarkup BuildReminderModeKeyboard()
     {
         return new InlineKeyboardMarkup(new[]
         {
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("Каждый день", "rem_freq_daily"),
-                InlineKeyboardButton.WithCallbackData("По будням", "rem_freq_weekdays")
+                InlineKeyboardButton.WithCallbackData("Каждый день", "rem_mode_daily"),
+                InlineKeyboardButton.WithCallbackData("По будням", "rem_mode_weekdays")
+            },
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("Свои дни", "rem_mode_custom")
             },
             new[]
             {
@@ -581,8 +590,53 @@ public class CallbackHandler
         });
     }
 
-    private static string FormatGroupFrequencyText(Models.GroupReminderFrequency frequency)
-        => frequency == Models.GroupReminderFrequency.Weekdays ? "по будням" : "каждый день";
+    private static InlineKeyboardMarkup BuildReminderDaysKeyboard(IReadOnlyCollection<int> selectedDays)
+    {
+        static string Label(string title, bool selected) => selected ? $"✓ {title}" : title;
+
+        return new InlineKeyboardMarkup(new[]
+        {
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData(Label("Пн", selectedDays.Contains(1)), "rem_day_1"),
+                InlineKeyboardButton.WithCallbackData(Label("Вт", selectedDays.Contains(2)), "rem_day_2"),
+                InlineKeyboardButton.WithCallbackData(Label("Ср", selectedDays.Contains(3)), "rem_day_3"),
+                InlineKeyboardButton.WithCallbackData(Label("Чт", selectedDays.Contains(4)), "rem_day_4")
+            },
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData(Label("Пт", selectedDays.Contains(5)), "rem_day_5"),
+                InlineKeyboardButton.WithCallbackData(Label("Сб", selectedDays.Contains(6)), "rem_day_6"),
+                InlineKeyboardButton.WithCallbackData(Label("Вс", selectedDays.Contains(7)), "rem_day_7")
+            },
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("Продолжить", "rem_days_continue"),
+                InlineKeyboardButton.WithCallbackData("Отмена", "rem_later")
+            }
+        });
+    }
+
+    private static void ToggleReminderDay(List<int> selectedDays, int day)
+    {
+        if (selectedDays.Contains(day))
+            selectedDays.Remove(day);
+        else
+            selectedDays.Add(day);
+
+        selectedDays.Sort();
+    }
+
+    private static string FormatReminderModeText(ReminderScheduleMode mode, IReadOnlyCollection<int> selectedDays)
+    {
+        return mode switch
+        {
+            ReminderScheduleMode.Weekdays => "по будням",
+            ReminderScheduleMode.CustomDays when selectedDays.Count > 0 => "в выбранные дни",
+            ReminderScheduleMode.CustomDays => "по выбранным дням",
+            _ => "каждый день"
+        };
+    }
 
     private async Task EditHomeworkSubjectChoiceAsync(
         CallbackQuery query,
@@ -925,11 +979,12 @@ public class CallbackHandler
 
         if (typedSubjects.Count == 1)
         {
-            await StartHomeworkTextInputAsync(message, session, entries, typedSubjects[0], isGroup, ct);
+            await StartHomeworkDeadlineChoiceAsync(message, session, entries, typedSubjects[0], isGroup, ct);
             return;
         }
 
         session.HomeworkLessonTypeChoices.Clear();
+        session.HomeworkDeadlineChoices.Clear();
         var buttons = typedSubjects
             .Select((subject, index) =>
             {
@@ -988,10 +1043,10 @@ public class CallbackHandler
             return;
         }
 
-        await StartHomeworkTextInputAsync(message, session, entries, subject, isGroup, ct);
+        await StartHomeworkDeadlineChoiceAsync(message, session, entries, subject, isGroup, ct);
     }
 
-    private async Task StartHomeworkTextInputAsync(
+    private async Task StartHomeworkDeadlineChoiceAsync(
         Message message,
         UserSession session,
         List<ScheduleEntry> entries,
@@ -1000,37 +1055,123 @@ public class CallbackHandler
         CancellationToken ct)
     {
         var chatId = message.Chat.Id;
-        var deadline = _scheduleCatalog.FindNextLessonDate(entries, subject);
-        if (!deadline.HasValue)
+        var deadlines = _scheduleCatalog.FindUpcomingHomeworkDates(entries, subject, 5);
+        if (deadlines.Count == 0)
         {
             session.State = UserState.Idle;
             session.DraftTask = null;
             session.HomeworkSubjectChoices.Clear();
             session.HomeworkLessonTypeChoices.Clear();
+            session.HomeworkDeadlineChoices.Clear();
 
             await _bot.SendMessage(
                 chatId,
-                "Не смог найти следующую пару по этому предмету. Проверь расписание через /schedule.",
+                "Не смог найти ближайшие даты для этого предмета. Проверь расписание через /schedule.",
                 cancellationToken: ct);
             return;
         }
 
         session.DraftTask = new StudyTask
         {
-            Subject = subject,
-            Deadline = deadline.Value
+            Subject = subject
         };
         session.PendingGroupHomeworkChatId = isGroup ? chatId : null;
         session.PendingGroupHomeworkChatTitle = isGroup ? message.Chat.Title : null;
         session.HomeworkSubjectChoices.Clear();
         session.HomeworkLessonTypeChoices.Clear();
+        session.HomeworkDeadlineChoices.Clear();
+
+        if (deadlines.Count == 1)
+        {
+            await BeginHomeworkTextInputAsync(message, session, subject, deadlines[0], isGroup, ct);
+            return;
+        }
+
+        var buttons = deadlines
+            .Select((deadline, index) =>
+            {
+                var deadlineKey = index.ToString();
+                session.HomeworkDeadlineChoices[deadlineKey] = deadline;
+                return ($"{deadline:dd.MM.yyyy}", $"hw_deadline_{deadlineKey}");
+            })
+            .Append(("🔴 Отмена", "hw_cancel"));
+
+        await _bot.EditMessageText(
+            chatId: chatId,
+            messageId: message.MessageId,
+            text: $"📚 <b>{Escape(subject)}</b>\nВыбери дедлайн из ближайших пар:",
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
+            cancellationToken: ct);
+    }
+
+    private async Task HandleHomeworkDeadlineChoiceAsync(
+        CallbackQuery query,
+        UserSession session,
+        string data,
+        CancellationToken ct)
+    {
+        var message = query.Message!;
+        var chatId = message.Chat.Id;
+        var isGroup = IsGroupChat(message.Chat.Type);
+
+        if (session.DraftTask is null || string.IsNullOrWhiteSpace(session.DraftTask.Subject))
+        {
+            session.State = UserState.Idle;
+            session.HomeworkSubjectChoices.Clear();
+            session.HomeworkLessonTypeChoices.Clear();
+            session.HomeworkDeadlineChoices.Clear();
+
+            await _bot.SendMessage(
+                chatId,
+                "Выбор дедлайна устарел. Открой список заново через /add_homework.",
+                cancellationToken: ct);
+            return;
+        }
+
+        var key = data["hw_deadline_".Length..];
+        if (!session.HomeworkDeadlineChoices.TryGetValue(key, out var deadline))
+        {
+            session.State = UserState.Idle;
+            session.DraftTask = null;
+            session.HomeworkSubjectChoices.Clear();
+            session.HomeworkLessonTypeChoices.Clear();
+            session.HomeworkDeadlineChoices.Clear();
+
+            await _bot.SendMessage(
+                chatId,
+                "Эта дата уже недоступна. Открой список заново через /add_homework.",
+                cancellationToken: ct);
+            return;
+        }
+
+        await BeginHomeworkTextInputAsync(message, session, session.DraftTask.Subject, deadline, isGroup, ct);
+    }
+
+    private async Task BeginHomeworkTextInputAsync(
+        Message message,
+        UserSession session,
+        string subject,
+        DateTime deadline,
+        bool isGroup,
+        CancellationToken ct)
+    {
+        var chatId = message.Chat.Id;
+        session.DraftTask ??= new StudyTask();
+        session.DraftTask.Subject = subject;
+        session.DraftTask.Deadline = deadline;
+        session.PendingGroupHomeworkChatId = isGroup ? chatId : null;
+        session.PendingGroupHomeworkChatTitle = isGroup ? message.Chat.Title : null;
+        session.HomeworkSubjectChoices.Clear();
+        session.HomeworkLessonTypeChoices.Clear();
+        session.HomeworkDeadlineChoices.Clear();
         session.State = UserState.WaitingForHomeworkText;
 
         await _bot.EditMessageText(
             chatId: chatId,
             messageId: message.MessageId,
             text: $"📚 <b>{Escape(subject)}</b>\n" +
-                  $"📅 Дедлайн: <b>{deadline.Value:dd.MM.yyyy}</b>\n\n" +
+                  $"📅 Дедлайн: <b>{deadline:dd.MM.yyyy}</b>\n\n" +
                   (isGroup ? "Напиши общее ДЗ для группы:" : "Напиши, что задали:"),
             parseMode: ParseMode.Html,
             cancellationToken: ct);

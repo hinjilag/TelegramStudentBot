@@ -12,6 +12,7 @@ const store = {
   groups: [],
   scheduleMode: "today",
   selectedHomeworkGroup: "",
+  selectedHomeworkSubject: "",
   selectedTimerSound: localStorage.getItem("assistKentTimerSound") || "off",
   lastSyncLabel: "Синхронизация...",
   timerTick: null,
@@ -155,6 +156,24 @@ function normalizeSelectedHomeworkGroup(homeworkSubjects) {
   if (store.selectedHomeworkGroup &&
       !visibleHomeworkGroups.some((group) => group.title === store.selectedHomeworkGroup)) {
     store.selectedHomeworkGroup = visibleHomeworkGroups[0]?.title || "";
+  }
+
+  normalizeSelectedHomeworkSubject(homeworkSubjects);
+}
+
+function normalizeSelectedHomeworkSubject(homeworkSubjects) {
+  const visibleHomeworkGroups = getVisibleHomeworkGroups(homeworkSubjects);
+  const selectedGroup = visibleHomeworkGroups.find((group) => group.title === store.selectedHomeworkGroup) || visibleHomeworkGroups[0];
+  const options = selectedGroup?.options || [];
+
+  if (!store.selectedHomeworkSubject && options.length > 0) {
+    store.selectedHomeworkSubject = options[0].subject;
+    return;
+  }
+
+  if (store.selectedHomeworkSubject &&
+      !options.some((option) => option.subject === store.selectedHomeworkSubject)) {
+    store.selectedHomeworkSubject = options[0]?.subject || "";
   }
 }
 
@@ -472,6 +491,9 @@ function renderHomeworkViewV2(homeworkSubjects, homeworkTasks) {
   const visibleHomeworkGroups = getVisibleHomeworkGroups(homeworkSubjects);
   const hasPriorityGroups = priorityGroups.length > 0;
   const subjectGroup = visibleHomeworkGroups.find((group) => group.title === store.selectedHomeworkGroup) || visibleHomeworkGroups[0];
+  const subjectOptions = subjectGroup?.options || [];
+  const selectedOption = subjectOptions.find((option) => option.subject === store.selectedHomeworkSubject) || subjectOptions[0];
+  const availableDeadlines = selectedOption?.availableDeadlines || [];
   const activeTasks = homeworkTasks.filter((task) => !task.isCompleted);
   const completedTasks = homeworkTasks.filter((task) => task.isCompleted);
 
@@ -511,10 +533,18 @@ function renderHomeworkViewV2(homeworkSubjects, homeworkTasks) {
                 <div class="field">
                   <label for="homework-subject">Тип занятия</label>
                   <select id="homework-subject" name="subject">
-                    ${(subjectGroup?.options || []).map((option) => `
-                      <option value="${escapeHtml(option.subject)}">
+                    ${subjectOptions.map((option) => `
+                      <option value="${escapeHtml(option.subject)}" ${selectedOption?.subject === option.subject ? "selected" : ""}>
                         ${escapeHtml(option.lessonType)}${option.nextDeadlineText ? ` // дедлайн ${escapeHtml(option.nextDeadlineText)}` : ""}
                       </option>
+                    `).join("")}
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="homework-deadline">Дедлайн</label>
+                  <select id="homework-deadline" name="deadline">
+                    ${availableDeadlines.map((deadline) => `
+                      <option value="${escapeHtml(deadline.dateIso)}">${escapeHtml(deadline.label)}</option>
                     `).join("")}
                   </select>
                 </div>
@@ -709,14 +739,23 @@ function renderFocusView(timer, reminder) {
               <option value="false" ${!reminder.isEnabled ? "selected" : ""}>Выключить</option>
             </select>
           </div>
+          <div class="field">
+            <label for="reminders-frequency">Как часто</label>
+            <select id="reminders-frequency" name="frequency">
+              <option value="daily" ${reminder.frequency === "daily" ? "selected" : ""}>Каждый день</option>
+              <option value="weekdays" ${reminder.frequency === "weekdays" ? "selected" : ""}>По будням</option>
+              <option value="customdays" ${reminder.frequency === "customdays" ? "selected" : ""}>Свои дни</option>
+            </select>
+          </div>
           <div class="field time-field native-input-field">
             <label for="reminders-time">Время по МСК</label>
             <input id="reminders-time" name="time" type="time" value="${escapeHtml(reminder.timeText)}">
           </div>
+          ${renderReminderDayPicker(reminder.selectedDays || [])}
           <button class="pixel-button" type="submit">Сохранить напоминания</button>
         </form>
         <div class="divider"></div>
-        <p class="muted">Чат и mini app используют одни и те же настройки, поэтому изменения сразу синхронизируются между интерфейсами.</p>
+        <p class="muted">Чат и mini app используют одни и те же настройки, поэтому изменения сразу синхронизируются между интерфейсами. Здесь речь именно о личных делах, а не о ДЗ.</p>
       </section>
     </div>
   `;
@@ -741,14 +780,23 @@ function renderRemindersView(reminder) {
               <option value="false" ${!reminder.isEnabled ? "selected" : ""}>Выключить</option>
             </select>
           </div>
+          <div class="field">
+            <label for="reminders-frequency">Как часто</label>
+            <select id="reminders-frequency" name="frequency">
+              <option value="daily" ${reminder.frequency === "daily" ? "selected" : ""}>Каждый день</option>
+              <option value="weekdays" ${reminder.frequency === "weekdays" ? "selected" : ""}>По будням</option>
+              <option value="customdays" ${reminder.frequency === "customdays" ? "selected" : ""}>Свои дни</option>
+            </select>
+          </div>
           <div class="field time-field native-input-field">
             <label for="reminders-time">Время по МСК</label>
             <input id="reminders-time" name="time" type="time" value="${escapeHtml(reminder.timeText)}">
           </div>
+          ${renderReminderDayPicker(reminder.selectedDays || [])}
           <button class="pixel-button" type="submit">Сохранить напоминания</button>
         </form>
         <div class="divider"></div>
-        <p class="muted">Чат и mini app используют одни и те же настройки, поэтому изменения сразу синхронизируются между интерфейсами.</p>
+        <p class="muted">Чат и mini app используют одни и те же настройки, поэтому изменения сразу синхронизируются между интерфейсами. Здесь речь именно о личных делах, а не о ДЗ.</p>
       </section>
     </div>
   `;
@@ -983,11 +1031,12 @@ async function handleSubmit(event) {
   if (form.id === "homework-form") {
     const formData = new FormData(form);
     const subject = String(formData.get("subject") || "");
+    const deadline = String(formData.get("deadline") || "");
     const title = String(formData.get("title") || "").trim();
     await runAction(async () => {
       store.state = await api("/api/miniapp/homework", {
         method: "POST",
-        body: { subject, title }
+        body: { subject, title, deadline: deadline || null }
       });
       form.reset();
       toast("Домашнее задание добавлено.");
@@ -1024,13 +1073,15 @@ async function handleSubmit(event) {
   if (form.id === "reminders-form") {
     const formData = new FormData(form);
     const isEnabled = String(formData.get("isEnabled")) === "true";
+    const frequency = String(formData.get("frequency") || "daily");
     const time = String(formData.get("time") || "20:00");
     const [hour, minute] = time.split(":").map(Number);
+    const selectedDays = formData.getAll("selectedDays").map(Number).filter((value) => Number.isFinite(value));
 
     await runAction(async () => {
       store.state = await api("/api/miniapp/reminders", {
         method: "PUT",
-        body: { isEnabled, hour, minute }
+        body: { isEnabled, frequency, hour, minute, selectedDays }
       });
       toast("Напоминания сохранены.");
       refreshAfterMutation();
@@ -1071,6 +1122,13 @@ async function handleChange(event) {
 
   if (target.id === "homework-group") {
     store.selectedHomeworkGroup = target.value;
+    normalizeSelectedHomeworkSubject(store.state?.homeworkSubjects || []);
+    render();
+    return;
+  }
+
+  if (target.id === "homework-subject") {
+    store.selectedHomeworkSubject = target.value;
     render();
   }
 }
@@ -1199,6 +1257,36 @@ function groupScheduleEntries(entries) {
     accumulator[day].push(entry);
     return accumulator;
   }, {});
+}
+
+function getReminderDayOptions() {
+  return [
+    { value: 1, label: "Пн" },
+    { value: 2, label: "Вт" },
+    { value: 3, label: "Ср" },
+    { value: 4, label: "Чт" },
+    { value: 5, label: "Пт" },
+    { value: 6, label: "Сб" },
+    { value: 7, label: "Вс" }
+  ];
+}
+
+function renderReminderDayPicker(selectedDays) {
+  const selected = new Set(selectedDays || []);
+  return `
+    <div class="field">
+      <label>Дни напоминаний</label>
+      <p class="muted">Используются, если выбран режим "Свои дни".</p>
+      <div class="participant-picker">
+        ${getReminderDayOptions().map((day) => `
+          <label class="participant-option">
+            <input type="checkbox" name="selectedDays" value="${day.value}" ${selected.has(day.value) ? "checked" : ""}>
+            <span class="participant-copy"><strong>${day.label}</strong></span>
+          </label>
+        `).join("")}
+      </div>
+    </div>
+  `;
 }
 
 function getInitials(name) {

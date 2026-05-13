@@ -293,6 +293,8 @@ function renderHomeworkView(homeworkSubjects, homework) {
   const selectedValue = selectedOptions.some(option => option.subject === store.selectedSubject)
     ? store.selectedSubject
     : (selectedOptions[0]?.subject || "");
+  const selectedOption = selectedOptions.find(option => option.subject === selectedValue) || selectedOptions[0];
+  const availableDeadlines = selectedOption?.availableDeadlines || [];
 
   return `
     <div class="group-homework-grid">
@@ -316,6 +318,14 @@ function renderHomeworkView(homeworkSubjects, homework) {
                       </option>
                     `).join("")}
                   </optgroup>
+                `).join("")}
+              </select>
+            </div>
+            <div class="field">
+              <label for="homework-deadline">Дедлайн</label>
+              <select id="homework-deadline" name="deadline">
+                ${availableDeadlines.map(deadline => `
+                  <option value="${escapeHtml(deadline.dateIso)}">${escapeHtml(deadline.label)}</option>
                 `).join("")}
               </select>
             </div>
@@ -369,12 +379,14 @@ function renderRemindersView(reminder) {
             <select id="reminders-frequency" name="frequency">
               <option value="daily" ${reminder.frequency === "daily" ? "selected" : ""}>Каждый день</option>
               <option value="weekdays" ${reminder.frequency === "weekdays" ? "selected" : ""}>По будням</option>
+              <option value="customdays" ${reminder.frequency === "customdays" ? "selected" : ""}>Свои дни</option>
             </select>
           </div>
           <div class="field time-field native-input-field">
             <label for="reminders-time">Время по МСК</label>
             <input id="reminders-time" name="time" type="time" value="${escapeHtml(reminder.timeText)}">
           </div>
+          ${renderReminderDayPicker(reminder.selectedDays || [])}
           <div class="field">
             <label>Кого отмечать</label>
             <p class="group-caption">Если никого не выбрать, бот отметит всех доступных участников группы.</p>
@@ -492,12 +504,13 @@ async function handleSubmit(event) {
   if (form.id === "homework-form") {
     const formData = new FormData(form);
     const subject = String(formData.get("subject") || "");
+    const deadline = String(formData.get("deadline") || "");
     const title = String(formData.get("title") || "").trim();
 
     await runAction(async () => {
       store.state = await api("/api/group-miniapp/homework", {
         method: "POST",
-        body: { subject, title }
+        body: { subject, title, deadline: deadline || null }
       });
       form.reset();
       toast("Общее ДЗ добавлено.");
@@ -512,6 +525,7 @@ async function handleSubmit(event) {
     const frequency = String(formData.get("frequency") || "daily");
     const time = String(formData.get("time") || "20:00");
     const [hour, minute] = time.split(":").map(Number);
+    const selectedDays = formData.getAll("selectedDays").map(Number).filter((value) => Number.isFinite(value));
     const participantInputs = [...form.querySelectorAll('input[name="selectedParticipantUserIds"]')];
     const selectedParticipantUserIds = participantInputs
       .filter((input) => input.checked)
@@ -526,6 +540,7 @@ async function handleSubmit(event) {
           frequency,
           hour,
           minute,
+          selectedDays,
           selectedParticipantUserIds: participantInputs.length > 0 ? selectedParticipantUserIds : undefined
         }
       });
@@ -552,6 +567,7 @@ async function handleChange(event) {
 
   if (target.id === "homework-subject") {
     store.selectedSubject = target.value;
+    render();
   }
 }
 
@@ -603,6 +619,36 @@ function groupScheduleEntries(entries) {
     accumulator[day].push(entry);
     return accumulator;
   }, {});
+}
+
+function getReminderDayOptions() {
+  return [
+    { value: 1, label: "Пн" },
+    { value: 2, label: "Вт" },
+    { value: 3, label: "Ср" },
+    { value: 4, label: "Чт" },
+    { value: 5, label: "Пт" },
+    { value: 6, label: "Сб" },
+    { value: 7, label: "Вс" }
+  ];
+}
+
+function renderReminderDayPicker(selectedDays) {
+  const selected = new Set(selectedDays || []);
+  return `
+    <div class="field">
+      <label>Дни напоминаний</label>
+      <p class="group-caption">Используются, если выбран режим "Свои дни".</p>
+      <div class="participant-picker">
+        ${getReminderDayOptions().map((day) => `
+          <label class="participant-option">
+            <input type="checkbox" name="selectedDays" value="${day.value}" ${selected.has(day.value) ? "checked" : ""}>
+            <span class="participant-copy"><strong>${day.label}</strong></span>
+          </label>
+        `).join("")}
+      </div>
+    </div>
+  `;
 }
 
 function getInitials(name) {

@@ -1,24 +1,20 @@
 namespace TelegramStudentBot.Models;
 
-public enum GroupReminderFrequency
-{
-    Daily,
-    Weekdays
-}
-
 public class GroupReminderSettings
 {
     public long ChatId { get; set; }
 
-    public string ChatTitle { get; set; } = "Группа";
+    public string ChatTitle { get; set; } = "Р“СЂСѓРїРїР°";
 
     public bool IsEnabled { get; set; }
 
-    public GroupReminderFrequency Frequency { get; set; } = GroupReminderFrequency.Daily;
+    public ReminderScheduleMode Frequency { get; set; } = ReminderScheduleMode.Daily;
 
     public int Hour { get; set; } = 20;
 
     public int Minute { get; set; }
+
+    public List<int> SelectedDays { get; set; } = new();
 
     public List<long> SelectedParticipantUserIds { get; set; } = new();
 
@@ -32,7 +28,9 @@ public class GroupReminderSettings
 
     public string FrequencyText => Frequency switch
     {
-        GroupReminderFrequency.Weekdays => "по будням",
-        _ => "каждый день"
+        ReminderScheduleMode.Weekdays => "РїРѕ Р±СѓРґРЅСЏРј",
+        ReminderScheduleMode.CustomDays when SelectedDays.Count > 0 => "РІ РІС‹Р±СЂР°РЅРЅС‹Рµ РґРЅРё",
+        ReminderScheduleMode.CustomDays => "РїРѕ РІС‹Р±СЂР°РЅРЅС‹Рј РґРЅСЏРј",
+        _ => "РєР°Р¶РґС‹Р№ РґРµРЅСЊ"
     };
 }

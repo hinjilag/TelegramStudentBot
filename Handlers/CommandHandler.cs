@@ -624,9 +624,11 @@ public class CommandHandler
 
         var text = settings.IsEnabled
             ? $"⏰ <b>Напоминания включены</b>\n" +
-              $"Каждый день в <b>{settings.TimeText}</b> по МСК я буду присылать дедлайны на завтра."
+              $"Режим: <b>{settings.FrequencyText}</b>\n" +
+              $"Время: <b>{settings.TimeText}</b> по МСК\n\n" +
+              "Я буду присылать личные напоминания по твоим делам."
             : "⏰ <b>Напоминания выключены</b>\n" +
-              "Могу каждый день присылать дедлайны на завтра в удобное время.";
+              "Могу регулярно присылать личные напоминания по твоим делам в удобные дни и время.";
 
         await _bot.SendMessage(
             chatId: msg.Chat.Id,
@@ -1101,7 +1103,7 @@ public class CommandHandler
             {
                 new[]
                 {
-                    InlineKeyboardButton.WithCallbackData("Указать время", "rem_set")
+                    InlineKeyboardButton.WithCallbackData("Настроить", "rem_set")
                 }
             });
         }
@@ -1110,7 +1112,7 @@ public class CommandHandler
         {
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("Изменить время", "rem_set"),
+                InlineKeyboardButton.WithCallbackData("Изменить настройки", "rem_set"),
                 InlineKeyboardButton.WithCallbackData("Выключить", "rem_off")
             }
         });

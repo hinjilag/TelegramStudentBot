@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using TelegramStudentBot.Models;
 
 namespace TelegramStudentBot.Services;
 
@@ -76,121 +77,117 @@ public class DeadlineReminderService : BackgroundService
         {
             if (!settings.IsEnabled ||
                 settings.ChatId == 0 ||
+                !IsReminderDayEnabled(settings.Frequency, settings.SelectedDays, today) ||
                 !IsScheduledTimeReached(now, settings.Hour, settings.Minute) ||
                 settings.LastNotificationDate?.Date == today)
             {
                 continue;
             }
 
-            var tomorrow = today.AddDays(1);
-            var dueTomorrow = allTasks.TryGetValue(userId, out var userTasks)
+            var personalTasks = allTasks.TryGetValue(userId, out var userTasks)
                 ? userTasks
-                    .Where(task => !task.IsCompleted &&
-                                   task.Deadline.HasValue &&
-                                   task.Deadline.Value.Date == tomorrow)
-                    .OrderBy(task => task.Subject)
+                    .Where(task => !task.IsCompleted && TaskSubjects.IsPersonal(task.Subject))
+                    .OrderBy(task => task.Deadline.HasValue ? 0 : 1)
+                    .ThenBy(task => task.Deadline ?? DateTime.MaxValue)
                     .ThenBy(task => task.Title)
                     .ToList()
-                : new();
+                : new List<StudyTask>();
 
-            if (dueTomorrow.Count > 0)
+            if (personalTasks.Count == 0)
+                continue;
+
+            try
             {
-                try
-                {
-                    await _bot.SendMessage(
-                        chatId: settings.ChatId,
-                        text: BuildReminderText(dueTomorrow, tomorrow),
-                        parseMode: ParseMode.Html,
-                        cancellationToken: ct);
+                await _bot.SendMessage(
+                    chatId: settings.ChatId,
+                    text: BuildPersonalReminderText(personalTasks, today),
+                    parseMode: ParseMode.Html,
+                    cancellationToken: ct);
 
-                    _reminders.MarkNotificationChecked(userId, today);
+                _reminders.MarkNotificationChecked(userId, today);
 
-                    _logger.LogInformation(
-                        "Отправлено напоминание о {Count} дедлайнах пользователю {UserId}",
-                        dueTomorrow.Count,
-                        userId);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(
-                        ex,
-                        "Не удалось отправить напоминание пользователю {UserId} в чат {ChatId}",
-                        userId,
-                        settings.ChatId);
-                }
+                _logger.LogInformation(
+                    "Отправлено личное напоминание о {Count} делах пользователю {UserId}",
+                    personalTasks.Count,
+                    userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Не удалось отправить личное напоминание пользователю {UserId} в чат {ChatId}",
+                    userId,
+                    settings.ChatId);
             }
         }
 
         foreach (var (chatId, settings) in allGroupSettings)
         {
             if (!settings.IsEnabled ||
-                (settings.Frequency == Models.GroupReminderFrequency.Weekdays &&
-                 (today.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)) ||
+                !IsReminderDayEnabled(settings.Frequency, settings.SelectedDays, today) ||
                 !IsScheduledTimeReached(now, settings.Hour, settings.Minute) ||
                 settings.LastNotificationDate?.Date == today)
             {
                 continue;
             }
 
-            var tomorrow = today.AddDays(1);
-            var dueTomorrow = allGroupTasks.TryGetValue(chatId, out var groupTasks)
+            var activeHomework = allGroupTasks.TryGetValue(chatId, out var groupTasks)
                 ? groupTasks
-                    .Where(task => !task.IsCompleted &&
-                                   task.Deadline.HasValue &&
-                                   task.Deadline.Value.Date == tomorrow)
-                    .OrderBy(task => task.Subject)
+                    .Where(task => !task.IsCompleted && (!task.Deadline.HasValue || task.Deadline.Value.Date >= today))
+                    .OrderBy(task => task.Deadline ?? DateTime.MaxValue)
+                    .ThenBy(task => task.Subject)
                     .ThenBy(task => task.Title)
                     .ToList()
-                : new();
+                : new List<StudyTask>();
 
-            if (dueTomorrow.Count > 0)
+            if (activeHomework.Count == 0)
+                continue;
+
+            var activeParticipants = await _groupParticipantResolver.ResolveReminderParticipantsAsync(
+                chatId,
+                settings.ChatTitle,
+                ct);
+            var participantsToMention = FilterSelectedParticipants(activeParticipants, settings);
+
+            try
             {
-                var activeParticipants = await _groupParticipantResolver.ResolveReminderParticipantsAsync(
-                    chatId,
-                    settings.ChatTitle,
-                    ct);
-                var participantsToMention = FilterSelectedParticipants(activeParticipants, settings);
-
-                try
+                var mentionBatches = _groupParticipantResolver.BuildMentionBatches(participantsToMention);
+                for (var index = 0; index < mentionBatches.Count; index++)
                 {
-                    var mentionBatches = _groupParticipantResolver.BuildMentionBatches(participantsToMention);
-                    for (var index = 0; index < mentionBatches.Count; index++)
-                    {
-                        var prefix = index == 0
-                            ? "📣 <b>Напоминание для группы:</b>\n\n"
-                            : "📣 <b>Ещё участники:</b>\n\n";
+                    var prefix = index == 0
+                        ? "📣 <b>Напоминание для группы:</b>\n\n"
+                        : "📣 <b>Ещё участники:</b>\n\n";
 
-                        await _bot.SendMessage(
-                            chatId: settings.ChatId,
-                            text: prefix + mentionBatches[index],
-                            parseMode: ParseMode.Html,
-                            cancellationToken: ct);
-
-                        await Task.Delay(TimeSpan.FromMilliseconds(350), ct);
-                    }
-
-                    var reminderMessage = await _bot.SendMessage(
+                    await _bot.SendMessage(
                         chatId: settings.ChatId,
-                        text: BuildGroupReminderText(dueTomorrow, tomorrow, participantsToMention),
+                        text: prefix + mentionBatches[index],
                         parseMode: ParseMode.Html,
                         cancellationToken: ct);
 
-                    await ReplacePinnedReminderAsync(settings, reminderMessage, ct);
-
-                    _groupReminders.MarkNotificationChecked(chatId, today);
-
-                    _logger.LogInformation(
-                        "Отправлено групповое напоминание о {Count} дедлайнах в чат {ChatId}",
-                        dueTomorrow.Count,
-                        chatId);
+                    await Task.Delay(TimeSpan.FromMilliseconds(350), ct);
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(
-                        ex,
-                        "Не удалось отправить групповое напоминание в чат {ChatId}",
-                        settings.ChatId);
-                }
+
+                var reminderMessage = await _bot.SendMessage(
+                    chatId: settings.ChatId,
+                    text: BuildGroupReminderText(activeHomework, today, participantsToMention),
+                    parseMode: ParseMode.Html,
+                    cancellationToken: ct);
+
+                await ReplacePinnedReminderAsync(settings, reminderMessage, ct);
+
+                _groupReminders.MarkNotificationChecked(chatId, today);
+
+                _logger.LogInformation(
+                    "Отправлено групповое напоминание о {Count} заданиях в чат {ChatId}",
+                    activeHomework.Count,
+                    chatId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Не удалось отправить групповое напоминание в чат {ChatId}",
+                    settings.ChatId);
             }
         }
     }
@@ -198,7 +195,7 @@ public class DeadlineReminderService : BackgroundService
     private void RunGroupHomeworkCleanupIfNeeded(
         DateTime now,
         DateTime today,
-        IReadOnlyDictionary<long, Models.GroupReminderSettings> allGroupSettings)
+        IReadOnlyDictionary<long, GroupReminderSettings> allGroupSettings)
     {
         if (now.Hour != 0 || now.Minute != 5 || _lastGroupCleanupDate?.Date == today)
             return;
@@ -233,36 +230,37 @@ public class DeadlineReminderService : BackgroundService
     private DateTime GetMoscowNow()
         => TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, _moscowTimeZone).DateTime;
 
-    private static string BuildReminderText(IEnumerable<Models.StudyTask> tasks, DateTime deadlineDate)
+    private static string BuildPersonalReminderText(IEnumerable<StudyTask> tasks, DateTime today)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"⏰ <b>Дедлайны на завтра ({deadlineDate:dd.MM.yyyy})</b>");
+        sb.AppendLine($"⏰ <b>Личные дела на {today:dd.MM.yyyy}</b>");
         sb.AppendLine();
 
         foreach (var task in tasks)
         {
             sb.AppendLine($"📌 <b>{Escape(task.Title)}</b>");
-            sb.AppendLine($"📚 {Escape(task.Subject)}");
+            sb.AppendLine($"🗓 {FormatDeadline(task.Deadline)}");
             sb.AppendLine();
         }
 
-        sb.Append("Открыть список: /homework");
+        sb.Append("Открыть план: /plan");
         return sb.ToString();
     }
 
     private static string BuildGroupReminderText(
-        IEnumerable<Models.StudyTask> tasks,
-        DateTime deadlineDate,
-        IReadOnlyCollection<Models.GroupParticipant> participants)
+        IEnumerable<StudyTask> tasks,
+        DateTime today,
+        IReadOnlyCollection<GroupParticipant> participants)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"⏰ <b>Что нужно сдать завтра — {deadlineDate:dd.MM.yyyy}</b>");
+        sb.AppendLine($"⏰ <b>Актуальные ДЗ на {today:dd.MM.yyyy}</b>");
         sb.AppendLine();
 
         foreach (var task in tasks)
         {
             sb.AppendLine($"📌 <b>{Escape(task.Title)}</b>");
             sb.AppendLine($"📚 {Escape(task.Subject)}");
+            sb.AppendLine($"🗓 {FormatDeadline(task.Deadline)}");
 
             if (!string.IsNullOrWhiteSpace(task.CreatedByName))
                 sb.AppendLine($"👤 {Escape(task.CreatedByName)}");
@@ -280,6 +278,29 @@ public class DeadlineReminderService : BackgroundService
         return sb.ToString();
     }
 
+    private static string FormatDeadline(DateTime? deadline)
+    {
+        if (!deadline.HasValue)
+            return "без дедлайна";
+
+        return deadline.Value.TimeOfDay == TimeSpan.Zero
+            ? deadline.Value.ToString("dd.MM.yyyy")
+            : deadline.Value.ToString("dd.MM.yyyy HH:mm");
+    }
+
+    private static bool IsReminderDayEnabled(
+        ReminderScheduleMode mode,
+        IReadOnlyCollection<int> selectedDays,
+        DateTime date)
+    {
+        return mode switch
+        {
+            ReminderScheduleMode.Weekdays => date.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday,
+            ReminderScheduleMode.CustomDays => selectedDays.Contains(ScheduleCatalogService.GetDayNumber(date)),
+            _ => true
+        };
+    }
+
     private static bool IsScheduledTimeReached(DateTime now, int hour, int minute)
     {
         if (now.Hour > hour)
@@ -292,7 +313,7 @@ public class DeadlineReminderService : BackgroundService
         => WebUtility.HtmlEncode(text);
 
     private async Task ReplacePinnedReminderAsync(
-        Models.GroupReminderSettings settings,
+        GroupReminderSettings settings,
         Message reminderMessage,
         CancellationToken ct)
     {
@@ -335,9 +356,9 @@ public class DeadlineReminderService : BackgroundService
         }
     }
 
-    private static IReadOnlyList<Models.GroupParticipant> FilterSelectedParticipants(
-        IReadOnlyList<Models.GroupParticipant> participants,
-        Models.GroupReminderSettings settings)
+    private static IReadOnlyList<GroupParticipant> FilterSelectedParticipants(
+        IReadOnlyList<GroupParticipant> participants,
+        GroupReminderSettings settings)
     {
         if (settings.SelectedParticipantUserIds.Count == 0)
             return participants;

@@ -40,7 +40,8 @@ public class GroupReminderSettingsService
         string? chatTitle,
         int hour,
         int minute,
-        GroupReminderFrequency frequency,
+        ReminderScheduleMode frequency,
+        IEnumerable<int>? selectedDays = null,
         IEnumerable<long>? selectedParticipantUserIds = null)
     {
         lock (_lock)
@@ -55,6 +56,7 @@ public class GroupReminderSettingsService
             settings.Frequency = frequency;
             settings.Hour = hour;
             settings.Minute = minute;
+            settings.SelectedDays = NormalizeSelectedDays(selectedDays);
             if (selectedParticipantUserIds is not null)
                 settings.SelectedParticipantUserIds = NormalizeParticipantIds(selectedParticipantUserIds);
             settings.UpdatedAt = DateTime.Now;
@@ -143,11 +145,21 @@ public class GroupReminderSettingsService
             Frequency = settings.Frequency,
             Hour = settings.Hour,
             Minute = settings.Minute,
+            SelectedDays = settings.SelectedDays.ToList(),
             SelectedParticipantUserIds = settings.SelectedParticipantUserIds.ToList(),
             PinnedReminderMessageId = settings.PinnedReminderMessageId,
             LastNotificationDate = settings.LastNotificationDate,
             UpdatedAt = settings.UpdatedAt
         };
+    }
+
+    private static List<int> NormalizeSelectedDays(IEnumerable<int>? selectedDays)
+    {
+        return (selectedDays ?? Array.Empty<int>())
+            .Where(day => day is >= 1 and <= 7)
+            .Distinct()
+            .OrderBy(day => day)
+            .ToList();
     }
 
     private static List<long> NormalizeParticipantIds(IEnumerable<long> participantIds)

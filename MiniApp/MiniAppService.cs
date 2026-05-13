@@ -136,9 +136,12 @@ public class MiniAppService
                 weekEntries.Select(ToScheduleEntryDto).ToList()),
             new MiniAppReminderDto(
                 reminderSettings.IsEnabled,
+                reminderSettings.Frequency.ToString().ToLowerInvariant(),
+                reminderSettings.FrequencyText,
                 reminderSettings.TimeText,
                 reminderSettings.Hour,
-                reminderSettings.Minute),
+                reminderSettings.Minute,
+                reminderSettings.SelectedDays.ToList()),
             new MiniAppTimerDto(
                 activeTimer is not null,
                 activeTimer?.Type.ToString().ToLowerInvariant(),
@@ -239,8 +242,7 @@ public class MiniAppService
         if (!allEntries.Any(entry => string.Equals(entry.Subject, request.Subject, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException("Предмет отсутствует в выбранном расписании.");
 
-        var deadline = _scheduleCatalog.FindNextLessonDate(allEntries, request.Subject)
-            ?? throw new InvalidOperationException("Не удалось определить ближайшую пару для этого предмета.");
+        var deadline = ValidateSelectedHomeworkDeadline(allEntries, request.Subject, request.Deadline);
 
         var session = GetOrCreateSession(identity);
         session.Tasks.Add(new StudyTask
@@ -342,10 +344,22 @@ public class MiniAppService
             throw new InvalidOperationException("Укажите корректное время напоминаний.");
         }
 
-        _reminders.Enable(identity.UserId, identity.UserId, request.Hour.Value, request.Minute.Value);
+        var frequency = ParseReminderMode(request.Frequency);
+        var selectedDays = NormalizeSelectedDays(request.SelectedDays);
+
+        if (frequency == ReminderScheduleMode.CustomDays && selectedDays.Count == 0)
+            throw new InvalidOperationException("Выберите хотя бы один день для напоминаний.");
+
+        _reminders.Enable(
+            identity.UserId,
+            identity.UserId,
+            request.Hour.Value,
+            request.Minute.Value,
+            frequency,
+            selectedDays);
         await _chatSync.NotifyAsync(
             identity.UserId,
-            $"Напоминания включены: каждый день в <b>{request.Hour:00}:{request.Minute:00}</b> по МСК.",
+            $"Напоминания включены: <b>{FormatReminderModeText(frequency, selectedDays)}</b> в <b>{request.Hour:00}:{request.Minute:00}</b> по МСК.",
             cancellationToken);
     }
 
@@ -438,12 +452,18 @@ public class MiniAppService
                     .OrderBy(ScheduleCatalogService.GetHomeworkLessonTypeLabel)
                     .Select(subject =>
                     {
-                        var nextLesson = _scheduleCatalog.FindNextLessonDate(allEntries, subject);
+                        var availableDeadlines = _scheduleCatalog.FindUpcomingHomeworkDates(allEntries, subject)
+                            .Select(date => new MiniAppHomeworkDeadlineDto(
+                                date.ToString("yyyy-MM-dd"),
+                                date.ToString("dd.MM.yyyy")))
+                            .ToList();
+                        var nextLesson = availableDeadlines.FirstOrDefault();
                         return new MiniAppHomeworkSubjectOptionDto(
                             subject,
                             ScheduleCatalogService.GetHomeworkLessonTypeLabel(subject),
-                            nextLesson?.ToString("O"),
-                            nextLesson?.ToString("dd.MM.yyyy"));
+                            nextLesson?.DateIso,
+                            nextLesson?.Label,
+                            availableDeadlines);
                     })
                     .ToList();
 
@@ -511,6 +531,56 @@ public class MiniAppService
 
         return session.Tasks.FirstOrDefault(task => task.Id == taskGuid)
             ?? throw new InvalidOperationException("Задача не найдена.");
+    }
+
+    private DateTime ValidateSelectedHomeworkDeadline(
+        IReadOnlyList<ScheduleEntry> entries,
+        string subject,
+        DateTime? requestedDeadline)
+    {
+        var availableDeadlines = _scheduleCatalog.FindUpcomingHomeworkDates(entries, subject);
+        if (availableDeadlines.Count == 0)
+            throw new InvalidOperationException("Не удалось определить ближайшие пары для этого предмета.");
+
+        if (!requestedDeadline.HasValue)
+            return availableDeadlines[0];
+
+        var deadlineDate = requestedDeadline.Value.Date;
+        if (!availableDeadlines.Contains(deadlineDate))
+            throw new InvalidOperationException("Выбранная дата больше не подходит для этого предмета.");
+
+        return deadlineDate;
+    }
+
+    private static ReminderScheduleMode ParseReminderMode(string? value)
+    {
+        return value?.Trim().ToLowerInvariant() switch
+        {
+            "weekdays" => ReminderScheduleMode.Weekdays,
+            "customdays" => ReminderScheduleMode.CustomDays,
+            "custom" => ReminderScheduleMode.CustomDays,
+            _ => ReminderScheduleMode.Daily
+        };
+    }
+
+    private static List<int> NormalizeSelectedDays(IReadOnlyList<int>? selectedDays)
+    {
+        return (selectedDays ?? Array.Empty<int>())
+            .Where(day => day is >= 1 and <= 7)
+            .Distinct()
+            .OrderBy(day => day)
+            .ToList();
+    }
+
+    private static string FormatReminderModeText(ReminderScheduleMode mode, IReadOnlyList<int> selectedDays)
+    {
+        return mode switch
+        {
+            ReminderScheduleMode.Weekdays => "по будням",
+            ReminderScheduleMode.CustomDays when selectedDays.Count > 0 => "в выбранные дни",
+            ReminderScheduleMode.CustomDays => "по выбранным дням",
+            _ => "каждый день"
+        };
     }
 }
 

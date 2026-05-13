@@ -40,7 +40,10 @@ public class UserSession
     public bool ReminderTargetIsGroup { get; set; }
 
     /// <summary>Выбранная частота групповых напоминаний перед вводом времени.</summary>
-    public GroupReminderFrequency? PendingGroupReminderFrequency { get; set; }
+    public ReminderScheduleMode? PendingReminderMode { get; set; }
+
+    /// <summary>Р’С‹Р±СЂР°РЅРЅС‹Рµ РґРЅРё РЅРµРґРµР»Рё РґР»СЏ РєР°СЃС‚РѕРјРЅС‹С… РЅР°РїРѕРјРёРЅР°РЅРёР№.</summary>
+    public List<int> PendingReminderSelectedDays { get; set; } = new();
 
     /// <summary>Нужно ли после выбора расписания сразу продолжить сценарий добавления ДЗ.</summary>
     public bool ContinueHomeworkAfterScheduleSelection { get; set; }
@@ -53,6 +56,9 @@ public class UserSession
 
     /// <summary>Временные варианты типов занятия для выбранного предмета</summary>
     public Dictionary<string, string> HomeworkLessonTypeChoices { get; set; } = new();
+
+    /// <summary>Р’СЂРµРјРµРЅРЅС‹Рµ РІР°СЂРёР°РЅС‚С‹ РґР°С‚ РґРµРґР»Р°Р№РЅР° РґР»СЏ РІС‹Р±СЂР°РЅРЅРѕРіРѕ Р”Р—.</summary>
+    public Dictionary<string, DateTime> HomeworkDeadlineChoices { get; set; } = new();
 
     /// <summary>Сохранённое расписание пар.</summary>
     public List<ScheduleEntry> Schedule { get; set; } = new();
