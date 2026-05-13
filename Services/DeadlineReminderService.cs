@@ -97,6 +97,7 @@ public class DeadlineReminderService : BackgroundService
                     .ThenBy(task => task.Title)
                     .ToList()
                 : new List<StudyTask>();
+
             var groupFeeds = _userGroupTasks.GetLinkedGroupTaskFeeds(userId)
                 .Select(feed => new StoredGroupTasks
                 {

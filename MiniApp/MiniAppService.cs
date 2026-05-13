@@ -10,6 +10,7 @@ public class MiniAppService
     private readonly UserProfileStorageService _userProfiles;
     private readonly ReminderSettingsService _reminders;
     private readonly UserGroupTaskBridgeService _userGroupTasks;
+    private readonly UserGroupScheduleBridgeService _userGroupSchedules;
     private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
     private readonly ScheduleCatalogService _scheduleCatalog;
     private readonly UserScheduleSelectionService _scheduleSelections;
@@ -22,6 +23,7 @@ public class MiniAppService
         UserProfileStorageService userProfiles,
         ReminderSettingsService reminders,
         UserGroupTaskBridgeService userGroupTasks,
+        UserGroupScheduleBridgeService userGroupSchedules,
         HomeworkSubjectPreferencesService homeworkSubjects,
         ScheduleCatalogService scheduleCatalog,
         UserScheduleSelectionService scheduleSelections,
@@ -33,6 +35,7 @@ public class MiniAppService
         _userProfiles = userProfiles;
         _reminders = reminders;
         _userGroupTasks = userGroupTasks;
+        _userGroupSchedules = userGroupSchedules;
         _homeworkSubjects = homeworkSubjects;
         _scheduleCatalog = scheduleCatalog;
         _scheduleSelections = scheduleSelections;
@@ -46,8 +49,8 @@ public class MiniAppService
         var currentWeekType = _scheduleCatalog.GetCurrentWeekType();
         var currentWeekLabel = _scheduleCatalog.GetCurrentWeekLabel();
 
-        var selection = _scheduleSelections.Get(identity.UserId);
-        var group = selection is null ? null : _scheduleCatalog.GetGroup(selection.ScheduleId);
+        var effectiveSchedule = GetEffectiveSchedule(identity.UserId);
+        var group = effectiveSchedule.Group;
         var selectedDirectionCode = group?.DirectionCode;
 
         var directions = _scheduleCatalog.GetDirections()
@@ -68,17 +71,17 @@ public class MiniAppService
 
         if (group is not null)
         {
-            weekEntries = _scheduleCatalog.GetEntriesForSelection(group, selection!.SubGroup, currentWeekType);
-            allScheduleEntries = _scheduleCatalog.GetAllEntriesForSelection(group, selection.SubGroup);
+            weekEntries = _scheduleCatalog.GetEntriesForSelection(group, effectiveSchedule.SubGroup, currentWeekType);
+            allScheduleEntries = _scheduleCatalog.GetAllEntriesForSelection(group, effectiveSchedule.SubGroup);
 
             session.CurrentWeekType = currentWeekType;
-            session.CurrentSubGroup = selection.SubGroup;
+            session.CurrentSubGroup = effectiveSchedule.SubGroup;
             session.Schedule = weekEntries;
 
             selectedSchedule = new MiniAppSelectedScheduleDto(
                 group.Id,
                 group.Title,
-                selection.SubGroup,
+                effectiveSchedule.SubGroup,
                 group.DirectionCode,
                 group.DirectionName,
                 group.SubGroups.OrderBy(item => item).ToList());
@@ -426,15 +429,28 @@ public class MiniAppService
 
     private (ScheduleGroup? Group, List<ScheduleEntry> Entries) GetScheduleEntries(long userId)
     {
-        var selection = _scheduleSelections.Get(userId);
-        if (selection is null)
-            return (null, new List<ScheduleEntry>());
-
-        var group = _scheduleCatalog.GetGroup(selection.ScheduleId);
+        var effectiveSchedule = GetEffectiveSchedule(userId);
+        var group = effectiveSchedule.Group;
         if (group is null)
             return (null, new List<ScheduleEntry>());
 
-        return (group, _scheduleCatalog.GetAllEntriesForSelection(group, selection.SubGroup));
+        return (group, _scheduleCatalog.GetAllEntriesForSelection(group, effectiveSchedule.SubGroup));
+    }
+
+    private (ScheduleGroup? Group, int? SubGroup) GetEffectiveSchedule(long userId)
+    {
+        var selection = _scheduleSelections.Get(userId);
+        if (selection is not null)
+        {
+            var directGroup = _scheduleCatalog.GetGroup(selection.ScheduleId);
+            if (directGroup is not null)
+                return (directGroup, selection.SubGroup);
+        }
+
+        if (_userGroupSchedules.TryGetLinkedSchedule(userId, out var linkedGroup, out var linkedSubGroup, out _, out _))
+            return (linkedGroup, linkedSubGroup);
+
+        return (null, null);
     }
 
     private List<MiniAppGroupDto> BuildGroups(string directionCode)

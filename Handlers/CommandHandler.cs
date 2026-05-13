@@ -35,6 +35,7 @@ public class CommandHandler
     private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly ReminderSettingsService _reminders;
     private readonly UserGroupTaskBridgeService _userGroupTasks;
+    private readonly UserGroupScheduleBridgeService _userGroupSchedules;
     private readonly GroupInputLockService _groupInputLocks;
     private readonly GroupStudyTaskStorageService _groupTasks;
     private readonly GroupParticipantStorageService _groupParticipants;
@@ -56,6 +57,7 @@ public class CommandHandler
         UserScheduleSelectionService scheduleSelections,
         ReminderSettingsService reminders,
         UserGroupTaskBridgeService userGroupTasks,
+        UserGroupScheduleBridgeService userGroupSchedules,
         GroupInputLockService groupInputLocks,
         GroupStudyTaskStorageService groupTasks,
         GroupParticipantStorageService groupParticipants,
@@ -76,6 +78,7 @@ public class CommandHandler
         _scheduleSelections = scheduleSelections;
         _reminders = reminders;
         _userGroupTasks = userGroupTasks;
+        _userGroupSchedules = userGroupSchedules;
         _groupInputLocks = groupInputLocks;
         _groupTasks = groupTasks;
         _groupParticipants = groupParticipants;
@@ -109,34 +112,32 @@ public class CommandHandler
         var session = _sessions.GetOrCreate(userId, msg.From.FirstName);
         session.State = UserState.Idle;
 
-        var selection = _scheduleSelections.Get(userId);
-        if (selection is not null)
+        if (TryGetUserSchedule(userId, out var group, out var subGroup, out var sourceChatTitle))
         {
-            var group = _scheduleCatalog.GetGroup(selection.ScheduleId);
-            if (group is not null)
-            {
-                ApplySelectionToSession(session, group, selection.SubGroup);
+            ApplySelectionToSession(session, group!, subGroup);
 
-                await _bot.SendMessage(
-                    chatId: msg.Chat.Id,
-                    text: "С возвращением!\n\n" +
-                          "Я уже помню твоё расписание:\n" +
-                          $"<b>{Escape(FormatGroupTitle(group, selection.SubGroup))}</b>.\n\n" +
-                          "Можно сразу перейти к нужному:\n" +
-                          "/schedule — пары на день\n" +
-                          "/homework — домашние задания\n" +
-                          "/homework_settings — настроить предметы для ДЗ\n" +
-                          "/add_homework — добавить новое ДЗ\n" +
-                          "/plan — личные дела с дедлайнами\n" +
-                          "/timer — сфокусироваться на учёбе",
-                    parseMode: ParseMode.Html,
-                    replyMarkup: BuildMiniAppLinkMarkup(),
-                    cancellationToken: ct);
+            var sourceText = string.IsNullOrWhiteSpace(sourceChatTitle)
+                ? string.Empty
+                : $"\nИсточник: <b>{Escape(sourceChatTitle)}</b>.";
 
-                return;
-            }
+            await _bot.SendMessage(
+                chatId: msg.Chat.Id,
+                text: "С возвращением!\n\n" +
+                      "Я уже помню твоё расписание:\n" +
+                      $"<b>{Escape(FormatGroupTitle(group!, subGroup))}</b>." +
+                      sourceText + "\n\n" +
+                      "Можно сразу перейти к нужному:\n" +
+                      "/schedule — пары на день\n" +
+                      "/homework — домашние задания\n" +
+                      "/homework_settings — настроить предметы для ДЗ\n" +
+                      "/add_homework — добавить новое ДЗ\n" +
+                      "/plan — личные дела с дедлайнами\n" +
+                      "/timer — сфокусироваться на учёбе",
+                parseMode: ParseMode.Html,
+                replyMarkup: BuildMiniAppLinkMarkup(),
+                cancellationToken: ct);
 
-            _scheduleSelections.Delete(userId);
+            return;
         }
 
         await _bot.SendMessage(
@@ -405,7 +406,7 @@ public class CommandHandler
         session.ContinueHomeworkAfterScheduleSelection = false;
         session.PendingHomeworkScheduleSelectionKey = null;
 
-        if (!TryGetAllScheduleEntries(userId, out _, out _, out var entries))
+        if (!TryGetAllScheduleEntries(userId, out _, out _, out var entries, allowLinkedGroupSchedule: true))
         {
             session.State = UserState.Idle;
             session.DraftTask = null;
@@ -450,7 +451,12 @@ public class CommandHandler
         session.HomeworkLessonTypeChoices.Clear();
 
         var selectionKey = IsGroupChat(msg.Chat.Type) ? msg.Chat.Id : userId;
-        if (!TryGetAllScheduleEntries(selectionKey, out _, out _, out var entries))
+        if (!TryGetAllScheduleEntries(
+                selectionKey,
+                out _,
+                out _,
+                out var entries,
+                allowLinkedGroupSchedule: !IsGroupChat(msg.Chat.Type)))
         {
             await _bot.SendMessage(
                 chatId: msg.Chat.Id,
@@ -731,19 +737,30 @@ public class CommandHandler
         session.State = UserState.Idle;
         session.ContinueHomeworkAfterScheduleSelection = false;
         session.PendingHomeworkScheduleSelectionKey = null;
-        var selectionKey = IsGroupChat(msg.Chat.Type) ? msg.Chat.Id : userId;
-        var selection = _scheduleSelections.Get(selectionKey);
-        if (selection is not null)
+        if (IsGroupChat(msg.Chat.Type))
         {
-            var group = _scheduleCatalog.GetGroup(selection.ScheduleId);
-            if (group is not null)
+            var selection = _scheduleSelections.Get(msg.Chat.Id);
+            if (selection is not null)
             {
-                ApplySelectionToSession(session, group, selection.SubGroup);
-                await SendSelectedScheduleMenuAsync(msg.Chat.Id, group, selection.SubGroup, ct, IsGroupChat(msg.Chat.Type));
-                return;
-            }
+                var group = _scheduleCatalog.GetGroup(selection.ScheduleId);
+                if (group is not null)
+                {
+                    ApplySelectionToSession(session, group, selection.SubGroup);
+                    await SendSelectedScheduleMenuAsync(msg.Chat.Id, group, selection.SubGroup, ct, true);
+                    return;
+                }
 
-            _scheduleSelections.Delete(selectionKey);
+                _scheduleSelections.Delete(msg.Chat.Id);
+            }
+        }
+        else if (TryGetUserSchedule(userId, out var group, out var subGroup, out var sourceChatTitle))
+        {
+            ApplySelectionToSession(session, group!, subGroup);
+            var sourceNote = string.IsNullOrWhiteSpace(sourceChatTitle)
+                ? null
+                : $"Синхронизировано из группы «{sourceChatTitle}».";
+            await SendSelectedScheduleMenuAsync(msg.Chat.Id, group!, subGroup, ct, false, sourceNote);
+            return;
         }
 
         await SendDirectionChoiceAsync(msg.Chat.Id, ct, IsGroupChat(msg.Chat.Type));
@@ -771,23 +788,65 @@ public class CommandHandler
         long selectionKey,
         out ScheduleGroup? group,
         out int? subGroup,
-        out List<ScheduleEntry> entries)
+        out List<ScheduleEntry> entries,
+        bool allowLinkedGroupSchedule = false)
     {
         group = null;
         subGroup = null;
         entries = new List<ScheduleEntry>();
 
+        if (TryGetScheduleSelection(selectionKey, allowLinkedGroupSchedule, out group, out subGroup, out _))
+        {
+            entries = _scheduleCatalog.GetAllEntriesForSelection(group!, subGroup);
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryGetUserSchedule(
+        long userId,
+        out ScheduleGroup? group,
+        out int? subGroup,
+        out string? sourceChatTitle)
+        => TryGetScheduleSelection(userId, true, out group, out subGroup, out sourceChatTitle);
+
+    private bool TryGetScheduleSelection(
+        long selectionKey,
+        bool allowLinkedGroupSchedule,
+        out ScheduleGroup? group,
+        out int? subGroup,
+        out string? sourceChatTitle)
+    {
+        group = null;
+        subGroup = null;
+        sourceChatTitle = null;
+
         var selection = _scheduleSelections.Get(selectionKey);
-        if (selection is null)
+        if (selection is not null)
+        {
+            group = _scheduleCatalog.GetGroup(selection.ScheduleId);
+            if (group is not null)
+            {
+                subGroup = selection.SubGroup;
+                return true;
+            }
+
+            _scheduleSelections.Delete(selectionKey);
+        }
+
+        if (!allowLinkedGroupSchedule)
             return false;
 
-        group = _scheduleCatalog.GetGroup(selection.ScheduleId);
-        if (group is null)
-            return false;
+        if (_userGroupSchedules.TryGetLinkedSchedule(selectionKey, out var linkedGroup, out var linkedSubGroup, out _, out var linkedChatTitle))
+        {
+            group = linkedGroup;
+            subGroup = linkedSubGroup;
+            sourceChatTitle = linkedChatTitle;
+            return linkedGroup is not null;
+        }
 
-        subGroup = selection.SubGroup;
-        entries = _scheduleCatalog.GetAllEntriesForSelection(group, subGroup);
-        return true;
+        return false;
     }
 
     private async Task SendHomeworkListAsync(
@@ -857,15 +916,20 @@ public class CommandHandler
         ScheduleGroup group,
         int? subGroup,
         CancellationToken ct,
-        bool isGroup)
+        bool isGroup,
+        string? sourceNote = null)
     {
         var weekLabel = _scheduleCatalog.GetCurrentWeekLabel();
+        var sourceText = string.IsNullOrWhiteSpace(sourceNote)
+            ? string.Empty
+            : $"\n{Escape(sourceNote)}";
 
         await _bot.SendMessage(
             chatId: chatId,
             text: $"{(isGroup ? "📅 <b>Расписание группы</b>" : "📅 <b>Твоё расписание</b>")}\n" +
                   $"{Escape(FormatGroupTitle(group, subGroup))}\n" +
-                  $"Текущая неделя: <b>{weekLabel}</b>\n\n" +
+                  $"Текущая неделя: <b>{weekLabel}</b>" +
+                  sourceText + "\n\n" +
                   "Что показать?",
             parseMode: ParseMode.Html,
             replyMarkup: ScheduleKeyboards.ScheduleMenu,

@@ -1200,12 +1200,12 @@ public class TextHandler
             session.PendingParticipantChatTitle = null;
             _groupInputLocks.Release(msg.Chat.Id, session.UserId);
 
-            await _bot.SendMessage(
-                msg.Chat.Id,
-                "Настройка участников устарела. Открой её заново через /reminders.",
-                cancellationToken: ct);
-            return;
-        }
+                await _bot.SendMessage(
+                    msg.Chat.Id,
+                    "Настройка участников устарела. Открой её заново через /group_members.",
+                    cancellationToken: ct);
+                return;
+            }
 
         var usernames = ParseManualUsernames(text);
         if (usernames.Count == 0)

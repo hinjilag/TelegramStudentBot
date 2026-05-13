@@ -4,7 +4,7 @@ public class GroupReminderSettings
 {
     public long ChatId { get; set; }
 
-    public string ChatTitle { get; set; } = "Р“СЂСѓРїРїР°";
+    public string ChatTitle { get; set; } = "Группа";
 
     public bool IsEnabled { get; set; }
 

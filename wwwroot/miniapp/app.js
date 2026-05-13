@@ -19,7 +19,9 @@ const store = {
   refreshTick: null,
   activeAudioElement: null,
   activeSoundCleanup: null,
-  activeSoundMode: "off"
+  activeSoundMode: "off",
+  isInputMode: false,
+  pendingSilentRender: false
 };
 
 const THEME_LABELS = {
@@ -62,12 +64,15 @@ async function boot() {
   if (tg) {
     tg.setHeaderColor?.("#070816");
     tg.setBackgroundColor?.("#070816");
+    tg.disableVerticalSwipes?.();
   }
 
   await refreshState();
   document.addEventListener("click", handleClick);
   document.addEventListener("submit", handleSubmit);
   document.addEventListener("change", handleChange);
+  document.addEventListener("focusin", handleFocusIn);
+  document.addEventListener("focusout", handleFocusOut);
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
       refreshState({ silent: true }).catch(() => {});
@@ -125,6 +130,11 @@ async function refreshState({ silent = false } = {}) {
   store.groups = state.schedule.availableGroups || [];
 
   normalizeSelectedHomeworkGroup(state.homeworkSubjects);
+
+  if (silent && store.isInputMode) {
+    store.pendingSilentRender = true;
+    return;
+  }
 
   render();
   restartTimerTicker();
@@ -349,8 +359,8 @@ function renderDashboardView({ schedule, timer, reminder, activeHomework, active
           </div>
           <p class="muted">
             ${reminder.isEnabled
-              ? `Чат получит напоминание о дедлайнах на завтра каждый день в ${escapeHtml(reminder.timeText)} по МСК.`
-              : "Напоминания выключены. Включи их во вкладке Фокус."}
+              ? reminderSummaryText(reminder)
+              : "Напоминания выключены. Включи их во вкладке Напоминания."}
           </p>
           <div class="divider"></div>
           <p class="muted">Выполнено всего: <strong>${completedTasks.length}</strong></p>
@@ -1137,6 +1147,18 @@ async function handleChange(event) {
   }
 }
 
+function handleFocusIn(event) {
+  if (isEditableTarget(event.target)) {
+    setInputMode(true);
+  }
+}
+
+function handleFocusOut() {
+  window.setTimeout(() => {
+    setInputMode(isEditableTarget(document.activeElement));
+  }, 0);
+}
+
 function refreshAfterMutation() {
   if (store.state) {
     store.selectedDirectionCode = store.state.schedule.selectedDirectionCode
@@ -1152,6 +1174,17 @@ function refreshAfterMutation() {
   render();
   restartTimerTicker();
   syncTimerAudio();
+}
+
+function setInputMode(enabled) {
+  store.isInputMode = Boolean(enabled);
+  document.body.classList.toggle("input-mode", store.isInputMode);
+
+  if (!store.isInputMode && store.pendingSilentRender) {
+    store.pendingSilentRender = false;
+    render();
+    restartTimerTicker();
+  }
 }
 
 function restartTimerTicker() {
@@ -1291,6 +1324,18 @@ function renderReminderDayPicker(selectedDays) {
       </div>
     </div>
   `;
+}
+
+function reminderSummaryText(reminder) {
+  const frequencyLabel = reminder?.frequencyText || "каждый день";
+  const timeLabel = reminder?.timeText || "20:00";
+  return `Напоминания приходят ${escapeHtml(frequencyLabel)} в ${escapeHtml(timeLabel)} по МСК и включают и ДЗ, и личные дела.`;
+}
+
+function isEditableTarget(target) {
+  return target instanceof HTMLInputElement
+    || target instanceof HTMLTextAreaElement
+    || target instanceof HTMLSelectElement;
 }
 
 function getInitials(name) {

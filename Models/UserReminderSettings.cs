@@ -4,7 +4,7 @@ public class UserReminderSettings
 {
     public long ChatId { get; set; }
 
-    public string Nickname { get; set; } = "РЎС‚СѓРґРµРЅС‚";
+    public string Nickname { get; set; } = "Студент";
 
     public string? Username { get; set; }
 

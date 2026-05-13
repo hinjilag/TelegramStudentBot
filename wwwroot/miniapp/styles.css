@@ -62,6 +62,20 @@ body {
   min-height: 100vh;
 }
 
+body.input-mode {
+  overflow: hidden;
+}
+
+body.input-mode .tabbar {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 28px);
+}
+
+body.input-mode .app-root {
+  padding-bottom: 24px;
+}
+
 button,
 input,
 select,
