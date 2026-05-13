@@ -84,31 +84,33 @@ public class DeadlineReminderService : BackgroundService
                 continue;
             }
 
-            var personalTasks = allTasks.TryGetValue(userId, out var userTasks)
+            var activeTasks = allTasks.TryGetValue(userId, out var userTasks)
                 ? userTasks
-                    .Where(task => !task.IsCompleted && TaskSubjects.IsPersonal(task.Subject))
-                    .OrderBy(task => task.Deadline.HasValue ? 0 : 1)
+                    .Where(task => !task.IsCompleted)
+                    .OrderBy(task => TaskSubjects.IsPersonal(task.Subject) ? 1 : 0)
+                    .ThenBy(task => task.Deadline.HasValue ? 0 : 1)
                     .ThenBy(task => task.Deadline ?? DateTime.MaxValue)
+                    .ThenBy(task => task.Subject)
                     .ThenBy(task => task.Title)
                     .ToList()
                 : new List<StudyTask>();
 
-            if (personalTasks.Count == 0)
+            if (activeTasks.Count == 0)
                 continue;
 
             try
             {
                 await _bot.SendMessage(
                     chatId: settings.ChatId,
-                    text: BuildPersonalReminderText(personalTasks, today),
+                    text: BuildPersonalReminderText(activeTasks, today),
                     parseMode: ParseMode.Html,
                     cancellationToken: ct);
 
                 _reminders.MarkNotificationChecked(userId, today);
 
                 _logger.LogInformation(
-                    "Отправлено личное напоминание о {Count} делах пользователю {UserId}",
-                    personalTasks.Count,
+                    "Отправлено личное напоминание о {Count} задачах пользователю {UserId}",
+                    activeTasks.Count,
                     userId);
             }
             catch (Exception ex)
@@ -232,18 +234,45 @@ public class DeadlineReminderService : BackgroundService
 
     private static string BuildPersonalReminderText(IEnumerable<StudyTask> tasks, DateTime today)
     {
+        var homeworkTasks = tasks
+            .Where(task => !TaskSubjects.IsPersonal(task.Subject))
+            .ToList();
+        var personalTasks = tasks
+            .Where(task => TaskSubjects.IsPersonal(task.Subject))
+            .ToList();
+
         var sb = new StringBuilder();
-        sb.AppendLine($"⏰ <b>Личные дела на {today:dd.MM.yyyy}</b>");
+        sb.AppendLine($"⏰ <b>Напоминание на {today:dd.MM.yyyy}</b>");
         sb.AppendLine();
 
-        foreach (var task in tasks)
+        if (homeworkTasks.Count > 0)
         {
-            sb.AppendLine($"📌 <b>{Escape(task.Title)}</b>");
-            sb.AppendLine($"🗓 {FormatDeadline(task.Deadline)}");
+            sb.AppendLine("📚 <b>Домашние задания</b>");
             sb.AppendLine();
+
+            foreach (var task in homeworkTasks)
+            {
+                sb.AppendLine($"📌 <b>{Escape(task.Title)}</b>");
+                sb.AppendLine($"📘 {Escape(task.Subject)}");
+                sb.AppendLine($"🗓 {FormatDeadline(task.Deadline)}");
+                sb.AppendLine();
+            }
         }
 
-        sb.Append("Открыть план: /plan");
+        if (personalTasks.Count > 0)
+        {
+            sb.AppendLine("🗂 <b>Личные дела</b>");
+            sb.AppendLine();
+
+            foreach (var task in personalTasks)
+            {
+                sb.AppendLine($"📌 <b>{Escape(task.Title)}</b>");
+                sb.AppendLine($"🗓 {FormatDeadline(task.Deadline)}");
+                sb.AppendLine();
+            }
+        }
+
+        sb.Append("Открыть списки: /homework и /plan");
         return sb.ToString();
     }
 

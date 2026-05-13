@@ -1116,7 +1116,7 @@ public class TextHandler
             chatId: msg.Chat.Id,
             text: targetIsGroup
                 ? $"⏰ Готово! Буду присылать напоминания {FormatReminderModeText(reminderMode, selectedDays)} в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК и отмечать участников, которых уже видел в группе."
-                : $"⏰ Готово! Буду присылать напоминания {FormatReminderModeText(reminderMode, selectedDays)} в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК о твоих личных делах.\n\n" +
+                : $"⏰ Готово! Буду присылать напоминания {FormatReminderModeText(reminderMode, selectedDays)} в <b>{time.Hours:00}:{time.Minutes:00}</b> по МСК и о ДЗ, и о личных делах.\n\n" +
                   BuildBasicCommandsText(),
             parseMode: ParseMode.Html,
             cancellationToken: ct);
@@ -1160,8 +1160,8 @@ public class TextHandler
 
         await _bot.SendMessage(
             chatId: chatId,
-            text: "Следующий шаг: можно включить напоминания о личных делах.\n\n" +
-                  "Хочешь, я буду регулярно присылать список твоих актуальных дел?",
+            text: "Следующий шаг: можно включить напоминания.\n\n" +
+                  "Хочешь, я буду регулярно присылать и ДЗ, и личные дела?",
             replyMarkup: keyboard,
             cancellationToken: ct);
     }
