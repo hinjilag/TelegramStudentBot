@@ -94,6 +94,8 @@ public sealed record MiniAppTaskDto(
     string Subject,
     string SubjectTitle,
     string? LessonType,
+    string? SourceTitle,
+    bool IsReadOnly,
     bool IsCompleted,
     string? DeadlineIso,
     string? DeadlineText,

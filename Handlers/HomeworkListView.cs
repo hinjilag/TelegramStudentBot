@@ -37,6 +37,65 @@ internal static class HomeworkListView
         return (sb.ToString().TrimEnd(), BuildKeyboard(active, completed.Count));
     }
 
+    internal static (string Text, InlineKeyboardMarkup? Keyboard) BuildWithLinkedGroups(
+        UserSession session,
+        IReadOnlyCollection<StoredGroupTasks> linkedGroupTasks,
+        string? emptyText = null)
+    {
+        var baseView = Build(session, emptyText);
+        var groupFeeds = linkedGroupTasks
+            .Select(feed => new
+            {
+                ChatTitle = string.IsNullOrWhiteSpace(feed.ChatTitle) ? "Группа" : feed.ChatTitle,
+                Active = feed.Tasks
+                    .Where(t => !t.IsCompleted && !TaskSubjects.IsPersonal(t.Subject))
+                    .OrderBy(t => t.Deadline ?? DateTime.MaxValue)
+                    .ThenBy(t => t.CreatedAt)
+                    .ToList(),
+                Completed = feed.Tasks
+                    .Where(t => t.IsCompleted && !TaskSubjects.IsPersonal(t.Subject))
+                    .OrderByDescending(t => t.CreatedAt)
+                    .ToList()
+            })
+            .Where(feed => feed.Active.Count > 0 || feed.Completed.Count > 0)
+            .ToList();
+
+        if (groupFeeds.Count == 0)
+            return baseView;
+
+        var hasOwnHomework = session.Tasks.Any(t => !TaskSubjects.IsPersonal(t.Subject));
+        var sb = new StringBuilder();
+
+        if (hasOwnHomework)
+        {
+            sb.Append(baseView.Text.TrimEnd());
+        }
+        else
+        {
+            sb.Append("📚 <b>Домашние задания</b>");
+            sb.AppendLine();
+            sb.AppendLine("Личных ДЗ пока нет, но ниже показываю связанные группы.");
+        }
+
+        foreach (var groupFeed in groupFeeds)
+        {
+            if (sb.Length > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine();
+            }
+
+            BuildTaskSummary(
+                sb,
+                groupFeed.Active,
+                groupFeed.Completed,
+                $"👥 <b>ДЗ из группы</b>\nЧат: <b>{Escape(groupFeed.ChatTitle)}</b>",
+                includeAuthor: true);
+        }
+
+        return (sb.ToString().TrimEnd(), baseView.Keyboard);
+    }
+
     internal static (string Text, InlineKeyboardMarkup? Keyboard) BuildGroup(
         string chatTitle,
         IReadOnlyCollection<StudyTask> tasks)

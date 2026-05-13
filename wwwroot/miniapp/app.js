@@ -857,6 +857,7 @@ function statCard(label, value, subtle, tone) {
 }
 
 function taskCard(task, scope) {
+  const isReadOnly = Boolean(task.isReadOnly);
   return `
     <article class="task-card ${task.isCompleted ? "completed" : ""}">
       <div class="task-top">
@@ -865,17 +866,20 @@ function taskCard(task, scope) {
           <div class="task-meta">
             <span class="tag accent">${escapeHtml(task.subjectTitle)}</span>
             ${task.lessonType ? `<span class="tag">${escapeHtml(task.lessonType)}</span>` : ""}
+            ${task.sourceTitle ? `<span class="tag">${escapeHtml(task.sourceTitle)}</span>` : ""}
             ${task.deadlineText ? `<span class="tag ${task.isCompleted ? "" : "warning"}">${escapeHtml(task.deadlineText)}</span>` : `<span class="tag">без дедлайна</span>`}
           </div>
         </div>
-        <span class="tag ${task.isCompleted ? "success" : "accent"}">${task.isCompleted ? "готово" : "активно"}</span>
+        <span class="tag ${task.isCompleted ? "success" : "accent"}">${isReadOnly ? "из группы" : task.isCompleted ? "готово" : "активно"}</span>
       </div>
-      <div class="task-actions">
-        <button class="pixel-button secondary slim" data-action="toggle-task" data-scope="${scope}" data-task-id="${escapeHtml(task.id)}" data-completed="${String(!task.isCompleted)}">
-          ${task.isCompleted ? "Вернуть" : "Выполнено"}
-        </button>
-        <button class="pixel-button ghost slim" data-action="delete-task" data-task-id="${escapeHtml(task.id)}">Удалить</button>
-      </div>
+      ${isReadOnly
+        ? `<p class="muted">Это общее ДЗ из группы. Изменять его можно в групповом чате.</p>`
+        : `<div class="task-actions">
+            <button class="pixel-button secondary slim" data-action="toggle-task" data-scope="${scope}" data-task-id="${escapeHtml(task.id)}" data-completed="${String(!task.isCompleted)}">
+              ${task.isCompleted ? "Вернуть" : "Выполнено"}
+            </button>
+            <button class="pixel-button ghost slim" data-action="delete-task" data-task-id="${escapeHtml(task.id)}">Удалить</button>
+          </div>`}
     </article>
   `;
 }

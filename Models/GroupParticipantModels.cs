@@ -23,3 +23,12 @@ public class StoredGroupParticipants
 
     public List<GroupParticipant> Participants { get; set; } = new();
 }
+
+public class GroupChatMembership
+{
+    public long ChatId { get; set; }
+
+    public string ChatTitle { get; set; } = "Группа";
+
+    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+}

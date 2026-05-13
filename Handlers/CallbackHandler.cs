@@ -16,6 +16,7 @@ public class CallbackHandler
     private readonly ScheduleCatalogService _scheduleCatalog;
     private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly ReminderSettingsService _reminders;
+    private readonly UserGroupTaskBridgeService _userGroupTasks;
     private readonly GroupStudyTaskStorageService _groupTasks;
     private readonly GroupReminderSettingsService _groupReminders;
     private readonly GroupHomeworkSubjectPreferencesService _groupHomeworkSubjects;
@@ -29,6 +30,7 @@ public class CallbackHandler
         ScheduleCatalogService scheduleCatalog,
         UserScheduleSelectionService scheduleSelections,
         ReminderSettingsService reminders,
+        UserGroupTaskBridgeService userGroupTasks,
         GroupStudyTaskStorageService groupTasks,
         GroupReminderSettingsService groupReminders,
         GroupHomeworkSubjectPreferencesService groupHomeworkSubjects,
@@ -41,6 +43,7 @@ public class CallbackHandler
         _scheduleCatalog = scheduleCatalog;
         _scheduleSelections = scheduleSelections;
         _reminders = reminders;
+        _userGroupTasks = userGroupTasks;
         _groupTasks = groupTasks;
         _groupReminders = groupReminders;
         _groupHomeworkSubjects = groupHomeworkSubjects;
@@ -1261,7 +1264,8 @@ public class CallbackHandler
 
     private async Task RefreshTaskListMessageAsync(Message message, UserSession session, CancellationToken ct)
     {
-        var view = HomeworkListView.Build(session);
+        var linkedGroups = _userGroupTasks.GetLinkedGroupTaskFeeds(session.UserId);
+        var view = HomeworkListView.BuildWithLinkedGroups(session, linkedGroups);
         await _bot.EditMessageText(
             chatId: message.Chat.Id,
             messageId: message.MessageId,

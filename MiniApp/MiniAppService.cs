@@ -9,6 +9,7 @@ public class MiniAppService
     private readonly StudyTaskStorageService _taskStorage;
     private readonly UserProfileStorageService _userProfiles;
     private readonly ReminderSettingsService _reminders;
+    private readonly UserGroupTaskBridgeService _userGroupTasks;
     private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
     private readonly ScheduleCatalogService _scheduleCatalog;
     private readonly UserScheduleSelectionService _scheduleSelections;
@@ -20,6 +21,7 @@ public class MiniAppService
         StudyTaskStorageService taskStorage,
         UserProfileStorageService userProfiles,
         ReminderSettingsService reminders,
+        UserGroupTaskBridgeService userGroupTasks,
         HomeworkSubjectPreferencesService homeworkSubjects,
         ScheduleCatalogService scheduleCatalog,
         UserScheduleSelectionService scheduleSelections,
@@ -30,6 +32,7 @@ public class MiniAppService
         _taskStorage = taskStorage;
         _userProfiles = userProfiles;
         _reminders = reminders;
+        _userGroupTasks = userGroupTasks;
         _homeworkSubjects = homeworkSubjects;
         _scheduleCatalog = scheduleCatalog;
         _scheduleSelections = scheduleSelections;
@@ -89,12 +92,21 @@ public class MiniAppService
         var reminderSettings = _reminders.Get(identity.UserId);
         var favoriteSubjects = _homeworkSubjects.Get(identity.UserId);
 
-        var homeworkTasks = session.Tasks
+        var personalHomeworkTasks = session.Tasks
             .Where(task => !TaskSubjects.IsPersonal(task.Subject))
             .OrderBy(task => task.IsCompleted)
             .ThenBy(task => task.Deadline ?? DateTime.MaxValue)
             .ThenByDescending(task => task.CreatedAt)
+            .ToList();
+        var linkedGroupHomeworkTasks = _userGroupTasks.GetLinkedHomeworkTasks(identity.UserId);
+
+        var homeworkTasks = personalHomeworkTasks
             .Select(ToTaskDto)
+            .Concat(linkedGroupHomeworkTasks.Select(ToLinkedGroupTaskDto))
+            .OrderBy(task => task.IsCompleted)
+            .ThenBy(task => task.DeadlineIso ?? "9999-12-31")
+            .ThenBy(task => task.SourceTitle ?? string.Empty)
+            .ThenBy(task => task.Title)
             .ToList();
 
         var personalTasks = session.Tasks
@@ -300,6 +312,9 @@ public class MiniAppService
         MiniAppTaskCompletionRequest request,
         CancellationToken cancellationToken)
     {
+        if (IsLinkedGroupTaskId(taskId))
+            throw new InvalidOperationException("Это общее ДЗ из группы. Изменять его нужно в групповом чате.");
+
         var session = GetOrCreateSession(identity);
         var task = FindTask(session, taskId);
         task.IsCompleted = request.IsCompleted;
@@ -314,6 +329,9 @@ public class MiniAppService
 
     public async Task DeleteTaskAsync(MiniAppIdentity identity, string taskId, CancellationToken cancellationToken)
     {
+        if (IsLinkedGroupTaskId(taskId))
+            throw new InvalidOperationException("Это общее ДЗ из группы. Удалять его нужно в групповом чате.");
+
         var session = GetOrCreateSession(identity);
         var task = FindTask(session, taskId);
         session.Tasks.Remove(task);
@@ -497,6 +515,32 @@ public class MiniAppService
             task.Subject,
             isPersonal ? task.Subject : ScheduleCatalogService.GetHomeworkSubjectTitle(task.Subject),
             isPersonal ? null : lessonType,
+            null,
+            false,
+            task.IsCompleted,
+            task.Deadline?.ToString("O"),
+            deadlineText,
+            task.CreatedAt.ToString("O"));
+    }
+
+    private static MiniAppTaskDto ToLinkedGroupTaskDto(LinkedGroupTask linkedTask)
+    {
+        var task = linkedTask.Task;
+        var lessonType = ScheduleCatalogService.GetHomeworkLessonTypeLabel(task.Subject);
+        var deadlineText = task.Deadline.HasValue
+            ? task.Deadline.Value.TimeOfDay == TimeSpan.Zero
+                ? task.Deadline.Value.ToString("dd.MM.yyyy")
+                : task.Deadline.Value.ToString("dd.MM.yyyy HH:mm")
+            : null;
+
+        return new MiniAppTaskDto(
+            $"group:{linkedTask.ChatId}:{task.Id:D}",
+            task.Title,
+            task.Subject,
+            ScheduleCatalogService.GetHomeworkSubjectTitle(task.Subject),
+            lessonType,
+            linkedTask.ChatTitle,
+            true,
             task.IsCompleted,
             task.Deadline?.ToString("O"),
             deadlineText,
@@ -532,6 +576,9 @@ public class MiniAppService
         return session.Tasks.FirstOrDefault(task => task.Id == taskGuid)
             ?? throw new InvalidOperationException("Задача не найдена.");
     }
+
+    private static bool IsLinkedGroupTaskId(string taskId)
+        => taskId.StartsWith("group:", StringComparison.OrdinalIgnoreCase);
 
     private DateTime ValidateSelectedHomeworkDeadline(
         IReadOnlyList<ScheduleEntry> entries,

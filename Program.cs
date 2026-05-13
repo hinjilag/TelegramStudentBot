@@ -36,6 +36,7 @@ builder.Services.AddSingleton<ReminderSettingsService>();
 builder.Services.AddSingleton<GroupReminderSettingsService>();
 builder.Services.AddSingleton<GroupParticipantStorageService>();
 builder.Services.AddSingleton<GroupParticipantResolverService>();
+builder.Services.AddSingleton<UserGroupTaskBridgeService>();
 builder.Services.AddSingleton<GroupHomeworkSubjectPreferencesService>();
 builder.Services.AddSingleton<GroupVisitLogService>();
 builder.Services.AddSingleton<HomeworkSubjectPreferencesService>();

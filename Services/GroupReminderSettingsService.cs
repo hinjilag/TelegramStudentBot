@@ -59,6 +59,7 @@ public class GroupReminderSettingsService
             settings.SelectedDays = NormalizeSelectedDays(selectedDays);
             if (selectedParticipantUserIds is not null)
                 settings.SelectedParticipantUserIds = NormalizeParticipantIds(selectedParticipantUserIds);
+            settings.LastNotificationDate = null;
             settings.UpdatedAt = DateTime.Now;
 
             _settingsByChat[chatId] = CloneSettings(settings);
@@ -91,7 +92,7 @@ public class GroupReminderSettingsService
             if (!_settingsByChat.TryGetValue(chatId, out var settings))
                 return;
 
-            settings.LastNotificationDate = notificationDate.Date;
+            settings.LastNotificationDate = notificationDate;
             settings.UpdatedAt = DateTime.Now;
             SaveAll();
         }

@@ -15,6 +15,7 @@ public class DeadlineReminderService : BackgroundService
     private readonly StudyTaskStorageService _tasks;
     private readonly GroupStudyTaskStorageService _groupTasks;
     private readonly ReminderSettingsService _reminders;
+    private readonly UserGroupTaskBridgeService _userGroupTasks;
     private readonly GroupReminderSettingsService _groupReminders;
     private readonly GroupParticipantResolverService _groupParticipantResolver;
     private readonly ILogger<DeadlineReminderService> _logger;
@@ -25,6 +26,7 @@ public class DeadlineReminderService : BackgroundService
         ITelegramBotClient bot,
         StudyTaskStorageService tasks,
         ReminderSettingsService reminders,
+        UserGroupTaskBridgeService userGroupTasks,
         GroupStudyTaskStorageService groupTasks,
         GroupReminderSettingsService groupReminders,
         GroupParticipantResolverService groupParticipantResolver,
@@ -33,6 +35,7 @@ public class DeadlineReminderService : BackgroundService
         _bot = bot;
         _tasks = tasks;
         _reminders = reminders;
+        _userGroupTasks = userGroupTasks;
         _groupTasks = groupTasks;
         _groupReminders = groupReminders;
         _groupParticipantResolver = groupParticipantResolver;
@@ -79,12 +82,12 @@ public class DeadlineReminderService : BackgroundService
                 settings.ChatId == 0 ||
                 !IsReminderDayEnabled(settings.Frequency, settings.SelectedDays, today) ||
                 !IsScheduledTimeReached(now, settings.Hour, settings.Minute) ||
-                settings.LastNotificationDate?.Date == today)
+                HasAlreadySentScheduledReminder(settings.LastNotificationDate, today, settings.Hour, settings.Minute))
             {
                 continue;
             }
 
-            var activeTasks = allTasks.TryGetValue(userId, out var userTasks)
+            var ownTasks = allTasks.TryGetValue(userId, out var userTasks)
                 ? userTasks
                     .Where(task => !task.IsCompleted)
                     .OrderBy(task => TaskSubjects.IsPersonal(task.Subject) ? 1 : 0)
@@ -94,23 +97,37 @@ public class DeadlineReminderService : BackgroundService
                     .ThenBy(task => task.Title)
                     .ToList()
                 : new List<StudyTask>();
+            var groupFeeds = _userGroupTasks.GetLinkedGroupTaskFeeds(userId)
+                .Select(feed => new StoredGroupTasks
+                {
+                    ChatId = feed.ChatId,
+                    ChatTitle = feed.ChatTitle,
+                    Tasks = feed.Tasks
+                        .Where(task => !task.IsCompleted && (!task.Deadline.HasValue || task.Deadline.Value.Date >= today))
+                        .OrderBy(task => task.Deadline ?? DateTime.MaxValue)
+                        .ThenBy(task => task.Subject)
+                        .ThenBy(task => task.Title)
+                        .ToList()
+                })
+                .Where(feed => feed.Tasks.Count > 0)
+                .ToList();
 
-            if (activeTasks.Count == 0)
+            if (ownTasks.Count == 0 && groupFeeds.Count == 0)
                 continue;
 
             try
             {
                 await _bot.SendMessage(
                     chatId: settings.ChatId,
-                    text: BuildPersonalReminderText(activeTasks, today),
+                    text: BuildPersonalReminderText(ownTasks, groupFeeds, today),
                     parseMode: ParseMode.Html,
                     cancellationToken: ct);
 
-                _reminders.MarkNotificationChecked(userId, today);
+                _reminders.MarkNotificationChecked(userId, now);
 
                 _logger.LogInformation(
                     "Отправлено личное напоминание о {Count} задачах пользователю {UserId}",
-                    activeTasks.Count,
+                    ownTasks.Count + groupFeeds.Sum(feed => feed.Tasks.Count),
                     userId);
             }
             catch (Exception ex)
@@ -128,7 +145,7 @@ public class DeadlineReminderService : BackgroundService
             if (!settings.IsEnabled ||
                 !IsReminderDayEnabled(settings.Frequency, settings.SelectedDays, today) ||
                 !IsScheduledTimeReached(now, settings.Hour, settings.Minute) ||
-                settings.LastNotificationDate?.Date == today)
+                HasAlreadySentScheduledReminder(settings.LastNotificationDate, today, settings.Hour, settings.Minute))
             {
                 continue;
             }
@@ -177,7 +194,7 @@ public class DeadlineReminderService : BackgroundService
 
                 await ReplacePinnedReminderAsync(settings, reminderMessage, ct);
 
-                _groupReminders.MarkNotificationChecked(chatId, today);
+                _groupReminders.MarkNotificationChecked(chatId, now);
 
                 _logger.LogInformation(
                     "Отправлено групповое напоминание о {Count} заданиях в чат {ChatId}",
@@ -232,7 +249,10 @@ public class DeadlineReminderService : BackgroundService
     private DateTime GetMoscowNow()
         => TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, _moscowTimeZone).DateTime;
 
-    private static string BuildPersonalReminderText(IEnumerable<StudyTask> tasks, DateTime today)
+    private static string BuildPersonalReminderText(
+        IEnumerable<StudyTask> tasks,
+        IReadOnlyCollection<StoredGroupTasks> linkedGroups,
+        DateTime today)
     {
         var homeworkTasks = tasks
             .Where(task => !TaskSubjects.IsPersonal(task.Subject))
@@ -268,6 +288,27 @@ public class DeadlineReminderService : BackgroundService
             {
                 sb.AppendLine($"📌 <b>{Escape(task.Title)}</b>");
                 sb.AppendLine($"🗓 {FormatDeadline(task.Deadline)}");
+                sb.AppendLine();
+            }
+        }
+
+        foreach (var group in linkedGroups)
+        {
+            if (group.Tasks.Count == 0)
+                continue;
+
+            sb.AppendLine($"👥 <b>{Escape(group.ChatTitle)}</b>");
+            sb.AppendLine();
+
+            foreach (var task in group.Tasks)
+            {
+                sb.AppendLine($"📌 <b>{Escape(task.Title)}</b>");
+                sb.AppendLine($"📘 {Escape(task.Subject)}");
+                sb.AppendLine($"🗓 {FormatDeadline(task.Deadline)}");
+
+                if (!string.IsNullOrWhiteSpace(task.CreatedByName))
+                    sb.AppendLine($"👤 {Escape(task.CreatedByName)}");
+
                 sb.AppendLine();
             }
         }
@@ -336,6 +377,19 @@ public class DeadlineReminderService : BackgroundService
             return true;
 
         return now.Hour == hour && now.Minute >= minute;
+    }
+
+    private static bool HasAlreadySentScheduledReminder(
+        DateTime? lastNotificationAt,
+        DateTime today,
+        int hour,
+        int minute)
+    {
+        if (!lastNotificationAt.HasValue || lastNotificationAt.Value.Date != today)
+            return false;
+
+        var scheduledAt = today.AddHours(hour).AddMinutes(minute);
+        return lastNotificationAt.Value >= scheduledAt || lastNotificationAt.Value.TimeOfDay == TimeSpan.Zero;
     }
 
     private static string Escape(string text)

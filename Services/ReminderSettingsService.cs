@@ -111,6 +111,7 @@ public class ReminderSettingsService
             settings.Minute = minute;
             settings.Frequency = frequency;
             settings.SelectedDays = NormalizeSelectedDays(selectedDays);
+            settings.LastNotificationDate = null;
             ApplyUserMetadata(userId, settings);
             settings.UpdatedAt = DateTime.Now;
             _settingsByUser[userId] = settings;
@@ -143,7 +144,7 @@ public class ReminderSettingsService
             if (!_settingsByUser.TryGetValue(userId, out var settings))
                 return;
 
-            settings.LastNotificationDate = notificationDate.Date;
+            settings.LastNotificationDate = notificationDate;
             ApplyUserMetadata(userId, settings);
             settings.UpdatedAt = DateTime.Now;
             SaveAll();

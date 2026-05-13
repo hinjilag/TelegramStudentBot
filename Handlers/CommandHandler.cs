@@ -33,6 +33,7 @@ public class CommandHandler
     private readonly ScheduleCatalogService _scheduleCatalog;
     private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly ReminderSettingsService _reminders;
+    private readonly UserGroupTaskBridgeService _userGroupTasks;
     private readonly GroupStudyTaskStorageService _groupTasks;
     private readonly GroupParticipantResolverService _groupParticipantResolver;
     private readonly GroupReminderSettingsService _groupReminders;
@@ -51,6 +52,7 @@ public class CommandHandler
         ScheduleCatalogService scheduleCatalog,
         UserScheduleSelectionService scheduleSelections,
         ReminderSettingsService reminders,
+        UserGroupTaskBridgeService userGroupTasks,
         GroupStudyTaskStorageService groupTasks,
         GroupParticipantResolverService groupParticipantResolver,
         GroupReminderSettingsService groupReminders,
@@ -68,6 +70,7 @@ public class CommandHandler
         _scheduleCatalog = scheduleCatalog;
         _scheduleSelections = scheduleSelections;
         _reminders = reminders;
+        _userGroupTasks = userGroupTasks;
         _groupTasks = groupTasks;
         _groupParticipantResolver = groupParticipantResolver;
         _groupReminders = groupReminders;
@@ -717,7 +720,8 @@ public class CommandHandler
         UserSession session,
         CancellationToken ct)
     {
-        var view = HomeworkListView.Build(session);
+        var linkedGroups = _userGroupTasks.GetLinkedGroupTaskFeeds(session.UserId);
+        var view = HomeworkListView.BuildWithLinkedGroups(session, linkedGroups);
         await _bot.SendMessage(
             chatId: chatId,
             text: view.Text,

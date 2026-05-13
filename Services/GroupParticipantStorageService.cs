@@ -70,6 +70,24 @@ public class GroupParticipantStorageService
         }
     }
 
+    public List<GroupChatMembership> GetChatsForUser(long userId)
+    {
+        lock (_lock)
+        {
+            return _participantsByChat.Values
+                .Where(stored => stored.Participants.Any(participant => participant.UserId == userId && !participant.IsBot))
+                .Select(stored => new GroupChatMembership
+                {
+                    ChatId = stored.ChatId,
+                    ChatTitle = stored.ChatTitle,
+                    UpdatedAt = stored.UpdatedAt
+                })
+                .OrderByDescending(item => item.UpdatedAt)
+                .ThenBy(item => item.ChatTitle, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+    }
+
     private void SaveAll()
     {
         var directory = Path.GetDirectoryName(_path);
