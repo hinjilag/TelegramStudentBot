@@ -25,6 +25,7 @@ public class TextHandler
     private readonly SessionService     _sessions;
     private readonly TimerService       _timers;
     private readonly ReminderSettingsService _reminders;
+    private readonly GroupInputLockService _groupInputLocks;
     private readonly GroupStudyTaskStorageService _groupTasks;
     private readonly GroupReminderSettingsService _groupReminders;
 
@@ -33,6 +34,7 @@ public class TextHandler
         SessionService     sessions,
         TimerService       timers,
         ReminderSettingsService reminders,
+        GroupInputLockService groupInputLocks,
         GroupStudyTaskStorageService groupTasks,
         GroupReminderSettingsService groupReminders)
     {
@@ -40,6 +42,7 @@ public class TextHandler
         _sessions = sessions;
         _timers   = timers;
         _reminders = reminders;
+        _groupInputLocks = groupInputLocks;
         _groupTasks = groupTasks;
         _groupReminders = groupReminders;
     }
@@ -950,6 +953,7 @@ public class TextHandler
                 session.HomeworkSubjectChoices.Clear();
                 session.HomeworkLessonTypeChoices.Clear();
                 session.HomeworkDeadlineChoices.Clear();
+                _groupInputLocks.Release(msg.Chat.Id, session.UserId);
 
                 await _bot.SendMessage(
                     msg.Chat.Id,
@@ -974,6 +978,7 @@ public class TextHandler
             session.HomeworkLessonTypeChoices.Clear();
             session.HomeworkDeadlineChoices.Clear();
             session.State = UserState.Idle;
+            _groupInputLocks.Release(msg.Chat.Id, session.UserId);
 
             var groupDeadlineText = groupTask.Deadline.HasValue
                 ? groupTask.Deadline.Value.ToString("dd.MM.yyyy")
@@ -998,6 +1003,8 @@ public class TextHandler
             session.HomeworkSubjectChoices.Clear();
             session.HomeworkLessonTypeChoices.Clear();
             session.HomeworkDeadlineChoices.Clear();
+            if (msg.Chat.Type is ChatType.Group or ChatType.Supergroup)
+                _groupInputLocks.Release(msg.Chat.Id, session.UserId);
 
             await _bot.SendMessage(
                 msg.Chat.Id,
@@ -1111,6 +1118,8 @@ public class TextHandler
         session.ReminderTargetIsGroup = false;
         session.PendingReminderMode = null;
         session.PendingReminderSelectedDays.Clear();
+        if (targetIsGroup)
+            _groupInputLocks.Release(msg.Chat.Id, session.UserId);
 
         await _bot.SendMessage(
             chatId: msg.Chat.Id,

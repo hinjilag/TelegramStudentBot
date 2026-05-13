@@ -34,6 +34,7 @@ public class CommandHandler
     private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly ReminderSettingsService _reminders;
     private readonly UserGroupTaskBridgeService _userGroupTasks;
+    private readonly GroupInputLockService _groupInputLocks;
     private readonly GroupStudyTaskStorageService _groupTasks;
     private readonly GroupParticipantResolverService _groupParticipantResolver;
     private readonly GroupReminderSettingsService _groupReminders;
@@ -53,6 +54,7 @@ public class CommandHandler
         UserScheduleSelectionService scheduleSelections,
         ReminderSettingsService reminders,
         UserGroupTaskBridgeService userGroupTasks,
+        GroupInputLockService groupInputLocks,
         GroupStudyTaskStorageService groupTasks,
         GroupParticipantResolverService groupParticipantResolver,
         GroupReminderSettingsService groupReminders,
@@ -71,6 +73,7 @@ public class CommandHandler
         _scheduleSelections = scheduleSelections;
         _reminders = reminders;
         _userGroupTasks = userGroupTasks;
+        _groupInputLocks = groupInputLocks;
         _groupTasks = groupTasks;
         _groupParticipantResolver = groupParticipantResolver;
         _groupReminders = groupReminders;
@@ -338,6 +341,21 @@ public class CommandHandler
     {
         if (IsGroupChat(msg.Chat.Type))
         {
+            if (!_groupInputLocks.TryAcquire(
+                    msg.Chat.Id,
+                    msg.From!.Id,
+                    TextHandler.BuildAuthorName(msg.From),
+                    "homework",
+                    out var activeLock))
+            {
+                await _bot.SendMessage(
+                    chatId: msg.Chat.Id,
+                    text: $"Сейчас я жду ввод от <b>{Escape(activeLock!.OwnerDisplayName)}</b>. Когда он закончит, можно будет запустить /add_homework ещё раз.",
+                    parseMode: ParseMode.Html,
+                    cancellationToken: ct);
+                return;
+            }
+
             var groupSession = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
             groupSession.State = UserState.Idle;
             groupSession.ContinueHomeworkAfterScheduleSelection = false;
@@ -347,6 +365,7 @@ public class CommandHandler
             groupSession.DraftTask = null;
             groupSession.HomeworkSubjectChoices.Clear();
             groupSession.HomeworkLessonTypeChoices.Clear();
+            groupSession.HomeworkDeadlineChoices.Clear();
 
             if (!TryGetAllScheduleEntries(msg.Chat.Id, out _, out _, out var groupEntries))
             {
@@ -363,6 +382,7 @@ public class CommandHandler
             var groupSubjects = GetHomeworkSubjects(groupEntries);
             if (groupSubjects.Count == 0)
             {
+                _groupInputLocks.Release(msg.Chat.Id, msg.From!.Id);
                 await _bot.SendMessage(
                     chatId: msg.Chat.Id,
                     text: "В расписании этой группы пока не нашлось предметов для выбора.",

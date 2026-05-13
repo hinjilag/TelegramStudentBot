@@ -18,6 +18,7 @@ public class UpdateRouter
     private readonly UserProfileStorageService _userProfiles;
     private readonly StudyTaskStorageService _taskStorage;
     private readonly ReminderSettingsService _reminders;
+    private readonly GroupInputLockService _groupInputLocks;
     private readonly GroupParticipantStorageService _groupParticipants;
     private readonly HomeworkSubjectPreferencesService _homeworkSubjects;
     private readonly UserScheduleSelectionService _scheduleSelections;
@@ -33,6 +34,7 @@ public class UpdateRouter
         UserProfileStorageService userProfiles,
         StudyTaskStorageService taskStorage,
         ReminderSettingsService reminders,
+        GroupInputLockService groupInputLocks,
         GroupParticipantStorageService groupParticipants,
         HomeworkSubjectPreferencesService homeworkSubjects,
         UserScheduleSelectionService scheduleSelections,
@@ -47,6 +49,7 @@ public class UpdateRouter
         _userProfiles = userProfiles;
         _taskStorage = taskStorage;
         _reminders = reminders;
+        _groupInputLocks = groupInputLocks;
         _groupParticipants = groupParticipants;
         _homeworkSubjects = homeworkSubjects;
         _scheduleSelections = scheduleSelections;
@@ -183,6 +186,10 @@ public class UpdateRouter
 
     private bool ShouldHandleGroupText(Message msg)
     {
+        var activeLock = _groupInputLocks.Get(msg.Chat.Id);
+        if (activeLock is not null && activeLock.UserId != msg.From!.Id)
+            return false;
+
         var session = _sessions.GetOrCreate(msg.From!.Id, msg.From.FirstName);
 
         return session.State switch

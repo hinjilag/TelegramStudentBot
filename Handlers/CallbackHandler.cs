@@ -17,6 +17,7 @@ public class CallbackHandler
     private readonly UserScheduleSelectionService _scheduleSelections;
     private readonly ReminderSettingsService _reminders;
     private readonly UserGroupTaskBridgeService _userGroupTasks;
+    private readonly GroupInputLockService _groupInputLocks;
     private readonly GroupStudyTaskStorageService _groupTasks;
     private readonly GroupReminderSettingsService _groupReminders;
     private readonly GroupHomeworkSubjectPreferencesService _groupHomeworkSubjects;
@@ -31,6 +32,7 @@ public class CallbackHandler
         UserScheduleSelectionService scheduleSelections,
         ReminderSettingsService reminders,
         UserGroupTaskBridgeService userGroupTasks,
+        GroupInputLockService groupInputLocks,
         GroupStudyTaskStorageService groupTasks,
         GroupReminderSettingsService groupReminders,
         GroupHomeworkSubjectPreferencesService groupHomeworkSubjects,
@@ -44,6 +46,7 @@ public class CallbackHandler
         _scheduleSelections = scheduleSelections;
         _reminders = reminders;
         _userGroupTasks = userGroupTasks;
+        _groupInputLocks = groupInputLocks;
         _groupTasks = groupTasks;
         _groupReminders = groupReminders;
         _groupHomeworkSubjects = groupHomeworkSubjects;
@@ -56,6 +59,17 @@ public class CallbackHandler
         var chatId = query.Message!.Chat.Id;
         var userId = query.From.Id;
         var data = query.Data ?? string.Empty;
+
+        if (IsGroupChat(query.Message.Chat.Type) &&
+            ShouldBlockGroupCallback(chatId, userId, data, out var activeLock))
+        {
+            await _bot.AnswerCallbackQuery(
+                callbackQueryId: query.Id,
+                text: $"Сейчас я жду ввод от {activeLock!.OwnerDisplayName}.",
+                showAlert: false,
+                cancellationToken: ct);
+            return;
+        }
 
         var session = _sessions.GetOrCreate(userId, query.From.FirstName);
 
@@ -315,6 +329,8 @@ public class CallbackHandler
             session.HomeworkSubjectChoices.Clear();
             session.HomeworkLessonTypeChoices.Clear();
             session.HomeworkDeadlineChoices.Clear();
+            if (isGroup)
+                _groupInputLocks.Release(chatId, query.From.Id);
 
             await _bot.EditMessageText(
                 chatId: chatId,
@@ -403,6 +419,18 @@ public class CallbackHandler
         switch (data)
         {
             case "rem_set":
+                if (isGroup &&
+                    !_groupInputLocks.TryAcquire(
+                        chatId,
+                        query.From.Id,
+                        TextHandler.BuildAuthorName(query.From),
+                        "reminder",
+                        out var reminderLock))
+                {
+                    await AnswerCallbackPopupAsync(query.Id, $"Сейчас я жду ввод от {reminderLock!.OwnerDisplayName}.", ct);
+                    return;
+                }
+
                 session.ReminderTargetChatId = chatId;
                 session.ReminderTargetChatTitle = message.Chat.Title;
                 session.ReminderTargetIsGroup = isGroup;
@@ -467,6 +495,8 @@ public class CallbackHandler
                 session.ReminderTargetIsGroup = false;
                 session.PendingReminderMode = null;
                 session.PendingReminderSelectedDays.Clear();
+                if (isGroup)
+                    _groupInputLocks.Release(chatId, query.From.Id);
 
                 if (!isGroup)
                     _reminders.Disable(session.UserId, chatId);
@@ -488,6 +518,8 @@ public class CallbackHandler
                 session.ReminderTargetIsGroup = false;
                 session.PendingReminderMode = null;
                 session.PendingReminderSelectedDays.Clear();
+                if (isGroup)
+                    _groupInputLocks.Release(chatId, query.From.Id);
 
                 if (isGroup)
                     _groupReminders.Disable(chatId, message.Chat.Title);
@@ -934,6 +966,9 @@ public class CallbackHandler
             session.DraftTask = null;
             session.HomeworkSubjectChoices.Clear();
             session.HomeworkLessonTypeChoices.Clear();
+            session.HomeworkDeadlineChoices.Clear();
+            if (isGroup)
+                _groupInputLocks.Release(chatId, query.From.Id);
 
             await _bot.SendMessage(
                 chatId,
@@ -948,6 +983,9 @@ public class CallbackHandler
             session.DraftTask = null;
             session.HomeworkSubjectChoices.Clear();
             session.HomeworkLessonTypeChoices.Clear();
+            session.HomeworkDeadlineChoices.Clear();
+            if (isGroup)
+                _groupInputLocks.Release(chatId, query.From.Id);
 
             await _bot.SendMessage(
                 chatId,
@@ -972,6 +1010,9 @@ public class CallbackHandler
             session.DraftTask = null;
             session.HomeworkSubjectChoices.Clear();
             session.HomeworkLessonTypeChoices.Clear();
+            session.HomeworkDeadlineChoices.Clear();
+            if (isGroup)
+                _groupInputLocks.Release(chatId, query.From.Id);
 
             await _bot.SendMessage(
                 chatId,
@@ -1024,6 +1065,9 @@ public class CallbackHandler
             session.DraftTask = null;
             session.HomeworkSubjectChoices.Clear();
             session.HomeworkLessonTypeChoices.Clear();
+            session.HomeworkDeadlineChoices.Clear();
+            if (isGroup)
+                _groupInputLocks.Release(chatId, query.From.Id);
 
             await _bot.SendMessage(
                 chatId,
@@ -1038,6 +1082,9 @@ public class CallbackHandler
             session.DraftTask = null;
             session.HomeworkSubjectChoices.Clear();
             session.HomeworkLessonTypeChoices.Clear();
+            session.HomeworkDeadlineChoices.Clear();
+            if (isGroup)
+                _groupInputLocks.Release(chatId, query.From.Id);
 
             await _bot.SendMessage(
                 chatId,
@@ -1066,6 +1113,8 @@ public class CallbackHandler
             session.HomeworkSubjectChoices.Clear();
             session.HomeworkLessonTypeChoices.Clear();
             session.HomeworkDeadlineChoices.Clear();
+            if (isGroup)
+                _groupInputLocks.Release(chatId, session.UserId);
 
             await _bot.SendMessage(
                 chatId,
@@ -1083,29 +1132,10 @@ public class CallbackHandler
         session.HomeworkSubjectChoices.Clear();
         session.HomeworkLessonTypeChoices.Clear();
         session.HomeworkDeadlineChoices.Clear();
+        foreach (var (deadline, index) in deadlines.Select((deadline, index) => (deadline, index)))
+            session.HomeworkDeadlineChoices[index.ToString()] = deadline;
 
-        if (deadlines.Count == 1)
-        {
-            await BeginHomeworkTextInputAsync(message, session, subject, deadlines[0], isGroup, ct);
-            return;
-        }
-
-        var buttons = deadlines
-            .Select((deadline, index) =>
-            {
-                var deadlineKey = index.ToString();
-                session.HomeworkDeadlineChoices[deadlineKey] = deadline;
-                return ($"{deadline:dd.MM.yyyy}", $"hw_deadline_{deadlineKey}");
-            })
-            .Append(("🔴 Отмена", "hw_cancel"));
-
-        await _bot.EditMessageText(
-            chatId: chatId,
-            messageId: message.MessageId,
-            text: $"📚 <b>{Escape(subject)}</b>\nВыбери дедлайн из ближайших пар:",
-            parseMode: ParseMode.Html,
-            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
-            cancellationToken: ct);
+        await BeginHomeworkTextInputAsync(message, session, subject, deadlines[0], isGroup, ct);
     }
 
     private async Task HandleHomeworkDeadlineChoiceAsync(
@@ -1124,6 +1154,8 @@ public class CallbackHandler
             session.HomeworkSubjectChoices.Clear();
             session.HomeworkLessonTypeChoices.Clear();
             session.HomeworkDeadlineChoices.Clear();
+            if (isGroup)
+                _groupInputLocks.Release(chatId, query.From.Id);
 
             await _bot.SendMessage(
                 chatId,
@@ -1133,6 +1165,27 @@ public class CallbackHandler
         }
 
         var key = data["hw_deadline_".Length..];
+        if (string.Equals(key, "other", StringComparison.OrdinalIgnoreCase))
+        {
+            await ShowHomeworkDeadlineOptionsAsync(message, session, ct);
+            return;
+        }
+
+        if (string.Equals(key, "back", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!session.DraftTask.Deadline.HasValue)
+            {
+                await _bot.SendMessage(
+                    chatId,
+                    "Текущий дедлайн потерялся. Открой список заново через /add_homework.",
+                    cancellationToken: ct);
+                return;
+            }
+
+            await BeginHomeworkTextInputAsync(message, session, session.DraftTask.Subject, session.DraftTask.Deadline.Value, isGroup, ct);
+            return;
+        }
+
         if (!session.HomeworkDeadlineChoices.TryGetValue(key, out var deadline))
         {
             session.State = UserState.Idle;
@@ -1140,6 +1193,8 @@ public class CallbackHandler
             session.HomeworkSubjectChoices.Clear();
             session.HomeworkLessonTypeChoices.Clear();
             session.HomeworkDeadlineChoices.Clear();
+            if (isGroup)
+                _groupInputLocks.Release(chatId, query.From.Id);
 
             await _bot.SendMessage(
                 chatId,
@@ -1167,7 +1222,6 @@ public class CallbackHandler
         session.PendingGroupHomeworkChatTitle = isGroup ? message.Chat.Title : null;
         session.HomeworkSubjectChoices.Clear();
         session.HomeworkLessonTypeChoices.Clear();
-        session.HomeworkDeadlineChoices.Clear();
         session.State = UserState.WaitingForHomeworkText;
 
         await _bot.EditMessageText(
@@ -1175,8 +1229,45 @@ public class CallbackHandler
             messageId: message.MessageId,
             text: $"📚 <b>{Escape(subject)}</b>\n" +
                   $"📅 Дедлайн: <b>{deadline:dd.MM.yyyy}</b>\n\n" +
+                  "Если нужен другой дедлайн, нажми кнопку ниже.\n\n" +
                   (isGroup ? "Напиши общее ДЗ для группы:" : "Напиши, что задали:"),
             parseMode: ParseMode.Html,
+            replyMarkup: BuildHomeworkTextInputKeyboard(session.HomeworkDeadlineChoices.Count > 1),
+            cancellationToken: ct);
+    }
+
+    private async Task ShowHomeworkDeadlineOptionsAsync(
+        Message message,
+        UserSession session,
+        CancellationToken ct)
+    {
+        if (session.DraftTask is null || string.IsNullOrWhiteSpace(session.DraftTask.Subject))
+        {
+            await _bot.SendMessage(
+                message.Chat.Id,
+                "Выбор дедлайна устарел. Открой список заново через /add_homework.",
+                cancellationToken: ct);
+            return;
+        }
+
+        var buttons = session.HomeworkDeadlineChoices
+            .OrderBy(item => item.Value)
+            .Select(item => ($"{item.Value:dd.MM.yyyy}", $"hw_deadline_{item.Key}"))
+            .Append(("Назад", "hw_deadline_back"))
+            .Append(("🔴 Отмена", "hw_cancel"));
+
+        var currentDeadline = session.DraftTask.Deadline.HasValue
+            ? session.DraftTask.Deadline.Value.ToString("dd.MM.yyyy")
+            : "не выбран";
+
+        await _bot.EditMessageText(
+            chatId: message.Chat.Id,
+            messageId: message.MessageId,
+            text: $"📚 <b>{Escape(session.DraftTask.Subject)}</b>\n" +
+                  $"Текущий дедлайн: <b>{currentDeadline}</b>\n\n" +
+                  "Выбери другую доступную дату:",
+            parseMode: ParseMode.Html,
+            replyMarkup: ScheduleKeyboards.SingleColumn(buttons),
             cancellationToken: ct);
     }
 
@@ -2028,6 +2119,9 @@ public class CallbackHandler
 
         if (!TryGetAllScheduleEntries(selectionKey, out _, out _, out var entries))
         {
+            if (selectionKey == chatId)
+                _groupInputLocks.Release(chatId, session.UserId);
+
             await _bot.SendMessage(
                 chatId,
                 "Расписание сохранилось, но я не смог сразу открыть выбор предмета. Попробуй ещё раз через /add_homework.",
@@ -2038,6 +2132,9 @@ public class CallbackHandler
         var subjects = GetHomeworkSubjects(entries);
         if (subjects.Count == 0)
         {
+            if (selectionKey == chatId)
+                _groupInputLocks.Release(chatId, session.UserId);
+
             await _bot.SendMessage(
                 chatId,
                 "Расписание подключено, но в нём пока не нашлось предметов для ДЗ. Можешь изменить расписание через /schedule.",
@@ -2065,6 +2162,9 @@ public class CallbackHandler
 
         if (!TryGetAllScheduleEntries(selectionKey, out _, out _, out var entries))
         {
+            if (selectionKey == chatId)
+                _groupInputLocks.Release(chatId, session.UserId);
+
             await EditScheduleMessageAsync(
                 chatId: chatId,
                 messageId: messageId,
@@ -2076,6 +2176,9 @@ public class CallbackHandler
         var subjects = GetHomeworkSubjects(entries);
         if (subjects.Count == 0)
         {
+            if (selectionKey == chatId)
+                _groupInputLocks.Release(chatId, session.UserId);
+
             await EditScheduleMessageAsync(
                 chatId: chatId,
                 messageId: messageId,
@@ -2237,6 +2340,41 @@ public class CallbackHandler
 
     private static string Escape(string text)
         => WebUtility.HtmlEncode(text);
+
+    private static InlineKeyboardMarkup BuildHomeworkTextInputKeyboard(bool showOtherDeadline)
+    {
+        var rows = new List<IEnumerable<InlineKeyboardButton>>();
+
+        if (showOtherDeadline)
+        {
+            rows.Add(new[]
+            {
+                InlineKeyboardButton.WithCallbackData("Другой дедлайн", "hw_deadline_other")
+            });
+        }
+
+        rows.Add(new[]
+        {
+            InlineKeyboardButton.WithCallbackData("🔴 Отмена", "hw_cancel")
+        });
+
+        return new InlineKeyboardMarkup(rows);
+    }
+
+    private bool ShouldBlockGroupCallback(long chatId, long userId, string data, out GroupInputLock? activeLock)
+    {
+        activeLock = _groupInputLocks.Get(chatId);
+        if (activeLock is null || activeLock.UserId == userId)
+            return false;
+
+        return activeLock.Purpose switch
+        {
+            "homework" => data.StartsWith("hw_", StringComparison.OrdinalIgnoreCase) ||
+                          data.StartsWith("sched_", StringComparison.OrdinalIgnoreCase),
+            "reminder" => data.StartsWith("rem_", StringComparison.OrdinalIgnoreCase),
+            _ => false
+        };
+    }
 
     private static string BuildBasicCommandsText()
         => "Базовая настройка готова.\n\n" +
